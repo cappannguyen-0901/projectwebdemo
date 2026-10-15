@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Đăng nhập – CAPPAN</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-page="login">
+
+<header class="app-header">
+  <a class="logo" href="index.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Coffee &amp; More - Home Study</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav">
+    <ul class="nav-list">
+      <li><a href="index.html">Trang chủ</a></li>
+      <li><a href="menu.html">Thực đơn</a></li>
+      <li><a href="booking.html">Đặt chỗ</a></li>
+      <li><a href="order.html">Đặt nước</a></li>
+      <li><a href="tracking.html">Theo dõi đơn</a></li>
+      <li><a href="contact.html">Liên hệ</a></li>
+    </ul>
+    <div class="user-area" id="userArea"></div>
+  </nav>
+</header>
+
+<section class="auth-section">
+  <div class="auth-card">
+    <h2>Đăng nhập</h2>
+    <p class="auth-sub">Chào mừng trở lại CAPPAN!</p>
+
+    <form id="loginForm" onsubmit="return handleLogin(event)">
+      <div class="form-group">
+        <label>Số điện thoại</label>
+        <input type="tel" id="loginPhone" placeholder="0909123456" required>
+      </div>
+      <div class="form-group">
+        <label>Mật khẩu</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-block">Đăng nhập</button>
+    </form>
+
+    <p class="auth-link">
+      Chưa có tài khoản? <a href="register.html">Đăng ký ngay</a>
+    </p>
+
+    <div class="demo-accounts">
+      <p><strong>🎁 Tài khoản demo:</strong></p>
+      <div class="demo-btn" onclick="quickLogin('0900000001', '123')">
+        👤 Khách: 0900000001 / 123
+      </div>
+      <div class="demo-btn" onclick="quickLogin('0900000002', '123')">
+        👨‍💼 Nhân viên: 0900000002 / 123
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="app-footer">
+  <div class="footer-brand">CAPP<span>AN</span></div>
+  <div class="footer-tagline">Coffee &amp; More - Home Study</div>
+  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
+</footer>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>              
+<script src="js/data/promotions.js"></script>      
+<script src="js/api/index.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+
+<script>
+function handleLogin(e) {
+  e.preventDefault();
+  const phone = document.getElementById('loginPhone').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+
+  const result = Auth.login(phone, pass);
+
+  if (!result.ok) {
+    showToast('⚠ ' + result.error, '#c62828');
+    return false;
+  }
+
+  showToast('✓ Chào ' + result.user.name + '!');
+  updateUserArea();
+
+  setTimeout(function() {
+    const url = result.user.role === 'staff'
+      ? 'staff-dashboard.html'
+      : 'index.html';
+    window.location.href = url;
+  }, 700);
+
+  return false;
+}
+
+function quickLogin(phone, pass) {
+  document.getElementById('loginPhone').value = phone;
+  document.getElementById('loginPassword').value = pass;
+  handleLogin({ preventDefault: function(){} });
+}
+</script>
+</body>
+</html>

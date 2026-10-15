@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lịch ca — CAPPAN Staff</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="chat-panel.css">
+<link rel="stylesheet" href="staff.css">
+<script>
+/* Đặt sẵn độ rộng + trạng thái chat TRƯỚC khi trình duyệt vẽ lần đầu → không bị dựt khi đổi trang */
+(function(){try{var d=document.documentElement,
+w=parseInt(localStorage.getItem('cappan_chat_panel_width'),10);
+if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
+d.dataset.chat=localStorage.getItem('cappan_chat_panel_collapsed')==='1'?'collapsed':'open';
+d.classList.add('no-anim');}catch(e){}})();
+</script>
+</head>
+<body data-page="staff-schedule">
+
+<header class="app-header">
+  <a class="logo" href="staff-dashboard.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Staff Panel</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav"></nav>
+</header>
+
+<div class="dashboard-layout" id="dashboardLayout">
+  <div class="dashboard-main">
+    <section class="section">
+
+      <h2 class="section-title" style="text-align:left;">📅 Lịch phân ca</h2>
+      <p class="section-sub" style="text-align:left;">
+        💡 Kéo nhân viên từ danh sách bên phải vào ô ca — hoặc click vào ô để chọn qua modal
+      </p>
+
+      <div class="schedule-wrapper">
+        <div class="schedule-main">
+          <div class="staff-panel">
+            <div class="panel-header">
+              <div class="schedule-controls">
+                <button class="btn-schedule-nav" onclick="prevWeek()">← Tuần trước</button>
+                <span class="week-label" id="weekLabel"></span>
+                <button class="btn-schedule-nav" onclick="nextWeek()">Tuần sau →</button>
+              </div>
+              <button class="btn-mini-reset" onclick="clearSchedule()">🗑️ Xoá tất cả</button>
+            </div>
+            <div class="schedule-grid" id="scheduleGrid"></div>
+          </div>
+        </div>
+
+        <aside class="staff-picker-side" id="pickerSide">
+          <h3>👥 Nhân viên</h3>
+          <p class="picker-hint">Kéo vào ô ca để phân công</p>
+          <div class="staff-picker-list" id="staffPickerList"></div>
+        </aside>
+      </div>
+
+    </section>
+  </div>
+
+  <div class="panel-resizer" id="panelResizer"></div>
+  <aside class="chat-panel" id="chatPanel">
+    <div class="chat-panel-header">
+      <span class="chat-panel-title">🤖 Trợ lý CAPPAN</span>
+      <div class="chat-panel-actions">
+        <button class="chat-panel-btn" id="btnCollapseChat" title="Thu gọn bảng chat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+        <button class="chat-panel-btn emoji-btn" onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+        <button class="chat-panel-btn" id="btnClearChat" title="Xóa lịch sử">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-panel-footer">
+      <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." autocomplete="off">
+      <button id="btnSendChat" title="Gửi">▶</button>
+    </div>
+  </aside>
+  <button class="chat-float-btn" id="chatFloatBtn" title="Mở trợ lý"><span>🤖</span></button>
+</div>
+
+<!-- MODAL CHỌN NV -->
+<div class="modal-overlay" id="shiftModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('shiftModal')">✕</button>
+    <h2 id="shiftModalTitle">Chọn nhân viên</h2>
+    <p class="modal-sub" id="shiftModalSub"></p>
+    <div class="staff-picker" id="staffPicker"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
+<script src="js/api/index.js"></script>
+<script src="js/staff-guard.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+<script src="js/chat-panel.js"></script>
+<script src="js/staff-nav.js"></script>
+
+<script>
+let currentWeekStart = getMonday(new Date());
+let dragStaffId = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!Auth.requireStaff()) return;
+  renderStaffNav('schedule');
+  renderSchedule();
+  renderPickerSide();
+  initDragAndDrop();
+});
+
+/* ---------- WEEK ---------- */
+function getMonday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const m = new Date(d.setDate(diff));
+  m.setHours(0,0,0,0);
+  return m;
+}
+function formatDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+function prevWeek() { currentWeekStart.setDate(currentWeekStart.getDate() - 7); renderSchedule(); }
+function nextWeek() { currentWeekStart.setDate(currentWeekStart.getDate() + 7); renderSchedule(); }
+
+/* ---------- SCHEDULE ---------- */
+function renderSchedule() {
+  const grid = document.getElementById('scheduleGrid');
+  const label = document.getElementById('weekLabel');
+
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() + i);
+    days.push(d);
+  }
+  const start = days[0].toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit' });
+  const end = days[6].toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit' });
+  label.textContent = `${start} – ${end}`;
+
+  const dayNames = ['T2','T3','T4','T5','T6','T7','CN'];
+  const today = formatDate(new Date());
+
+  let html = '<div class="schedule-header"><div class="schedule-col-time"></div>';
+  days.forEach((d, i) => {
+    const ds = formatDate(d);
+    html += `
+      <div class="schedule-col-day ${ds === today ? 'today' : ''}">
+        <div class="schedule-day-name">${dayNames[i]}</div>
+        <div class="schedule-day-date">${d.getDate()}/${d.getMonth() + 1}</div>
+      </div>
+    `;
+  });
+  html += '</div>';
+
+  API.shifts.getAll().forEach(shift => {
+    html += '<div class="schedule-row">';
+    html += `
+      <div class="schedule-col-time" style="border-left:4px solid ${shift.color};">
+        <strong>${shift.name}</strong>
+        <small>${shift.start} – ${shift.end}</small>
+      </div>
+    `;
+    days.forEach(d => {
+      const ds = formatDate(d);
+      const staffIds = API.shifts.getStaffInShift(ds, shift.id);
+      const staff = staffIds.map(id => API.staff.getById(id)).filter(Boolean);
+
+      html += `
+        <div class="schedule-cell"
+             data-date="${ds}"
+             data-shift="${shift.id}"
+             onclick="openShiftPicker('${ds}','${shift.id}')"
+             ondragover="onCellDragOver(event)"
+             ondragleave="onCellDragLeave(event)"
+             ondrop="onCellDrop(event, '${ds}','${shift.id}')">
+          ${staff.map(s => `
+            <div class="shift-staff-tag" style="background:${shift.color}22; border-color:${shift.color};"
+                 draggable="true"
+                 ondragstart="onTagDragStart(event, '${s.id}')"
+                 onclick="event.stopPropagation();">
+              <span class="shift-avatar" style="background:${shift.color};">${s.avatar}</span>
+              <span class="shift-name">${s.name.split(' ').slice(-2).join(' ')}</span>
+              <button class="shift-remove-btn"
+                      onclick="event.stopPropagation(); removeStaff('${ds}','${shift.id}','${s.id}')">✕</button>
+            </div>
+          `).join('')}
+          <div class="shift-add-hint">+ Thêm</div>
+        </div>
+      `;
+    });
+    html += '</div>';
+  });
+
+  grid.innerHTML = html;
+}
+
+/* ---------- PICKER SIDE ---------- */
+function renderPickerSide() {
+  const el = document.getElementById('staffPickerList');
+  el.innerHTML = API.staff.getAll().map(s => `
+    <div class="picker-staff-item"
+         draggable="true"
+         ondragstart="onTagDragStart(event, '${s.id}')">
+      <div class="staff-pick-avatar">${s.avatar}</div>
+      <div class="staff-pick-info">
+        <strong>${s.name}</strong>
+        <small>${s.role}</small>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ---------- DRAG & DROP ---------- */
+function initDragAndDrop() {
+  // Không cần init gì thêm — dùng inline handlers
+}
+
+function onTagDragStart(e, staffId) {
+  dragStaffId = staffId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', staffId);
+}
+
+function onCellDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+
+function onCellDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function onCellDrop(e, date, shiftId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const staffId = dragStaffId || e.dataTransfer.getData('text/plain');
+  if (!staffId) return;
+
+  const ok = API.shifts.addStaffToShift(date, shiftId, staffId);
+  if (!ok) {
+    showToast('⚠ Nhân viên đã có trong ca này!', '#c62828');
+    return;
+  }
+  renderSchedule();
+  showToast('✓ Đã phân ca');
+  dragStaffId = null;
+}
+
+/* ---------- MODAL ---------- */
+let pickerDate = null;
+let pickerShift = null;
+
+function openShiftPicker(date, shiftId) {
+  pickerDate = date;
+  pickerShift = shiftId;
+  const shift = API.shifts.getById(shiftId);
+  const [y, m, d] = date.split('-');
+  document.getElementById('shiftModalTitle').textContent = `Chọn NV — ${shift.name}`;
+  document.getElementById('shiftModalSub').textContent =
+    `Ngày ${d}/${m}/${y} (${shift.start} – ${shift.end})`;
+  renderStaffPicker();
+  openModal('shiftModal');
+}
+
+function renderStaffPicker() {
+  const el = document.getElementById('staffPicker');
+  const currentIds = API.shifts.getStaffInShift(pickerDate, pickerShift);
+
+  el.innerHTML = API.staff.getAll().map(s => {
+    const assigned = currentIds.includes(s.id);
+    return `
+      <div class="staff-pick-item ${assigned ? 'assigned' : ''}"
+           ${assigned ? '' : `onclick="pickStaff('${s.id}')"`}>
+        <div class="staff-pick-avatar">${s.avatar}</div>
+        <div class="staff-pick-info">
+          <strong>${s.name}</strong>
+          <small>${s.role}</small>
+        </div>
+        <div class="staff-pick-status">${assigned ? '✓ Đã phân' : ''}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function pickStaff(staffId) {
+  const ok = API.shifts.addStaffToShift(pickerDate, pickerShift, staffId);
+  if (!ok) { showToast('⚠ Đã có trong ca!', '#c62828'); return; }
+  renderStaffPicker();
+  renderSchedule();
+  showToast('✓ Đã phân ca');
+}
+
+function removeStaff(date, shiftId, staffId) {
+  API.shifts.removeStaffFromShift(date, shiftId, staffId);
+  renderSchedule();
+  showToast('✓ Đã xóa khỏi ca');
+}
+
+function clearSchedule() {
+  if (!confirm('Xoá TOÀN BỘ lịch phân ca?')) return;
+  API.shifts.clearAll();
+  renderSchedule();
+  showToast('✓ Đã xoá lịch');
+}
+</script>
+</body>
+</html>

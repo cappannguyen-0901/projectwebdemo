@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Đặt nước – CAPPAN</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-page="order">
+
+<header class="app-header">
+  <a class="logo" href="index.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Coffee &amp; More - Home Study</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav">
+    <ul class="nav-list">
+      <li><a href="index.html">Trang chủ</a></li>
+      <li><a href="menu.html">Thực đơn</a></li>
+      <li><a href="booking.html">Đặt chỗ</a></li>
+      <li><a href="order.html" class="active">Đặt nước</a></li>
+      <li><a href="tracking.html">Theo dõi đơn</a></li>
+      <li><a href="contact.html">Liên hệ</a></li>
+    </ul>
+    <div class="user-area" id="userArea"></div>
+  </nav>
+</header>
+
+<section class="section">
+  <h2 class="section-title">Đặt Nước</h2>
+  <p class="section-sub">Chọn món → thêm vào giỏ → thanh toán</p>
+
+  <div class="order-layout">
+    <div>
+      <div class="cat-tabs" id="orderCatTabs"></div>
+      <div class="menu-grid" id="orderMenuGrid"></div>
+    </div>
+
+    <aside class="cart-mini">
+      <h3>🛒 Giỏ hàng</h3>
+      <div class="cart-mini-info">
+        <span id="cartMiniCount">0 món</span>
+        <span id="cartMiniTotal">0đ</span>
+      </div>
+      <div id="cartMiniPreview" class="cart-mini-preview"></div>
+      <a href="cart.html" class="btn btn-block" style="margin-top:12px;">
+        Đến giỏ hàng →
+      </a>
+      <button class="btn-clear-mini" onclick="clearCartQuick()">🗑️ Xoá tất cả</button>
+    </aside>
+  </div>
+</section>
+
+<footer class="app-footer">
+  <div class="footer-brand">CAPP<span>AN</span></div>
+  <div class="footer-tagline">Coffee &amp; More - Home Study</div>
+  <div class="footer-links">
+    <a href="index.html">Trang chủ</a>
+    <a href="menu.html">Thực đơn</a>
+    <a href="booking.html">Đặt chỗ</a>
+    <a href="order.html">Đặt nước</a>
+    <a href="tracking.html">Theo dõi đơn</a>
+    <a href="contact.html">Liên hệ</a>
+  </div>
+  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
+</footer>
+
+<button class="chat-btn" onclick="toggleChat()">🤖</button>
+<div class="chat-box" id="chatBox">
+  <div class="chat-header">
+    <span>🤖 Trợ lý CAPPAN</span>
+    <div class="chat-header-actions">
+      <button onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+      <button onclick="clearChatHistory()" title="Xóa lịch sử">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+      </button>
+      <button onclick="toggleChat()" title="Đóng">✕</button>
+    </div>
+  </div>
+  <div class="chat-body" id="chatBody">
+    <div class="msg bot"><div class="bubble">Bạn muốn đặt món gì? 🥤</div></div>
+  </div>
+  <div class="chat-input">
+    <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
+           onkeypress="if(event.key==='Enter') sendChat()">
+    <button onclick="sendChat()">➤</button>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>         
+<script src="js/data/promotions.js"></script>     
+<script src="js/api/index.js"></script>
+<script src="js/staff-guard.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+
+<script>
+let activeOrderCat = 'coffee';
+
+function renderOrderTabs() {
+  const el = document.getElementById('orderCatTabs');
+  el.innerHTML = API.categories.getAll().map(c =>
+    `<div class="cat-tab ${c.id === activeOrderCat ? 'active' : ''}"
+          onclick="setOrderCat('${c.id}')">${c.name}</div>`
+  ).join('');
+}
+
+function setOrderCat(catId) {
+  activeOrderCat = catId;
+  renderOrderTabs();
+  renderOrderGrid();
+}
+
+function renderOrderGrid() {
+  const el = document.getElementById('orderMenuGrid');
+  const items = API.menu.getByCategory(activeOrderCat);
+
+  el.innerHTML = items.map(item => `
+    <div class="menu-card ${!item.inStock ? 'out-of-stock' : ''}">
+      ${item.badge ? `<div class="badge">${item.badge}</div>` : ''}
+      ${!item.inStock ? '<div class="badge badge-out">Hết hàng</div>' : ''}
+      <img src="${item.img}" alt="${item.name}" loading="lazy">
+      <div class="info">
+        <h4>${item.name}</h4>
+        <div class="price">${API.utils.formatVND(item.price)}</div>
+        <button class="add-cart-btn"
+                onclick="addCart('${item.id}')"
+                ${!item.inStock ? 'disabled' : ''}>
+          ${item.inStock ? '+ Thêm vào giỏ' : 'Tạm hết'}
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function addCart(itemId) {
+  if (!Auth.isLoggedIn()) {
+    showToast('🔒 Vui lòng đăng nhập!', '#c62828');
+    setTimeout(() => { window.location.href = 'login.html'; }, 1000);
+    return;
+  }
+  const item = API.menu.getById(itemId);
+  if (!item || !item.inStock) return;
+
+  API.cart.add({
+    itemId: item.id,
+    name: item.name,
+    price: item.price,
+    img: item.img,
+    size: 'M',
+    toppings: []
+  });
+  renderCartMini();
+  updateUserArea();
+  showToast(`✓ Đã thêm ${item.name}`);
+}
+
+function renderCartMini() {
+  const cart = API.cart.get();
+  const count = cart.reduce((s, i) => s + i.qty, 0);
+  const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+  document.getElementById('cartMiniCount').textContent = `${count} món`;
+  document.getElementById('cartMiniTotal').textContent = API.utils.formatVND(total);
+
+  const preview = document.getElementById('cartMiniPreview');
+  if (cart.length === 0) {
+    preview.innerHTML = '<p class="cart-mini-empty">Chưa có món nào</p>';
+    return;
+  }
+
+  const shown = cart.slice(0, 3);
+  preview.innerHTML = shown.map(i => `
+    <div class="cart-mini-row">
+      <span>${i.name} × ${i.qty}</span>
+      <span>${API.utils.formatVND(i.price * i.qty)}</span>
+    </div>
+  `).join('') + (cart.length > 3
+    ? `<div class="cart-mini-more">...và ${cart.length - 3} món khác</div>`
+    : '');
+}
+
+function clearCartQuick() {
+  if (!confirm('Xoá TẤT CẢ món trong giỏ?')) return;
+  API.cart.clear();
+  renderCartMini();
+  updateUserArea();
+  showToast('Đã xoá giỏ hàng');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (Auth.isStaff()) return;
+
+  renderOrderTabs();
+  renderOrderGrid();
+  renderCartMini();
+});
+</script>
+</body>
+</html>

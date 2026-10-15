@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAPPAN – Coffee & More</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-page="home">
+
+<header class="app-header">
+  <a class="logo" href="index.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Coffee &amp; More - Home Study</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav">
+    <ul class="nav-list">
+      <li><a href="index.html" class="active">Trang chủ</a></li>
+      <li><a href="menu.html">Thực đơn</a></li>
+      <li><a href="booking.html">Đặt chỗ</a></li>
+      <li><a href="order.html">Đặt nước</a></li>
+      <li><a href="tracking.html">Theo dõi đơn</a></li>
+      <li><a href="contact.html">Liên hệ</a></li>
+    </ul>
+    <div class="user-area" id="userArea"></div>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="hero-content">
+    <p class="hero-tagline">COFFEE &amp; MORE — HOME STUDY</p>
+    <h1 class="hero-title">CAPPAN</h1>
+    <p class="hero-desc">Hương vị đậm đà · Không gian yên tĩnh · Nơi lý tưởng để học tập &amp; làm việc</p>
+    <div class="hero-actions">
+      <a href="booking.html" class="btn">Đặt chỗ ngay</a>
+      <a href="menu.html" class="btn-outline">Xem thực đơn</a>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h2 class="section-title">Không Gian Của Chúng Tôi</h2>
+  <p class="section-sub">4 tầng — 4 trải nghiệm khác nhau</p>
+  <div class="floor-cards" id="homeFloors"></div>
+</section>
+
+<section class="section section-dark">
+  <h2 class="section-title">Vì Sao Chọn CAPPAN?</h2>
+  <p class="section-sub">Không chỉ là cà phê — đó là không gian của bạn</p>
+  <div class="highlights">
+    <div class="highlight-card">
+      <div class="highlight-icon">🤖</div>
+      <h4>AI trợ lý thông minh</h4>
+      <p>Biết tình trạng quán, gợi ý chỗ ngồi, hỗ trợ đặt hàng.</p>
+    </div>
+    <div class="highlight-card">
+      <div class="highlight-icon">🏢</div>
+      <h4>Không gian đa tầng</h4>
+      <p>4 khu vực cho 4 mục đích: học, làm việc, họp nhóm, thư giãn.</p>
+    </div>
+    <div class="highlight-card">
+      <div class="highlight-icon">📊</div>
+      <h4>Đặt chỗ trực quan</h4>
+      <p>Sơ đồ ghế realtime, biết ngay chỗ nào còn trống.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="app-footer">
+  <div class="footer-brand">CAPP<span>AN</span></div>
+  <div class="footer-tagline">Coffee &amp; More - Home Study</div>
+  <div class="footer-links">
+    <a href="index.html">Trang chủ</a>
+    <a href="menu.html">Thực đơn</a>
+    <a href="booking.html">Đặt chỗ</a>
+    <a href="order.html">Đặt nước</a>
+    <a href="tracking.html">Theo dõi đơn</a>
+    <a href="contact.html">Liên hệ</a>
+  </div>
+  <div class="footer-copy">© CAPPANNGUYEN · Công viên Gia Định, P. Hạnh Thông, Q.Gò Vấp, TP.HCM · Hotline: 0366 474 038</div>
+</footer>
+
+<button class="chat-btn" onclick="toggleChat()">🤖</button>
+<div class="chat-box" id="chatBox">
+  <div class="chat-header">
+    <span>🤖 Trợ lý CAPPAN</span>
+    <div class="chat-header-actions">
+      <button onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+      <button onclick="clearChatHistory()" title="Xóa lịch sử">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+      </button>
+      <button onclick="toggleChat()" title="Đóng">✕</button>
+    </div>
+  </div>
+  <div class="chat-body" id="chatBody">
+    <div class="msg bot"><div class="bubble">Xin chào! 👋 Tôi có thể giúp bạn tìm hiểu về menu, chỗ ngồi, hoặc hướng dẫn đặt hàng.</div></div>
+  </div>
+  <div class="chat-input">
+    <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
+           onkeypress="if(event.key==='Enter') sendChat()">
+    <button onclick="sendChat()">➤</button>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>              
+<script src="js/data/promotions.js"></script>      
+<script src="js/api/index.js"></script>
+<script src="js/staff-guard.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById('homeFloors');
+    if (!el) return;
+    el.innerHTML = API.floors.getAll().map(f => `
+      <div class="floor-card">
+        <img src="${f.img}" alt="${f.name}">
+        <div class="floor-info">
+          <h3>${f.name}</h3>
+          <p>${f.description}</p>
+          <span class="floor-purpose">${f.purpose}</span>
+        </div>
+      </div>
+    `).join('');
+  });
+</script>
+</body>
+</html>

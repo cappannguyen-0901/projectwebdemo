@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tài khoản – CAPPAN</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-page="profile">
+
+<header class="app-header">
+  <a class="logo" href="index.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Coffee &amp; More - Home Study</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
+  <nav class="nav" id="mainNav">
+    <ul class="nav-list">
+      <li><a href="index.html">Trang chủ</a></li>
+      <li><a href="menu.html">Thực đơn</a></li>
+      <li><a href="booking.html">Đặt chỗ</a></li>
+      <li><a href="order.html">Đặt nước</a></li>
+      <li><a href="tracking.html">Theo dõi đơn</a></li>
+    </ul>
+    <div class="user-area" id="userArea">
+      <button onclick="openAuth()">Đăng nhập / Đăng ký</button>
+    </div>
+  </nav>
+</header>
+
+<section class="section">
+  <!-- Nếu chưa đăng nhập -->
+  <div id="profileGuest" class="empty-state" hidden>
+    <div class="empty-icon">🔒</div>
+    <h2 class="section-title">Bạn chưa đăng nhập</h2>
+    <p>Đăng nhập để xem thông tin tài khoản và lịch sử đặt hàng.</p>
+    <button class="btn" onclick="openAuth()">Đăng nhập / Đăng ký</button>
+  </div>
+
+  <!-- Nếu đã đăng nhập -->
+  <div id="profileContent" hidden>
+    <!-- Profile header -->
+    <div class="profile-header">
+      <div class="profile-avatar" id="profileAvatar">C</div>
+      <div class="profile-info">
+        <h2 id="profileName">Nguyễn Văn A</h2>
+        <p id="profilePhone">📞 0909 123 456</p>
+        <p class="profile-joined" id="profileJoined"></p>
+      </div>
+      <button class="btn-outline" onclick="logout()">Đăng xuất</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="profile-tabs">
+      <button class="profile-tab active" data-tab="bookings" onclick="switchProfileTab('bookings')">
+        🪑 Lịch sử đặt chỗ
+      </button>
+      <button class="profile-tab" data-tab="orders" onclick="switchProfileTab('orders')">
+        📦 Lịch sử đơn hàng
+      </button>
+      <button class="profile-tab" data-tab="info" onclick="switchProfileTab('info')">
+        👤 Thông tin cá nhân
+      </button>
+    </div>
+
+    <!-- Tab: Lịch sử đặt chỗ -->
+    <div class="profile-panel active" id="panel-bookings">
+      <div id="bookingsList"></div>
+    </div>
+
+    <!-- Tab: Lịch sử đơn hàng -->
+    <div class="profile-panel" id="panel-orders">
+      <div id="ordersList"></div>
+    </div>
+
+    <!-- Tab: Thông tin cá nhân -->
+    <div class="profile-panel" id="panel-info">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Họ và tên</label>
+          <input type="text" id="editName">
+        </div>
+        <div class="form-group">
+          <label>Số điện thoại</label>
+          <input type="tel" id="editPhone" disabled>
+        </div>
+        <div class="form-group">
+          <label>Email (tùy chọn)</label>
+          <input type="email" id="editEmail" placeholder="ban@email.com">
+        </div>
+        <div class="form-group">
+          <label>Ngày sinh</label>
+          <input type="date" id="editBirthday">
+        </div>
+        <div class="form-group full-width">
+          <label>Địa chỉ giao hàng mặc định</label>
+          <input type="text" id="editAddress" placeholder="Số nhà, đường, quận...">
+        </div>
+      </div>
+      <button class="btn btn-block" onclick="saveProfile()">Lưu thay đổi</button>
+    </div>
+  </div>
+</section>
+
+<footer class="app-footer">
+  <div class="footer-brand">CAPP<span>AN</span></div>
+  <div class="footer-tagline">Coffee &amp; More - Home Study</div>
+  <div class="footer-links">
+    <a href="index.html">Trang chủ</a>
+    <a href="menu.html">Thực đơn</a>
+    <a href="booking.html">Đặt chỗ</a>
+    <a href="order.html">Đặt nước</a>
+    <a href="tracking.html">Theo dõi đơn</a>
+  </div>
+  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
+</footer>
+
+<button class="chat-btn" onclick="toggleChat()">🤖</button>
+<div class="chat-box" id="chatBox">
+  <div class="chat-header">
+  <span>🤖 Trợ lý CAPPAN</span>
+  <div class="chat-header-actions">
+    <button onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+    <button onclick="clearChatHistory()" title="Xóa lịch sử">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </svg>
+    </button>
+    <button onclick="toggleChat()" title="Đóng">✕</button>
+  </div>
+</div>
+  <div class="chat-body" id="chatBody">
+    <div class="msg bot"><div class="bubble">Bạn cần xem lịch sử đơn hàng không? 📦</div></div>
+  </div>
+  <div class="chat-input">
+    <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
+           onkeypress="if(event.key==='Enter') sendChat()">
+    <button onclick="sendChat()">➤</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="authModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('authModal')">✕</button>
+    <h2 id="authTitle">Chào mừng!</h2>
+    <p class="modal-sub">Đăng nhập để đặt chỗ &amp; đặt nước</p>
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Đăng nhập</div>
+      <div class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">Đăng ký</div>
+    </div>
+    <form id="authForm">
+      <div class="form-group" id="nameGroup" style="display:none;">
+        <label>Họ và tên</label>
+        <input type="text" id="authName" placeholder="Nguyễn Văn A">
+      </div>
+      <div class="form-group">
+        <label>Số điện thoại</label>
+        <input type="tel" id="authPhone" placeholder="0909 123 456" required>
+      </div>
+      <div class="form-group">
+        <label>Mật khẩu</label>
+        <input type="password" id="authPassword" placeholder="••••••••" required>
+      </div>
+      <div class="form-group" id="confirmGroup" style="display:none;">
+        <label>Xác nhận mật khẩu</label>
+        <input type="password" id="authConfirm" placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-block" id="authSubmit">Đăng nhập</button>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>             
+<script src="js/data/promotions.js"></script>  
+<script src="js/api/index.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+<script src="js/profile.js"></script>
+</body>
+</html>

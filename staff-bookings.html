@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Booking — CAPPAN Staff</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="chat-panel.css">
+<link rel="stylesheet" href="staff.css">
+<script>
+/* Đặt sẵn độ rộng + trạng thái chat TRƯỚC khi trình duyệt vẽ lần đầu → không bị dựt khi đổi trang */
+(function(){try{var d=document.documentElement,
+w=parseInt(localStorage.getItem('cappan_chat_panel_width'),10);
+if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
+d.dataset.chat=localStorage.getItem('cappan_chat_panel_collapsed')==='1'?'collapsed':'open';
+d.classList.add('no-anim');}catch(e){}})();
+</script>
+</head>
+<body data-page="staff-bookings">
+
+<header class="app-header">
+  <a class="logo" href="staff-dashboard.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Staff Panel</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav"></nav>
+</header>
+
+<div class="dashboard-layout" id="dashboardLayout">
+  <div class="dashboard-main">
+    <section class="section">
+
+      <h2 class="section-title" style="text-align:left;">🪑 Quản lý booking</h2>
+
+      <div class="staff-tabs" id="bkTabs">
+        <button class="staff-tab active" data-tab="confirmed" onclick="setFilter('confirmed')">Đang hoạt động</button>
+        <button class="staff-tab" data-tab="completed" onclick="setFilter('completed')">Hoàn tất</button>
+        <button class="staff-tab" data-tab="cancelled" onclick="setFilter('cancelled')">Đã hủy</button>
+        <button class="staff-tab" data-tab="all" onclick="setFilter('all')">Tất cả</button>
+      </div>
+
+      <div class="staff-panel">
+        <div class="panel-header">
+          <h3>Danh sách booking</h3>
+          <button class="btn-mini-reset" onclick="completeAll()">✅ Hoàn thành tất cả</button>
+        </div>
+        <div id="bookingsContainer"></div>
+      </div>
+
+    </section>
+  </div>
+
+  <div class="panel-resizer" id="panelResizer"></div>
+  <aside class="chat-panel" id="chatPanel">
+    <div class="chat-panel-header">
+      <span class="chat-panel-title">🤖 Trợ lý CAPPAN</span>
+      <div class="chat-panel-actions">
+        <button class="chat-panel-btn" id="btnCollapseChat" title="Thu gọn bảng chat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+        <button class="chat-panel-btn emoji-btn" onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+        <button class="chat-panel-btn" id="btnClearChat" title="Xóa lịch sử">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-panel-footer">
+      <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." autocomplete="off">
+      <button id="btnSendChat" title="Gửi">▶</button>
+    </div>
+  </aside>
+  <button class="chat-float-btn" id="chatFloatBtn" title="Mở trợ lý"><span>🤖</span></button>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
+<script src="js/api/index.js"></script>
+<script src="js/staff-guard.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+<script src="js/chat-panel.js"></script>
+<script src="js/staff-nav.js"></script>
+
+<script>
+let bkFilter = 'confirmed';
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!Auth.requireStaff()) return;
+  renderStaffNav('bookings');
+  renderBookings();
+});
+
+function setFilter(f) {
+  bkFilter = f;
+  document.querySelectorAll('#bkTabs .staff-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.tab === f)
+  );
+  renderBookings();
+}
+
+function getFilteredBookings() {
+  let list = API.bookings.getAll();
+  if (bkFilter !== 'all') list = list.filter(b => b.status === bkFilter);
+  return list.slice().reverse();
+}
+
+function renderBookings() {
+  const el = document.getElementById('bookingsContainer');
+  const list = getFilteredBookings();
+
+  if (list.length === 0) {
+    el.innerHTML = '<p class="empty-note">Không có booking nào.</p>';
+    return;
+  }
+
+  const statusMap = {
+    confirmed: '🟢 Đang hoạt động',
+    completed: '✅ Hoàn tất',
+    cancelled: '❌ Đã hủy'
+  };
+
+  el.innerHTML = `
+    <table class="staff-table">
+      <thead>
+        <tr>
+          <th>Mã</th><th>Khách</th><th>SĐT</th><th>Chỗ</th>
+          <th>Tầng</th><th>Ngày</th><th>Giờ</th><th>Khách</th>
+          <th>Trạng thái</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${list.map(b => {
+          const user = API.users.getById(b.userId);
+          const floor = API.floors.getById(b.floorId);
+          return `
+            <tr>
+              <td><strong>${b.id}</strong></td>
+              <td>${user ? user.name : '—'}</td>
+              <td>${user ? user.phone : '—'}</td>
+              <td>${b.seatId}</td>
+              <td>${floor ? floor.name : '—'}</td>
+              <td>${b.date}</td>
+              <td>${b.time}</td>
+              <td>${b.guests}</td>
+              <td><span class="status-tag ${b.status}">${statusMap[b.status]}</span></td>
+              <td style="white-space:nowrap;">
+                ${b.status === 'confirmed' ? `
+                  <button class="btn-mini" onclick="complete('${b.id}')" title="Hoàn thành">✓</button>
+                  <button class="btn-mini-delete" onclick="cancel('${b.id}')" title="Hủy">✗</button>
+                ` : ''}
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function complete(id) {
+  if (!confirm(`Hoàn thành booking ${id}?`)) return;
+  API.bookings.complete(id);
+  renderBookings();
+  showToast('✓ Đã hoàn thành');
+}
+
+function cancel(id) {
+  if (!confirm(`Hủy booking ${id}?`)) return;
+  API.bookings.cancel(id);
+  renderBookings();
+  showToast('✓ Đã hủy booking');
+}
+
+function completeAll() {
+  const active = API.bookings.getAll().filter(b => b.status === 'confirmed');
+  if (active.length === 0) { showToast('Không có booking nào!', '#856404'); return; }
+  if (!confirm(`Hoàn thành ${active.length} booking?`)) return;
+  active.forEach(b => API.bookings.complete(b.id));
+  renderBookings();
+  showToast(`✓ Đã hoàn thành ${active.length} booking`);
+}
+</script>
+</body>
+</html>

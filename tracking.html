@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Theo dõi đơn – CAPPAN</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-page="tracking">
+
+<header class="app-header">
+  <a class="logo" href="index.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Coffee &amp; More - Home Study</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav">
+    <ul class="nav-list">
+      <li><a href="index.html">Trang chủ</a></li>
+      <li><a href="menu.html">Thực đơn</a></li>
+      <li><a href="booking.html">Đặt chỗ</a></li>
+      <li><a href="order.html">Đặt nước</a></li>
+      <li><a href="tracking.html" class="active">Theo dõi đơn</a></li>
+      <li><a href="contact.html">Liên hệ</a></li>
+    </ul>
+    <div class="user-area" id="userArea"></div>
+  </nav>
+</header>
+
+<section class="section">
+  <h2 class="section-title">Theo Dõi Đơn Hàng</h2>
+  <p class="section-sub">Xem đơn hàng của bạn đang ở đâu</p>
+
+  <div id="needLogin" class="empty-state" hidden>
+    <div class="empty-icon">🔒</div>
+    <p>Vui lòng đăng nhập để xem đơn hàng của bạn.</p>
+    <a href="login.html" class="btn">Đăng nhập</a>
+  </div>
+
+  <div id="noOrderMsg" class="empty-state" hidden>
+    <div class="empty-icon">📦</div>
+    <p>Bạn chưa có đơn hàng nào.</p>
+    <a href="order.html" class="btn">Đặt nước ngay</a>
+  </div>
+
+  <div id="ordersList" hidden></div>
+</section>
+
+<footer class="app-footer">
+  <div class="footer-brand">CAPP<span>AN</span></div>
+  <div class="footer-tagline">Coffee &amp; More - Home Study</div>
+  <div class="footer-links">
+    <a href="index.html">Trang chủ</a>
+    <a href="menu.html">Thực đơn</a>
+    <a href="booking.html">Đặt chỗ</a>
+    <a href="order.html">Đặt nước</a>
+    <a href="tracking.html">Theo dõi đơn</a>
+    <a href="contact.html">Liên hệ</a>
+  </div>
+  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
+</footer>
+
+<button class="chat-btn" onclick="toggleChat()">🤖</button>
+<div class="chat-box" id="chatBox">
+  <div class="chat-header">
+    <span>🤖 Trợ lý CAPPAN</span>
+    <div class="chat-header-actions">
+      <button onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+      <button onclick="clearChatHistory()" title="Xóa lịch sử">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+      </button>
+      <button onclick="toggleChat()" title="Đóng">✕</button>
+    </div>
+  </div>
+  <div class="chat-body" id="chatBody">
+    <div class="msg bot"><div class="bubble">Bạn cần hỏi gì về đơn hàng không? 📦</div></div>
+  </div>
+  <div class="chat-input">
+    <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
+           onkeypress="if(event.key==='Enter') sendChat()">
+    <button onclick="sendChat()">➤</button>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>             
+<script src="js/data/promotions.js"></script>     
+<script src="js/api/index.js"></script>
+<script src="js/staff-guard.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+
+<script>
+let orderTimer = null;
+
+const SHIPPER_LOCATIONS = [
+  'CAPPAN – Công viên Gia Định, P. Hạnh Thông',
+  'Đang rời quán, hướng Hoàng Minh Giám',
+  'Đường Hoàng Minh Giám, Q. Gò Vấp',
+  'Gần ngã tư Hoàng Minh Giám – Phạm Văn Đồng',
+  'Đang đến địa chỉ của bạn',
+  'Đã giao hàng thành công 🎉'
+];
+
+const SHIPPER_COORDS = [
+  '10.812483,106.674875',
+  '10.8100,106.6770',
+  '10.8080,106.6800',
+  '10.8050,106.6830',
+  '10.8020,106.6860',
+  '10.7990,106.6890'
+];
+
+function getMyOrders() {
+  const user = API.users.getCurrent();
+  if (!user) return [];
+  return API.orders.getByUser(user.id);
+}
+
+function renderTracking() {
+  const needLogin = document.getElementById('needLogin');
+  const noOrderMsg = document.getElementById('noOrderMsg');
+  const ordersList = document.getElementById('ordersList');
+
+  const user = API.users.getCurrent();
+
+  if (!user) {
+    needLogin.hidden = false;
+    noOrderMsg.hidden = true;
+    ordersList.hidden = true;
+    return;
+  }
+
+  needLogin.hidden = true;
+
+  const myOrders = getMyOrders().slice().reverse();
+
+  if (myOrders.length === 0) {
+    noOrderMsg.hidden = false;
+    ordersList.hidden = true;
+    return;
+  }
+
+  noOrderMsg.hidden = true;
+  ordersList.hidden = false;
+
+  ordersList.innerHTML = myOrders.map(o => renderOrderCard(o)).join('');
+  startOrderSimulation();
+}
+
+function renderOrderCard(order) {
+  const statusText = ['Đã xác nhận', 'Đang pha chế', 'Shipper lấy hàng', 'Đang giao', 'Đã giao'];
+  const isActive = order.step < 4;
+  const isDone = order.step >= 4;
+
+  return `
+    <div class="order-tracking-card ${isDone ? 'done' : ''}">
+      <div class="shipper-header">
+        <div>
+          <h3>Đơn hàng #${order.id} ${isDone ? '✅' : ''}</h3>
+          <small>${new Date(order.createdAt).toLocaleString('vi-VN')}</small>
+        </div>
+        <div class="shipper-status ${isDone ? 'done' : ''}">
+          ${statusText[order.step] || 'Đang xử lý'}
+        </div>
+      </div>
+
+      <div class="progress-steps">
+        ${[0,1,2,3,4].map(i => `
+          <div class="step ${i <= order.step ? 'active' : ''}">
+            <div class="dot">${i + 1}</div>
+            <span>${statusText[i]}</span>
+          </div>
+        `).join('')}
+      </div>
+
+      ${isActive ? `
+        <div class="map-container">
+          <iframe
+            src="https://www.google.com/maps?q=${SHIPPER_COORDS[order.step]}&z=15&output=embed"
+            allowfullscreen loading="lazy"
+            title="Bản đồ shipper">
+          </iframe>
+        </div>
+
+        <div class="shipper-info">
+          <div class="row"><span>🛵 Shipper</span><span>Nguyễn Văn B</span></div>
+          <div class="row"><span>📞 Số điện thoại</span><span>0912 345 678</span></div>
+          <div class="row"><span>📍 Vị trí hiện tại</span><span>${SHIPPER_LOCATIONS[order.step]}</span></div>
+          <div class="row"><span>⏱️ Dự kiến giao</span><span>${getETA(order.step)}</span></div>
+        </div>
+      ` : `
+        <div class="order-done-msg">🎉 Đơn hàng đã được giao thành công!</div>
+      `}
+
+      <div class="order-details">
+        <h4>📋 Chi tiết đơn</h4>
+        <ul class="order-items-detail">
+          ${order.items.map(item => `
+            <li>
+              <span>${item.name} × ${item.qty}</span>
+              <span>${API.utils.formatVND(item.price * item.qty)}</span>
+            </li>
+          `).join('')}
+        </ul>
+        <div class="order-total-row">
+          <span>Tổng cộng</span>
+          <strong>${API.utils.formatVND(order.total)}</strong>
+        </div>
+        <div class="order-address">📍 ${order.address}</div>
+      </div>
+    </div>
+  `;
+}
+
+function getETA(step) {
+  const eta = new Date(Date.now() + (5 - step) * 5 * 60000);
+  return eta.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function startOrderSimulation() {
+  if (orderTimer) clearInterval(orderTimer);
+
+  // ⚡ Auto-advance mỗi 5 giây (demo)
+  orderTimer = setInterval(() => {
+    const user = API.users.getCurrent();
+    if (!user) { clearInterval(orderTimer); return; }
+
+    const activeOrders = API.orders.getByUser(user.id).filter(o => o.step < 4);
+    if (activeOrders.length === 0) { clearInterval(orderTimer); return; }
+
+    let anyAdvanced = false;
+    activeOrders.forEach(o => {
+      const newStep = o.step + 1;
+      API.orders.updateStep(o.id, newStep);
+      anyAdvanced = true;
+      if (newStep >= 4) showToast(`🎉 Đơn #${o.id} đã giao thành công!`);
+    });
+
+    if (anyAdvanced) renderTracking();
+  }, 5000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (Auth.isStaff()) return;
+  renderTracking();
+});
+</script>
+</body>
+</html>

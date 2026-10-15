@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Đơn hàng — CAPPAN Staff</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="chat-panel.css">
+<link rel="stylesheet" href="staff.css">
+<script>
+/* Đặt sẵn độ rộng + trạng thái chat TRƯỚC khi trình duyệt vẽ lần đầu → không bị dựt khi đổi trang */
+(function(){try{var d=document.documentElement,
+w=parseInt(localStorage.getItem('cappan_chat_panel_width'),10);
+if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
+d.dataset.chat=localStorage.getItem('cappan_chat_panel_collapsed')==='1'?'collapsed':'open';
+d.classList.add('no-anim');}catch(e){}})();
+</script>
+</head>
+<body data-page="staff-orders">
+
+<header class="app-header">
+  <a class="logo" href="staff-dashboard.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Staff Panel</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav"></nav>
+</header>
+
+<div class="dashboard-layout" id="dashboardLayout">
+  <div class="dashboard-main">
+    <section class="section">
+
+      <h2 class="section-title" style="text-align:left;">📦 Quản lý đơn hàng</h2>
+
+      <div class="staff-tabs" id="orderTabs">
+        <button class="staff-tab active" data-tab="all" onclick="setOrderFilter('all')">Tất cả</button>
+        <button class="staff-tab" data-tab="pending" onclick="setOrderFilter('pending')">Chờ xử lý</button>
+        <button class="staff-tab" data-tab="shipping" onclick="setOrderFilter('shipping')">Đang giao</button>
+        <button class="staff-tab" data-tab="completed" onclick="setOrderFilter('completed')">Hoàn tất</button>
+        <button class="staff-tab" data-tab="cancelled" onclick="setOrderFilter('cancelled')">Đã hủy</button>
+      </div>
+
+      <div class="staff-panel">
+        <div class="panel-header">
+          <h3>Danh sách đơn</h3>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-mini-reset" onclick="clearOld()">🕐 Xóa đơn &gt; 1 ngày</button>
+            <button class="btn-mini-reset" onclick="clearAll()">🗑️ Xóa tất cả</button>
+          </div>
+        </div>
+        <div id="ordersContainer"></div>
+      </div>
+
+    </section>
+  </div>
+
+  <div class="panel-resizer" id="panelResizer"></div>
+  <aside class="chat-panel" id="chatPanel">
+    <div class="chat-panel-header">
+      <span class="chat-panel-title">🤖 Trợ lý CAPPAN</span>
+      <div class="chat-panel-actions">
+        <button class="chat-panel-btn" id="btnCollapseChat" title="Thu gọn bảng chat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+        <button class="chat-panel-btn emoji-btn" onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+        <button class="chat-panel-btn" id="btnClearChat" title="Xóa lịch sử">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-panel-footer">
+      <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." autocomplete="off">
+      <button id="btnSendChat" title="Gửi">▶</button>
+    </div>
+  </aside>
+  <button class="chat-float-btn" id="chatFloatBtn" title="Mở trợ lý"><span>🤖</span></button>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
+<script src="js/api/index.js"></script>
+<script src="js/staff-guard.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+<script src="js/chat-panel.js"></script>
+<script src="js/staff-nav.js"></script>
+
+<script>
+let orderFilter = 'all';
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!Auth.requireStaff()) return;
+  renderStaffNav('orders');
+  renderOrders();
+});
+
+function setOrderFilter(f) {
+  orderFilter = f;
+  document.querySelectorAll('#orderTabs .staff-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.tab === f)
+  );
+  renderOrders();
+}
+
+function getFilteredOrders() {
+  let list = API.orders.getAll();
+  if (orderFilter === 'pending') list = list.filter(o => o.step < 2 && o.status !== 'cancelled');
+  else if (orderFilter === 'shipping') list = list.filter(o => o.step === 2 || o.step === 3);
+  else if (orderFilter === 'completed') list = list.filter(o => o.step >= 4 && o.status !== 'cancelled');
+  else if (orderFilter === 'cancelled') list = list.filter(o => o.status === 'cancelled');
+  return list.slice().reverse();
+}
+
+function renderOrders() {
+  const el = document.getElementById('ordersContainer');
+  const list = getFilteredOrders();
+
+  if (list.length === 0) {
+    el.innerHTML = '<p class="empty-note">Không có đơn nào.</p>';
+    return;
+  }
+
+  const statusText = ['Chờ xử lý', 'Đang pha', 'Shipper lấy', 'Đang giao', 'Hoàn tất'];
+
+  el.innerHTML = list.map(o => `
+    <div class="order-card">
+      <div class="order-card-header">
+        <div>
+          <strong>#${o.id}</strong>
+          <small>${new Date(o.createdAt).toLocaleString('vi-VN')}</small>
+        </div>
+        <span class="order-status-badge step-${o.step} ${o.status === 'cancelled' ? 'cancelled' : ''}">
+          ${o.status === 'cancelled' ? 'Đã hủy' : statusText[o.step]}
+        </span>
+      </div>
+      <div class="order-card-body">
+        <div class="order-customer">
+          👤 ${o.customerName || 'Không rõ'} · 📞 ${o.phone || '—'}
+          <div class="order-address">📍 ${o.address || '—'}</div>
+        </div>
+        <ul class="order-card-items">
+          ${o.items.map(it => `<li><span>${it.name} × ${it.qty}</span><span>${API.utils.formatVND(it.price * it.qty)}</span></li>`).join('')}
+        </ul>
+        <div class="order-card-total">
+          <span>Tổng</span><strong>${API.utils.formatVND(o.total)}</strong>
+        </div>
+      </div>
+      <div class="order-card-actions">
+        ${o.status !== 'cancelled' && o.step < 4
+          ? `<button class="btn-mini-action" onclick="advance('${o.id}')">→ Bước tiếp</button>` : ''}
+        ${o.status !== 'cancelled' && o.step < 4
+          ? `<button class="btn-mini-action" onclick="complete('${o.id}')">✓ Hoàn tất</button>` : ''}
+        ${o.status !== 'cancelled'
+          ? `<button class="btn-mini-action danger" onclick="cancel('${o.id}')">✗ Hủy đơn</button>` : ''}
+        <button class="btn-mini-action delete" onclick="del('${o.id}')">🗑️ Xóa</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function advance(id) {
+  const o = API.orders.getById(id);
+  if (!o) return;
+  const next = Math.min(o.step + 1, 4);
+  API.orders.updateStep(id, next);
+  renderOrders();
+  showToast(`✓ Đơn #${id} → bước ${next + 1}`);
+}
+
+function complete(id) {
+  if (!confirm(`Đánh dấu đơn #${id} đã giao xong?`)) return;
+  API.orders.updateStep(id, 4);
+  renderOrders();
+  showToast('✓ Đã hoàn tất đơn');
+}
+
+function cancel(id) {
+  if (!confirm(`Hủy đơn #${id}?`)) return;
+  if (typeof API.orders.cancel === 'function') {
+    API.orders.cancel(id);
+  } else if (typeof API.orders.update === 'function') {
+    API.orders.update(id, { status: 'cancelled' });
+  } else {
+    // fallback nếu API chưa có hàm hủy đơn
+    const list = API.orders.getAll();
+    const i = list.findIndex(o => o.id === id);
+    if (i >= 0) {
+      list[i].status = 'cancelled';
+      localStorage.setItem('cappan_orders', JSON.stringify(list));
+    }
+  }
+  renderOrders();
+  showToast('✓ Đã hủy đơn');
+}
+
+function del(id) {
+  if (!confirm(`Xóa vĩnh viễn đơn #${id}?`)) return;
+  API.orders.remove(id);
+  renderOrders();
+  showToast('✓ Đã xóa');
+}
+
+function clearOld() {
+  const old = API.orders.getAll().filter(o =>
+    new Date(o.createdAt).getTime() < Date.now() - 24 * 60 * 60 * 1000
+  ).length;
+  if (old === 0) { showToast('Không có đơn cũ!', '#856404'); return; }
+  if (!confirm(`Xóa ${old} đơn cũ hơn 1 ngày?`)) return;
+  const n = API.orders.clearOld(1);
+  renderOrders();
+  showToast(`✓ Đã xóa ${n} đơn cũ`);
+}
+
+function clearAll() {
+  const total = API.orders.getAll().length;
+  if (total === 0) { showToast('Không có đơn nào!', '#856404'); return; }
+  if (!confirm(`Xóa TẤT CẢ ${total} đơn hàng?`)) return;
+  API.orders.clearAll();
+  renderOrders();
+  showToast(`✓ Đã xóa ${total} đơn`);
+}
+</script>
+</body>
+</html>

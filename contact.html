@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liên hệ – CAPPAN</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-page="contact">
+
+<header class="app-header">
+  <a class="logo" href="index.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Coffee &amp; More - Home Study</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav">
+    <ul class="nav-list">
+      <li><a href="index.html">Trang chủ</a></li>
+      <li><a href="menu.html">Thực đơn</a></li>
+      <li><a href="booking.html">Đặt chỗ</a></li>
+      <li><a href="order.html">Đặt nước</a></li>
+      <li><a href="tracking.html">Theo dõi đơn</a></li>
+      <li><a href="contact.html" class="active">Liên hệ</a></li>
+    </ul>
+    <div class="user-area" id="userArea"></div>
+  </nav>
+</header>
+
+<section class="section">
+  <h2 class="section-title">Liên Hệ Với Chúng Tôi</h2>
+  <p class="section-sub">Chúng tôi luôn sẵn sàng lắng nghe bạn</p>
+
+  <div class="contact-cards">
+    <div class="contact-card">
+      <div class="contact-icon">📍</div>
+      <h4>Địa chỉ</h4>
+      <p>Công viên Gia Định, P. Hạnh Thông, Q. Gò Vấp, TP. HCM</p>
+    </div>
+    <div class="contact-card">
+      <div class="contact-icon">📞</div>
+      <h4>Điện thoại</h4>
+      <p>0366 474 038</p>
+      <p class="contact-small">7:00 – 22:30</p>
+    </div>
+    <div class="contact-card">
+      <div class="contact-icon">✉️</div>
+      <h4>Email</h4>
+      <p>cappannguyen@gmail.com</p>
+      <p class="contact-small">Phản hồi trong 24h</p>
+    </div>
+    <div class="contact-card">
+      <div class="contact-icon">🕐</div>
+      <h4>Giờ mở cửa</h4>
+      <p>7:00 – 22:30</p>
+      <p class="contact-small">Cả cuối tuần</p>
+    </div>
+  </div>
+
+  <div class="contact-layout">
+    <div class="contact-form-wrap">
+      <h3>Gửi tin nhắn</h3>
+      <p class="contact-form-sub">Chúng tôi sẽ phản hồi trong vòng 24 giờ</p>
+      <form id="contactForm">
+        <div class="form-group">
+          <label>Họ và tên *</label>
+          <input type="text" id="ctName" required>
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="ctEmail" required>
+        </div>
+        <div class="form-group">
+          <label>Số điện thoại</label>
+          <input type="tel" id="ctPhone">
+        </div>
+        <div class="form-group">
+          <label>Chủ đề</label>
+          <select id="ctSubject">
+            <option>Đặt chỗ / Đặt nước</option>
+            <option>Khiếu nại / Góp ý</option>
+            <option>Hợp tác kinh doanh</option>
+            <option>Tuyển dụng</option>
+            <option>Khác</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Nội dung *</label>
+          <textarea id="ctMessage" rows="5" required placeholder="Nội dung bạn muốn gửi..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-block">Gửi tin nhắn</button>
+      </form>
+    </div>
+
+    <div class="contact-map-wrap">
+      <h3>Bản đồ đến CAPPAN</h3>
+      <div class="contact-map">
+        <iframe
+          src="https://www.google.com/maps?q=10.812483,106.674875&z=16&output=embed"
+          allowfullscreen loading="lazy"
+          title="Bản đồ CAPPAN">
+        </iframe>
+      </div>
+
+      <div class="contact-social">
+        <h4>Kết nối với chúng tôi</h4>
+        <div class="social-links">
+          <a href="#" class="social-link">📘 Facebook</a>
+          <a href="#" class="social-link">📸 Instagram</a>
+          <a href="#" class="social-link">🎵 TikTok</a>
+          <a href="#" class="social-link">💬 Zalo</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="app-footer">
+  <div class="footer-brand">CAPP<span>AN</span></div>
+  <div class="footer-tagline">Coffee &amp; More - Home Study</div>
+  <div class="footer-links">
+    <a href="index.html">Trang chủ</a>
+    <a href="menu.html">Thực đơn</a>
+    <a href="booking.html">Đặt chỗ</a>
+    <a href="order.html">Đặt nước</a>
+    <a href="tracking.html">Theo dõi đơn</a>
+    <a href="contact.html">Liên hệ</a>
+  </div>
+  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
+</footer>
+
+<button class="chat-btn" onclick="toggleChat()">🤖</button>
+<div class="chat-box" id="chatBox">
+  <div class="chat-header">
+    <span>🤖 Trợ lý CAPPAN</span>
+    <div class="chat-header-actions">
+      <button onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+      <button onclick="clearChatHistory()" title="Xóa lịch sử">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+      </button>
+      <button onclick="toggleChat()" title="Đóng">✕</button>
+    </div>
+  </div>
+  <div class="chat-body" id="chatBody">
+    <div class="msg bot"><div class="bubble">Bạn cần liên hệ gì với CAPPAN? 😊</div></div>
+  </div>
+  <div class="chat-input">
+    <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
+           onkeypress="if(event.key==='Enter') sendChat()">
+    <button onclick="sendChat()">➤</button>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>              
+<script src="js/data/promotions.js"></script>     
+<script src="js/api/index.js"></script>
+<script src="js/staff-guard.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+
+<script>
+document.getElementById('contactForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = document.getElementById('ctName').value;
+  showToast(`✓ Cảm ơn ${name}! Chúng tôi sẽ phản hồi trong 24h.`);
+  e.target.reset();
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (Auth.isStaff()) return;
+});
+</script>
+</body>
+</html>

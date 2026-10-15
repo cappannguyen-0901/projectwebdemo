@@ -1,0 +1,543 @@
+/* ============================================================
+   1. STATS CHART — Biểu đồ cột 7 ngày
+============================================================ */
+.chart-bars {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  height: 220px;
+  padding: 20px 10px;
+  background: linear-gradient(180deg, #fdf9f3 0%, #faf6f0 100%);
+  border-radius: var(--radius-md);
+  border: 1px solid #f0e6d2;
+}
+
+.chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chart-bar-wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  position: relative;
+}
+
+.chart-bar {
+  width: 70%;
+  min-height: 4px;
+  background: linear-gradient(180deg, var(--gold) 0%, var(--brown) 100%);
+  border-radius: 6px 6px 2px 2px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  cursor: pointer;
+}
+
+.chart-bar:hover {
+  background: linear-gradient(180deg, var(--gold-light) 0%, var(--gold) 100%);
+  transform: scaleY(1.03);
+}
+
+.chart-bar:hover .chart-tooltip {
+  opacity: 1;
+  transform: translate(-50%, -8px);
+}
+
+.chart-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  background: var(--darker);
+  color: var(--cream);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s ease;
+  z-index: 5;
+}
+
+.chart-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--darker);
+}
+
+.chart-label {
+  font-size: 0.72rem;
+  color: var(--gray);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chart-value {
+  font-size: 0.72rem;
+  color: var(--brown);
+  font-weight: 700;
+}
+
+@media (max-width: 600px) {
+  .chart-bars { height: 160px; gap: 6px; padding: 12px 6px; }
+  .chart-value { display: none; }
+  .chart-label { font-size: 0.65rem; }
+}
+
+/* ============================================================
+   2. TOP ITEMS — Top 5 món bán chạy
+============================================================ */
+.top-item-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--gray-light);
+}
+
+.top-item-row:last-child {
+  border-bottom: none;
+}
+
+.top-rank {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--brown) 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(201, 162, 39, 0.35);
+}
+
+.top-item-row:nth-child(1) .top-rank {
+  background: linear-gradient(135deg, #FFD700 0%, #C9A227 100%);
+}
+
+.top-item-row:nth-child(2) .top-rank {
+  background: linear-gradient(135deg, #C0C0C0 0%, #808080 100%);
+}
+
+.top-item-row:nth-child(3) .top-rank {
+  background: linear-gradient(135deg, #CD7F32 0%, #8B5A2B 100%);
+}
+
+.top-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.top-info strong {
+  display: block;
+  color: var(--brown);
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+.top-info small {
+  color: var(--gray);
+  font-size: 0.78rem;
+}
+
+/* ============================================================
+   3. STATUS ROW — Trạng thái đơn/booking
+============================================================ */
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px dashed #f0f0f0;
+  font-size: 0.92rem;
+}
+
+.status-row:last-child {
+  border-bottom: none;
+}
+
+.status-row span {
+  color: var(--dark-brown);
+}
+
+.status-row strong {
+  color: var(--brown);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+/* ============================================================
+   4. ORDER CARD — Quản lý đơn hàng
+============================================================ */
+.order-card {
+  background: #fdf9f3;
+  border-radius: var(--radius-md);
+  padding: 18px;
+  margin-bottom: 14px;
+  border: 1px solid #f0e6d2;
+  transition: all 0.2s ease;
+}
+
+.order-card:hover {
+  box-shadow: 0 4px 16px rgba(111, 78, 55, 0.12);
+  border-color: var(--gold);
+}
+
+.order-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--gray-light);
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.order-card-header strong {
+  color: var(--brown);
+  font-size: 1.05rem;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.order-card-header small {
+  color: var(--gray);
+  font-size: 0.78rem;
+}
+
+.order-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.order-customer {
+  font-size: 0.88rem;
+  color: var(--dark-brown);
+}
+
+.order-address {
+  font-size: 0.82rem;
+  color: var(--gray);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.order-card-items {
+  list-style: none;
+  padding: 10px 14px;
+  background: white;
+  border-radius: var(--radius-sm);
+  border: 1px solid #f0e6d2;
+}
+
+.order-card-items li {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 0.85rem;
+  color: var(--dark-brown);
+}
+
+.order-card-items li:not(:last-child) {
+  border-bottom: 1px dashed #f0f0f0;
+}
+
+.order-card-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 2px solid var(--gold);
+  font-size: 0.95rem;
+}
+
+.order-card-total strong {
+  color: var(--green);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.order-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px dashed var(--gray-light);
+}
+
+.btn-mini-action {
+  background: white;
+  border: 1px solid var(--brown);
+  color: var(--brown);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.btn-mini-action:hover {
+  background: var(--brown);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.btn-mini-action.danger {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.btn-mini-action.danger:hover {
+  background: var(--red);
+  color: white;
+}
+
+.btn-mini-action.delete {
+  border-color: var(--gray-light);
+  color: var(--gray);
+  padding: 6px 10px;
+}
+
+.btn-mini-action.delete:hover {
+  background: var(--red);
+  color: white;
+  border-color: var(--red);
+}
+
+.order-status-badge.cancelled {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* ============================================================
+   5. SCHEDULE WRAPPER — Lịch ca + Picker side
+============================================================ */
+.schedule-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 20px;
+  align-items: start;
+}
+
+.schedule-main {
+  min-width: 0;
+}
+
+.staff-picker-side {
+  background: var(--white);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 90px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.staff-picker-side h3 {
+  color: var(--brown);
+  font-size: 1rem;
+  margin-bottom: 6px;
+}
+
+.picker-hint {
+  font-size: 0.78rem;
+  color: var(--gray);
+  font-style: italic;
+  margin-bottom: 14px;
+}
+
+.staff-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.picker-staff-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: #fdf9f3;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid transparent;
+  cursor: grab;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.picker-staff-item:hover {
+  border-color: var(--gold);
+  background: var(--cream);
+  transform: translateX(3px);
+}
+
+.picker-staff-item:active {
+  cursor: grabbing;
+  transform: scale(0.97);
+}
+
+/* ============================================================
+   6. DRAG OVER — Khi kéo staff vào ô ca
+============================================================ */
+.schedule-cell.drag-over {
+  background: #fff3cd !important;
+  box-shadow: inset 0 0 0 2px var(--gold);
+  transform: scale(1.02);
+}
+
+.shift-staff-tag {
+  cursor: grab;
+}
+
+.shift-staff-tag:active {
+  cursor: grabbing;
+}
+
+.shift-staff-tag[draggable="true"]:hover {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+}
+
+/* ============================================================
+   7. RESPONSIVE
+============================================================ */
+@media (max-width: 900px) {
+  .schedule-wrapper {
+    grid-template-columns: 1fr;
+  }
+
+  .staff-picker-side {
+    position: static;
+    max-height: none;
+    order: -1;
+  }
+
+  .staff-picker-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .order-card-actions {
+    flex-direction: column;
+  }
+
+  .btn-mini-action {
+    width: 100%;
+    text-align: center;
+  }
+
+  .staff-table {
+    font-size: 0.75rem;
+  }
+
+  .staff-table th,
+  .staff-table td {
+    padding: 6px 4px;
+  }
+
+  .staff-table img {
+    width: 36px !important;
+    height: 36px !important;
+  }
+}
+
+/* ============================================================
+   8. MENU MANAGE — Bảng quản lý menu
+============================================================ */
+.staff-table img {
+  border-radius: 6px;
+}
+
+.staff-table td button {
+  margin-right: 4px;
+}
+
+/* ============================================================
+   9. STAFF TAB — Dùng chung
+============================================================ */
+.staff-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--gray-light);
+  margin-bottom: 24px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.staff-tab {
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--gray);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  margin-bottom: -2px;
+  font-family: inherit;
+}
+
+.staff-tab:hover {
+  color: var(--brown);
+}
+
+.staff-tab.active {
+  color: var(--brown);
+  border-bottom-color: var(--brown);
+}
+
+@media (max-width: 600px) {
+  .staff-tab {
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+}
+
+/* ============================================================
+   10. ORDER LIST ADMIN — cải tiến cho staff-orders
+============================================================ */
+#ordersContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ============================================================
+   11. BOOKING TABLE — cải tiến cho staff-bookings
+============================================================ */
+#bookingsContainer {
+  overflow-x: auto;
+}
+
+/* ============================================================
+   12. TOAST STAFF — khác biệt nhẹ (optional)
+============================================================ */
+body[data-page^="staff-"] .toast {
+  background: var(--brown);
+}

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quản lý menu — CAPPAN Staff</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="chat-panel.css">
+<link rel="stylesheet" href="staff.css">
+<script>
+/* Đặt sẵn độ rộng + trạng thái chat TRƯỚC khi trình duyệt vẽ lần đầu → không bị dựt khi đổi trang */
+(function(){try{var d=document.documentElement,
+w=parseInt(localStorage.getItem('cappan_chat_panel_width'),10);
+if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
+d.dataset.chat=localStorage.getItem('cappan_chat_panel_collapsed')==='1'?'collapsed':'open';
+d.classList.add('no-anim');}catch(e){}})();
+</script>
+</head>
+<body data-page="staff-menu">
+
+<header class="app-header">
+  <a class="logo" href="staff-dashboard.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Staff Panel</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav"></nav>
+</header>
+
+<div class="dashboard-layout" id="dashboardLayout">
+  <div class="dashboard-main">
+    <section class="section">
+
+      <h2 class="section-title" style="text-align:left;">☕ Quản lý menu</h2>
+      <p class="section-sub" style="text-align:left;">Bật/tắt món, đổi giá, thêm/xóa món</p>
+
+      <div class="menu-toolbar" style="justify-content:flex-start; gap:12px; flex-wrap:wrap;">
+        <div class="search-box" style="max-width:300px;">
+          <input type="text" id="searchInput" placeholder="🔍 Tìm món..." oninput="renderMenu()">
+        </div>
+        <button class="btn" onclick="openAddItemModal()">+ Thêm món mới</button>
+      </div>
+
+      <div class="staff-panel">
+        <div id="menuContainer"></div>
+      </div>
+
+    </section>
+  </div>
+
+  <div class="panel-resizer" id="panelResizer"></div>
+  <aside class="chat-panel" id="chatPanel">
+    <div class="chat-panel-header">
+      <span class="chat-panel-title">🤖 Trợ lý CAPPAN</span>
+      <div class="chat-panel-actions">
+        <button class="chat-panel-btn" id="btnCollapseChat" title="Thu gọn bảng chat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+        <button class="chat-panel-btn emoji-btn" onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+        <button class="chat-panel-btn" id="btnClearChat" title="Xóa lịch sử">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-panel-footer">
+      <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." autocomplete="off">
+      <button id="btnSendChat" title="Gửi">▶</button>
+    </div>
+  </aside>
+  <button class="chat-float-btn" id="chatFloatBtn" title="Mở trợ lý"><span>🤖</span></button>
+</div>
+
+<!-- MODAL THÊM MÓN -->
+<div class="modal-overlay" id="addItemModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('addItemModal')">✕</button>
+    <h2>Thêm món mới</h2>
+    <form onsubmit="return handleAddItem(event)">
+      <div class="form-group">
+        <label>Tên món *</label>
+        <input type="text" id="newItemName" required>
+      </div>
+      <div class="form-group">
+        <label>Nhóm *</label>
+        <select id="newItemCat" required>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Giá (VNĐ) *</label>
+        <input type="number" id="newItemPrice" min="1000" step="1000" required>
+      </div>
+      <div class="form-group">
+        <label>Mô tả</label>
+        <input type="text" id="newItemDesc">
+      </div>
+      <div class="form-group">
+        <label>Ảnh URL</label>
+        <input type="text" id="newItemImg" placeholder="https://...">
+      </div>
+      <button type="submit" class="btn btn-block">Thêm món</button>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
+<script src="js/api/index.js"></script>
+<script src="js/staff-guard.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+<script src="js/chat-panel.js"></script>
+<script src="js/staff-nav.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (!Auth.requireStaff()) return;
+  renderStaffNav('menu');
+  renderMenu();
+  // Fill category select
+  const sel = document.getElementById('newItemCat');
+  sel.innerHTML = API.categories.getAll()
+    .map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+});
+
+function renderMenu() {
+  const kw = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+  let items = API.menu.getAll();
+  if (kw) items = items.filter(m => m.name.toLowerCase().includes(kw));
+
+  const el = document.getElementById('menuContainer');
+  if (items.length === 0) {
+    el.innerHTML = '<p class="empty-note">Không tìm thấy món nào.</p>';
+    return;
+  }
+
+  el.innerHTML = `
+    <table class="staff-table">
+      <thead>
+        <tr>
+          <th>Ảnh</th><th>Mã</th><th>Tên</th><th>Nhóm</th><th>Giá</th>
+          <th>Trạng thái</th><th>Hành động</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(m => `
+          <tr>
+            <td><img src="${m.img}" style="width:48px; height:48px; object-fit:cover; border-radius:6px;"></td>
+            <td><strong>${m.id}</strong></td>
+            <td>${m.name}</td>
+            <td>${API.categories.getById(m.categoryId)?.name || '—'}</td>
+            <td>${API.utils.formatVND(m.price)}</td>
+            <td>
+              <span class="status-tag ${m.inStock ? 'confirmed' : 'cancelled'}">
+                ${m.inStock ? '✓ Còn hàng' : '✗ Hết hàng'}
+              </span>
+            </td>
+            <td style="white-space:nowrap;">
+              <button class="btn-mini-action" onclick="toggleStock('${m.id}')">
+                ${m.inStock ? '⛔ Hết hàng' : '✅ Còn hàng'}
+              </button>
+              <button class="btn-mini-action" onclick="editPrice('${m.id}')">💰 Sửa giá</button>
+              <button class="btn-mini-action delete" onclick="removeItem('${m.id}')">🗑️</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function toggleStock(id) {
+  const m = API.menu.getById(id);
+  if (!m) return;
+  if (m.inStock) API.menu.markOutOfStock(id);
+  else API.menu.markInStock(id);
+  renderMenu();
+  showToast(`✓ Đã đổi trạng thái ${m.name}`);
+}
+
+function editPrice(id) {
+  const m = API.menu.getById(id);
+  if (!m) return;
+  const newPrice = prompt(`Giá mới cho "${m.name}" (VNĐ):`, m.price);
+  if (!newPrice) return;
+  const num = parseInt(newPrice);
+  if (isNaN(num) || num < 1000) { showToast('⚠ Giá không hợp lệ', '#c62828'); return; }
+  if (typeof API.menu.update === 'function') {
+    API.menu.update(id, { price: num });          // lưu bền vững qua API
+  } else {
+    m.price = num;                                // fallback: chỉ lưu trong bộ nhớ
+    if (typeof SEED_MENU_ITEMS !== 'undefined') {
+      const idx = SEED_MENU_ITEMS.findIndex(x => x.id === id);
+      if (idx >= 0) SEED_MENU_ITEMS[idx].price = num;
+    }
+  }
+  renderMenu();
+  showToast('✓ Đã đổi giá');
+}
+
+function removeItem(id) {
+  const m = API.menu.getById(id);
+  if (!m) return;
+  if (!confirm(`Xóa món "${m.name}" (${id})?`)) return;
+  API.menu.remove(id);
+  renderMenu();
+  showToast('✓ Đã xóa món');
+}
+
+function openAddItemModal() {
+  document.getElementById('newItemName').value = '';
+  document.getElementById('newItemPrice').value = '';
+  document.getElementById('newItemDesc').value = '';
+  document.getElementById('newItemImg').value = '';
+  openModal('addItemModal');
+}
+
+function handleAddItem(e) {
+  e.preventDefault();
+  const name = document.getElementById('newItemName').value.trim();
+  const categoryId = document.getElementById('newItemCat').value;
+  const price = parseInt(document.getElementById('newItemPrice').value);
+  const description = document.getElementById('newItemDesc').value.trim();
+  const img = document.getElementById('newItemImg').value.trim();
+
+  if (!name || !price) { showToast('⚠ Điền đủ thông tin', '#c62828'); return false; }
+
+  API.menu.add({ name, categoryId, price, description, img });
+  closeModal('addItemModal');
+  renderMenu();
+  showToast(`✓ Đã thêm "${name}"`);
+  return false;
+}
+</script>
+</body>
+</html>

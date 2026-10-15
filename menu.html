@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thực đơn – CAPPAN</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-page="menu">
+
+<header class="app-header">
+  <a class="logo" href="index.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Coffee &amp; More - Home Study</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav">
+    <ul class="nav-list">
+      <li><a href="index.html">Trang chủ</a></li>
+      <li><a href="menu.html" class="active">Thực đơn</a></li>
+      <li><a href="booking.html">Đặt chỗ</a></li>
+      <li><a href="order.html">Đặt nước</a></li>
+      <li><a href="tracking.html">Theo dõi đơn</a></li>
+      <li><a href="contact.html">Liên hệ</a></li>
+    </ul>
+    <div class="user-area" id="userArea"></div>
+  </nav>
+</header>
+
+<section class="section">
+  <h2 class="section-title">Thực Đơn CAPPAN</h2>
+  <p class="section-sub">Khám phá 24 món đồ uống đặc sắc</p>
+
+  <div class="menu-toolbar">
+    <div class="search-box">
+      <input type="text" id="menuSearch" placeholder="🔍 Tìm món...">
+    </div>
+  </div>
+
+  <div class="cat-tabs" id="catTabs"></div>
+  <div class="menu-grid" id="menuGrid"></div>
+</section>
+
+<footer class="app-footer">
+  <div class="footer-brand">CAPP<span>AN</span></div>
+  <div class="footer-tagline">Coffee &amp; More - Home Study</div>
+  <div class="footer-links">
+    <a href="index.html">Trang chủ</a>
+    <a href="menu.html">Thực đơn</a>
+    <a href="booking.html">Đặt chỗ</a>
+    <a href="order.html">Đặt nước</a>
+    <a href="tracking.html">Theo dõi đơn</a>
+    <a href="contact.html">Liên hệ</a>
+  </div>
+  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
+</footer>
+
+<button class="chat-btn" onclick="toggleChat()">🤖</button>
+<div class="chat-box" id="chatBox">
+  <div class="chat-header">
+    <span>🤖 Trợ lý CAPPAN</span>
+    <div class="chat-header-actions">
+      <button onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+      <button onclick="clearChatHistory()" title="Xóa lịch sử">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+      </button>
+      <button onclick="toggleChat()" title="Đóng">✕</button>
+    </div>
+  </div>
+  <div class="chat-body" id="chatBody">
+    <div class="msg bot"><div class="bubble">Bạn muốn uống gì hôm nay? ☕</div></div>
+  </div>
+  <div class="chat-input">
+    <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
+           onkeypress="if(event.key==='Enter') sendChat()">
+    <button onclick="sendChat()">➤</button>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>              
+<script src="js/data/promotions.js"></script>    
+<script src="js/api/index.js"></script>
+<script src="js/staff-guard.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+
+<script>
+let activeCat = 'all';
+let searchKeyword = '';
+
+function renderTabs() {
+  const el = document.getElementById('catTabs');
+  const cats = [{ id: 'all', name: '🍽️ Tất cả' }, ...API.categories.getAll()];
+  el.innerHTML = cats.map(c =>
+    `<div class="cat-tab ${c.id === activeCat ? 'active' : ''}"
+          onclick="setCat('${c.id}')">${c.name}</div>`
+  ).join('');
+}
+
+function setCat(catId) {
+  activeCat = catId;
+  renderTabs();
+  renderGrid();
+}
+
+function renderGrid() {
+  const el = document.getElementById('menuGrid');
+  const user = API.users.getCurrent();
+  const isStaff = user && user.role === 'staff';
+
+  let items = activeCat === 'all' ? API.menu.getAll() : API.menu.getByCategory(activeCat);
+
+  if (searchKeyword) {
+    items = items.filter(m => m.name.toLowerCase().includes(searchKeyword));
+  }
+
+  if (items.length === 0) {
+    el.innerHTML = '<p class="empty-note">Không tìm thấy món nào.</p>';
+    return;
+  }
+
+  el.innerHTML = items.map(item => {
+    const outOfStock = !item.inStock;
+
+    // ⚡ Nhân viên chỉ xem — không đặt
+    let actionBtn = '';
+    if (isStaff) {
+      actionBtn = `<div class="staff-view-note">👨‍💼 Chế độ xem nhân viên</div>`;
+    } else {
+      actionBtn = `
+        <button class="add-cart-btn" onclick="quickOrder('${item.id}')"
+                ${outOfStock ? 'disabled' : ''}>
+          ${outOfStock ? 'Tạm hết' : '+ Đặt món này'}
+        </button>
+      `;
+    }
+
+    return `
+      <div class="menu-card ${outOfStock ? 'out-of-stock' : ''}">
+        ${item.badge ? `<div class="badge">${item.badge}</div>` : ''}
+        ${outOfStock ? '<div class="badge badge-out">Hết hàng</div>' : ''}
+        <img src="${item.img}" alt="${item.name}" loading="lazy">
+        <div class="info">
+          <h4>${item.name}</h4>
+          <div class="price">${API.utils.formatVND(item.price)}</div>
+          ${item.description ? `<p class="desc">${item.description}</p>` : ''}
+          ${actionBtn}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function quickOrder(itemId) {
+  const user = API.users.getCurrent();
+
+  if (user && user.role === 'staff') {
+    showToast('⛔ Nhân viên không thể đặt món!', '#c62828');
+    return;
+  }
+
+  const item = API.menu.getById(itemId);
+  if (!item) return;
+  if (!Auth.isLoggedIn()) {
+    showToast('🔒 Vui lòng đăng nhập để đặt món!', '#c62828');
+    setTimeout(() => { window.location.href = 'login.html'; }, 1000);
+    return;
+  }
+  API.cart.add({
+    itemId: item.id,
+    name: item.name,
+    price: item.price,
+    img: item.img,
+    size: 'M',
+    toppings: []
+  });
+  if (typeof updateUserArea === 'function') updateUserArea();
+  showToast(`✓ Đã thêm ${item.name} vào giỏ!`);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderTabs();
+  renderGrid();
+
+  document.getElementById('menuSearch').addEventListener('input', e => {
+    searchKeyword = e.target.value.toLowerCase().trim();
+    renderGrid();
+  });
+});
+</script>
+</body>
+</html>

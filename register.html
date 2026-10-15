@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Đăng ký – CAPPAN</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-page="register">
+
+<header class="app-header">
+  <a class="logo" href="index.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Coffee &amp; More - Home Study</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav">
+    <ul class="nav-list">
+      <li><a href="index.html">Trang chủ</a></li>
+      <li><a href="menu.html">Thực đơn</a></li>
+      <li><a href="booking.html">Đặt chỗ</a></li>
+      <li><a href="order.html">Đặt nước</a></li>
+      <li><a href="tracking.html">Theo dõi đơn</a></li>
+      <li><a href="contact.html">Liên hệ</a></li>
+    </ul>
+    <div class="user-area" id="userArea"></div>
+  </nav>
+</header>
+
+<section class="auth-section">
+  <div class="auth-card">
+    <h2>Đăng ký</h2>
+    <p class="auth-sub">Tạo tài khoản CAPPAN</p>
+
+    <form id="registerForm" onsubmit="return handleRegister(event)">
+      <div class="form-group">
+        <label>Bạn là</label>
+        <div class="role-switch">
+          <label class="role-option active" id="roleCustomer">
+            <input type="radio" name="role" value="customer" checked onchange="switchRole('customer')">
+            👤 Khách hàng
+          </label>
+          <label class="role-option" id="roleStaff">
+            <input type="radio" name="role" value="staff" onchange="switchRole('staff')">
+            👨‍💼 Nhân viên
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Họ và tên</label>
+        <input type="text" id="regName" placeholder="Nguyễn Văn A" required>
+      </div>
+
+      <div class="form-group">
+        <label>Số điện thoại</label>
+        <input type="tel" id="regPhone" placeholder="0909123456" required>
+      </div>
+
+      <div class="form-group">
+        <label>Mật khẩu</label>
+        <input type="password" id="regPassword" placeholder="Ít nhất 3 ký tự" required>
+      </div>
+
+      <div class="form-group" id="inviteGroup" style="display:none;">
+        <label>Mã mời nhân viên</label>
+        <input type="text" id="regInvite" placeholder="CAPPANNGUYEN-STAFF">
+        <small class="form-hint">Mã demo: CAPPANNGUYEN-STAFF</small>
+      </div>
+
+      <button type="submit" class="btn btn-block">Đăng ký</button>
+    </form>
+
+    <p class="auth-link">
+      Đã có tài khoản? <a href="login.html">Đăng nhập</a>
+    </p>
+  </div>
+</section>
+
+<footer class="app-footer">
+  <div class="footer-brand">CAPP<span>AN</span></div>
+  <div class="footer-tagline">Coffee &amp; More - Home Study</div>
+  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
+</footer>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>              
+<script src="js/data/promotions.js"></script>      
+<script src="js/api/index.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+
+<script>
+function switchRole(role) {
+  document.getElementById('roleCustomer').classList.toggle('active', role === 'customer');
+  document.getElementById('roleStaff').classList.toggle('active', role === 'staff');
+  document.getElementById('inviteGroup').style.display = role === 'staff' ? 'flex' : 'none';
+}
+
+function handleRegister(e) {
+  e.preventDefault();
+
+  const roleEl = document.querySelector('input[name="role"]:checked');
+  if (!roleEl) {
+    showToast('⚠ Vui lòng chọn loại tài khoản!', '#c62828');
+    return false;
+  }
+
+  const role = roleEl.value;
+  const data = {
+    name: document.getElementById('regName').value.trim(),
+    phone: document.getElementById('regPhone').value.trim(),
+    password: document.getElementById('regPassword').value,
+    role: role,
+    inviteCode: document.getElementById('regInvite').value.trim()
+  };
+
+  if (!data.name || !data.phone || !data.password) {
+    showToast('⚠ Vui lòng điền đầy đủ thông tin!', '#c62828');
+    return false;
+  }
+
+  if (data.password.length < 3) {
+    showToast('⚠ Mật khẩu phải có ít nhất 3 ký tự!', '#c62828');
+    return false;
+  }
+
+  const result = Auth.register(data);
+
+  if (!result.ok) {
+    showToast('⚠ ' + result.error, '#c62828');
+    return false;
+  }
+
+  showToast('✓ Đăng ký thành công! Chào ' + result.user.name);
+
+  // ⚡ FIX: redirect theo role
+  setTimeout(function() {
+    const url = result.user.role === 'staff'
+      ? 'staff-dashboard.html'
+      : 'index.html';
+    window.location.href = url;
+  }, 1000);
+
+  return false;
+}
+</script>
+</body>
+</html>

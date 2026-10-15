@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thống kê — CAPPAN Staff</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="chat-panel.css">
+<link rel="stylesheet" href="staff.css">
+<script>
+/* Đặt sẵn độ rộng + trạng thái chat TRƯỚC khi trình duyệt vẽ lần đầu → không bị dựt khi đổi trang */
+(function(){try{var d=document.documentElement,
+w=parseInt(localStorage.getItem('cappan_chat_panel_width'),10);
+if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
+d.dataset.chat=localStorage.getItem('cappan_chat_panel_collapsed')==='1'?'collapsed':'open';
+d.classList.add('no-anim');}catch(e){}})();
+</script>
+</head>
+<body data-page="staff-stats">
+
+<header class="app-header">
+  <a class="logo" href="staff-dashboard.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Staff Panel</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav"></nav>
+</header>
+
+<div class="dashboard-layout" id="dashboardLayout">
+  <div class="dashboard-main">
+    <section class="section">
+
+      <h2 class="section-title" style="text-align:left;">📈 Thống kê doanh thu</h2>
+
+      <!-- 3 CARD LỚN -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">📅</div>
+          <div class="stat-info">
+            <div class="stat-value" id="revToday">—</div>
+            <div class="stat-label">Hôm nay</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🗓️</div>
+          <div class="stat-info">
+            <div class="stat-value" id="revWeek">—</div>
+            <div class="stat-label">Tuần này</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📆</div>
+          <div class="stat-info">
+            <div class="stat-value" id="revMonth">—</div>
+            <div class="stat-label">Tháng này</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BIỂU ĐỒ 7 NGÀY -->
+      <div class="staff-panel">
+        <div class="panel-header"><h3>📊 Doanh thu 7 ngày gần nhất</h3></div>
+        <div class="chart-bars" id="chartBars"></div>
+      </div>
+
+      <!-- 2 CỘT: TOP MÓN + TRẠNG THÁI -->
+      <div class="staff-layout" style="margin-top:25px;">
+        <div class="staff-panel">
+          <div class="panel-header"><h3>🏆 Top 5 món bán chạy</h3></div>
+          <div id="topItems"></div>
+        </div>
+        <div class="staff-panel">
+          <div class="panel-header"><h3>📋 Trạng thái</h3></div>
+          <div id="statusList"></div>
+        </div>
+      </div>
+
+    </section>
+  </div>
+
+  <div class="panel-resizer" id="panelResizer"></div>
+
+  <aside class="chat-panel" id="chatPanel">
+    <div class="chat-panel-header">
+      <span class="chat-panel-title">🤖 Trợ lý CAPPAN</span>
+      <div class="chat-panel-actions">
+        <button class="chat-panel-btn" id="btnCollapseChat" title="Thu gọn bảng chat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+        <button class="chat-panel-btn emoji-btn" onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+        <button class="chat-panel-btn" id="btnClearChat" title="Xóa lịch sử">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-panel-footer">
+      <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." autocomplete="off">
+      <button id="btnSendChat" title="Gửi">▶</button>
+    </div>
+  </aside>
+
+  <button class="chat-float-btn" id="chatFloatBtn" title="Mở trợ lý"><span>🤖</span></button>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
+<script src="js/api/index.js"></script>
+<script src="js/staff-guard.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+<script src="js/chat-panel.js"></script>
+<script src="js/staff-nav.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (!Auth.requireStaff()) return;
+  renderStaffNav('stats');
+  renderAll();
+});
+
+function renderAll() {
+  const today = API.stats.today();
+  const week = API.stats.thisWeek();
+  const month = API.stats.thisMonth();
+
+  document.getElementById('revToday').textContent = API.utils.formatVND(today.total);
+  document.getElementById('revWeek').textContent = API.utils.formatVND(week.total);
+  document.getElementById('revMonth').textContent = API.utils.formatVND(month.total);
+
+  // Chart 7 ngày
+  const days = API.stats.last7Days();
+  const max = Math.max(...days.map(d => d.revenue), 1);
+  document.getElementById('chartBars').innerHTML = days.map(d => {
+    const pct = Math.round((d.revenue / max) * 100);
+    return `
+      <div class="chart-col">
+        <div class="chart-bar-wrap">
+          <div class="chart-bar" style="height:${pct}%">
+            <span class="chart-tooltip">${API.utils.formatVND(d.revenue)}</span>
+          </div>
+        </div>
+        <div class="chart-label">${d.date}</div>
+        <div class="chart-value">${(d.revenue/1000).toFixed(0)}k</div>
+      </div>
+    `;
+  }).join('');
+
+  // Top items
+  const top = API.stats.topItems(5);
+  document.getElementById('topItems').innerHTML = top.length === 0
+    ? '<p class="empty-note">Chưa có dữ liệu.</p>'
+    : top.map((it, i) => `
+      <div class="top-item-row">
+        <div class="top-rank">${i + 1}</div>
+        <div class="top-info">
+          <strong>${it.name}</strong>
+          <small>${it.qty} ly · ${API.utils.formatVND(it.revenue)}</small>
+        </div>
+      </div>
+    `).join('');
+
+  // Status
+  const os = API.stats.ordersByStatus();
+  const bs = API.stats.bookingsByStatus();
+  const occ = API.stats.occupancyRate();
+
+  document.getElementById('statusList').innerHTML = `
+    <div class="status-row">
+      <span>⏳ Đơn chờ xử lý</span>
+      <strong>${os.pending}</strong>
+    </div>
+    <div class="status-row">
+      <span>☕ Đơn đang pha</span>
+      <strong>${os.preparing}</strong>
+    </div>
+    <div class="status-row">
+      <span>🛵 Đơn đang giao</span>
+      <strong>${os.shipping}</strong>
+    </div>
+    <div class="status-row">
+      <span>✅ Đơn hoàn tất</span>
+      <strong>${os.completed}</strong>
+    </div>
+    <div class="status-row">
+      <span>❌ Đơn đã hủy</span>
+      <strong>${os.cancelled}</strong>
+    </div>
+    <hr style="margin:12px 0; border:none; border-top:1px dashed #ddd;">
+    <div class="status-row">
+      <span>🪑 Booking đang hoạt động</span>
+      <strong>${bs.confirmed}</strong>
+    </div>
+    <div class="status-row">
+      <span>📊 Tỷ lệ lấp chỗ</span>
+      <strong>${occ}%</strong>
+    </div>
+  `;
+}
+</script>
+</body>
+</html>

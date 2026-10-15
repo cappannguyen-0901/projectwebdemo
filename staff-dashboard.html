@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tổng quan — CAPPAN Staff</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="chat-panel.css">
+<link rel="stylesheet" href="staff.css">
+<script>
+/* Đặt sẵn độ rộng + trạng thái chat TRƯỚC khi trình duyệt vẽ lần đầu → không bị dựt khi đổi trang */
+(function(){try{var d=document.documentElement,
+w=parseInt(localStorage.getItem('cappan_chat_panel_width'),10);
+if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
+d.dataset.chat=localStorage.getItem('cappan_chat_panel_collapsed')==='1'?'collapsed':'open';
+d.classList.add('no-anim');}catch(e){}})();
+</script>
+</head>
+<body data-page="staff-dashboard">
+
+<header class="app-header">
+  <a class="logo" href="staff-dashboard.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Staff Panel</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav"></nav>
+</header>
+
+<div class="dashboard-layout" id="dashboardLayout">
+  <div class="dashboard-main">
+    <section class="section">
+
+      <div class="staff-header">
+        <div>
+          <h2 class="section-title" style="text-align:left; margin-bottom:6px;">
+            📊 Tổng quan ca làm việc
+          </h2>
+          <p style="color:var(--gray);">
+            Chào <strong id="staffName">Nhân viên</strong> — Chúc bạn một ngày hiệu quả!
+          </p>
+        </div>
+        <div class="staff-time" id="staffTime"></div>
+      </div>
+
+      <!-- STAT CARDS -->
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <!-- 2 CỘT: SƠ ĐỒ GHẾ + ĐƠN GẦN ĐÂY -->
+      <div class="staff-layout">
+        <div class="staff-panel">
+          <div class="panel-header">
+            <h3>🪑 Sơ đồ chỗ ngồi</h3>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+              <div class="floor-switch-small" id="staffFloorSwitch"></div>
+              <button class="btn-mini-reset" onclick="resetAllSeats()">🔄 Reset tất cả</button>
+            </div>
+          </div>
+          <div class="staff-seat-map" id="staffSeatMap"></div>
+          <p class="panel-hint">💡 Click nút <strong>✕</strong> trên chỗ đỏ để reset</p>
+        </div>
+
+        <div class="staff-panel">
+          <div class="panel-header">
+            <h3>📦 Đơn hàng đang xử lý</h3>
+            <a href="staff-orders.html" class="btn-outline" style="font-size:0.8rem; padding:4px 12px;">
+              Xem tất cả →
+            </a>
+          </div>
+          <div id="staffOrders">
+            <p class="empty-note">Chưa có đơn hàng nào.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOOKING GẦN ĐÂY -->
+      <div class="staff-panel" style="margin-top:25px;">
+        <div class="panel-header">
+          <h3>📅 Booking đang hoạt động</h3>
+          <a href="staff-bookings.html" class="btn-outline" style="font-size:0.8rem; padding:4px 12px;">
+            Xem tất cả →
+          </a>
+        </div>
+        <div id="staffBookings">
+          <p class="empty-note">Chưa có booking nào.</p>
+        </div>
+      </div>
+
+    </section>
+  </div>
+
+  <div class="panel-resizer" id="panelResizer"></div>
+
+  <aside class="chat-panel" id="chatPanel">
+    <div class="chat-panel-header">
+  <span class="chat-panel-title">🤖 Trợ lý CAPPAN</span>
+  <div class="chat-panel-actions">
+    <button class="chat-panel-btn" id="btnCollapseChat" title="Thu gọn bảng chat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    </button>
+    <button class="chat-panel-btn emoji-btn" onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+    <button class="chat-panel-btn" id="btnClearChat" title="Xóa lịch sử">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </svg>
+    </button>
+  </div>
+</div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-panel-footer">
+      <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." autocomplete="off">
+      <button id="btnSendChat" title="Gửi">▶</button>
+    </div>
+  </aside>
+
+  <button class="chat-float-btn" id="chatFloatBtn" title="Mở trợ lý">
+    <span>🤖</span>
+  </button>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<!-- ============ SCRIPTS ============ -->
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
+<script src="js/api/index.js"></script>
+<script src="js/staff-guard.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+<script src="js/chat-panel.js"></script>
+<script src="js/staff-nav.js"></script>
+
+<script>
+let staffFloor = 'F1';
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!Auth.requireStaff()) return;
+
+  renderStaffNav('dashboard');
+
+  const user = API.users.getCurrent();
+  document.getElementById('staffName').textContent = user.name;
+
+  renderClock();
+  setInterval(renderClock, 1000);
+
+  refreshAll();
+  setInterval(refreshAll, 10000);
+});
+
+function renderClock() {
+  const now = new Date();
+  const time = now.toLocaleTimeString('vi-VN');
+  const date = now.toLocaleDateString('vi-VN', {
+    weekday:'long', day:'2-digit', month:'2-digit', year:'numeric'
+  });
+  const el = document.getElementById('staffTime');
+  if (el) el.innerHTML = `<strong>${time}</strong><br><small>${date}</small>`;
+}
+
+function refreshAll() {
+  renderStats();
+  renderFloorSwitch();
+  renderSeatMap();
+  renderOrders();
+  renderBookings();
+}
+
+/* ---------- STATS ---------- */
+function renderStats() {
+  const seats = API.seats.getAll();
+  const available = seats.filter(s => s.status === 'available').length;
+  const booked = seats.filter(s => s.status === 'booked').length;
+  const activeOrders = API.orders.getAll().filter(o => o.step < 4).length;
+  const today = API.stats.today();
+
+  const el = document.getElementById('statsGrid');
+  el.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-icon">🪑</div>
+      <div class="stat-info">
+        <div class="stat-value">${seats.length}</div>
+        <div class="stat-label">Tổng số chỗ</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">✅</div>
+      <div class="stat-info">
+        <div class="stat-value">${available}</div>
+        <div class="stat-label">Chỗ trống</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🔴</div>
+      <div class="stat-info">
+        <div class="stat-value">${booked}</div>
+        <div class="stat-label">Đã đặt</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📦</div>
+      <div class="stat-info">
+        <div class="stat-value">${activeOrders}</div>
+        <div class="stat-label">Đơn đang xử lý</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">💰</div>
+      <div class="stat-info">
+        <div class="stat-value">${(today.total/1000).toFixed(0)}k</div>
+        <div class="stat-label">Doanh thu hôm nay</div>
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- SEAT MAP ---------- */
+function renderFloorSwitch() {
+  const el = document.getElementById('staffFloorSwitch');
+  el.innerHTML = API.floors.getAll().map(f => {
+    const booked = API.seats.getByFloor(f.id).filter(s => s.status === 'booked').length;
+    return `
+      <button class="floor-btn-small ${f.id === staffFloor ? 'active' : ''}"
+              onclick="switchStaffFloor('${f.id}')">
+        ${f.name}${booked > 0 ? ` (${booked})` : ''}
+      </button>
+    `;
+  }).join('');
+}
+
+function switchStaffFloor(id) {
+  staffFloor = id;
+  renderFloorSwitch();
+  renderSeatMap();
+}
+
+function renderSeatMap() {
+  const el = document.getElementById('staffSeatMap');
+  const seats = API.seats.getByFloor(staffFloor);
+  if (!seats.length) {
+    el.innerHTML = '<p class="empty-note">Tầng này chưa có chỗ nào.</p>';
+    return;
+  }
+  const cols = Math.min(seats.length, 4);
+  el.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+  el.innerHTML = seats.map(s => {
+    const activeBooking = API.bookings.getActiveBySeat(s.id);
+    const isBooked = s.status === 'booked';
+    return `
+      <div class="staff-seat ${s.status}">
+        ${isBooked ? `<button class="seat-reset-btn"
+          onclick="event.stopPropagation(); resetSeat('${s.id}')"
+          title="Reset">✕</button>` : ''}
+        <div class="seat-icon">🪑</div>
+        <div class="seat-id">${s.id}</div>
+        <div class="seat-capacity">${s.capacity}👤</div>
+        <div class="seat-status">${isBooked ? 'Đã đặt' : 'Trống'}</div>
+        ${activeBooking ? `<div class="seat-customer">${activeBooking.id}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function resetSeat(seatId) {
+  const seat = API.seats.getById(seatId);
+  if (!seat || seat.status === 'available') {
+    showToast(`Chỗ ${seatId} đang trống!`, '#856404');
+    return;
+  }
+  const activeBooking = API.bookings.getActiveBySeat(seatId);
+  const msg = activeBooking
+    ? `Reset chỗ ${seatId}? Booking ${activeBooking.id} sẽ hoàn thành.`
+    : `Reset chỗ ${seatId} về trống?`;
+  if (!confirm(msg)) return;
+
+  if (activeBooking) API.bookings.complete(activeBooking.id);
+  else API.seats.release(seatId);
+
+  refreshAll();
+  showToast(`✓ Đã reset chỗ ${seatId}`);
+}
+
+// Reset tất cả chỗ — dùng API chuẩn để đồng bộ trạng thái ghế
+function resetAllSeats() {
+  const booked = API.seats.getBooked().length;
+  if (booked === 0) {
+    showToast('Tất cả chỗ đã trống!', '#856404');
+    return;
+  }
+  if (!confirm(`Reset TẤT CẢ ${booked} chỗ đã đặt?`)) return;
+
+  // Lấy tất cả booking đang active và gọi complete/cancel qua API chuẩn
+  const activeBookings = API.bookings.getAll().filter(b => b.status === 'confirmed');
+  activeBookings.forEach(b => {
+    API.bookings.complete(b.id); // API.bookings.complete sẽ tự động gọi release ghế và sync lại
+  });
+
+  // Phòng hờ các ghế bị kẹt trạng thái không có booking
+  API.seats.releaseAll();
+
+  if (typeof refreshAll === 'function') refreshAll();
+  showToast(`✓ Đã reset ${booked} chỗ thành công!`);
+}
+
+/* ---------- ORDERS ---------- */
+function renderOrders() {
+  const el = document.getElementById('staffOrders');
+  const orders = API.orders.getAll()
+    .filter(o => o.step < 4)
+    .slice().reverse().slice(0, 5);
+
+  if (orders.length === 0) {
+    el.innerHTML = '<p class="empty-note">Không có đơn đang xử lý.</p>';
+    return;
+  }
+  const statusText = ['Chờ xử lý', 'Đang pha', 'Shipper lấy', 'Đang giao', 'Hoàn tất'];
+  el.innerHTML = orders.map(o => `
+    <div class="order-row">
+      <div class="order-row-left">
+        <strong>#${o.id}</strong>
+        <small>${o.items.length} món · ${API.utils.formatVND(o.total)}</small>
+      </div>
+      <div class="order-row-right">
+        <span class="order-status-badge step-${o.step}">${statusText[o.step]}</span>
+        <button class="btn-mini" onclick="advanceOrder('${o.id}')">→</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function advanceOrder(orderId) {
+  const order = API.orders.getById(orderId);
+  if (!order) return;
+  const newStep = Math.min(order.step + 1, 4);
+  API.orders.updateStep(orderId, newStep);
+  refreshAll();
+  showToast(`✓ Đơn #${orderId} → bước ${newStep + 1}`);
+}
+
+/* ---------- BOOKINGS ---------- */
+function renderBookings() {
+  const el = document.getElementById('staffBookings');
+  const bookings = API.bookings.getAll()
+    .filter(b => b.status === 'confirmed')
+    .slice().reverse().slice(0, 5);
+
+  if (bookings.length === 0) {
+    el.innerHTML = '<p class="empty-note">Không có booking nào.</p>';
+    return;
+  }
+  el.innerHTML = `
+    <table class="staff-table">
+      <thead>
+        <tr><th>Mã</th><th>Khách</th><th>Chỗ</th><th>Tầng</th><th>Giờ</th><th></th></tr>
+      </thead>
+      <tbody>
+        ${bookings.map(b => {
+          const user = API.users.getById(b.userId);
+          const floor = API.floors.getById(b.floorId);
+          return `
+            <tr>
+              <td><strong>${b.id}</strong></td>
+              <td>${user ? user.name : '—'}</td>
+              <td>${b.seatId}</td>
+              <td>${floor ? floor.name : '—'}</td>
+              <td>${b.time}</td>
+              <td>
+                <button class="btn-mini" onclick="completeBooking('${b.id}')" title="Hoàn thành">✓</button>
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function completeBooking(id) {
+  if (!confirm('Đánh dấu booking này hoàn thành?')) return;
+  API.bookings.complete(id);
+  refreshAll();
+  showToast('✓ Đã hoàn thành booking');
+}
+</script>
+</body>
+</html>
