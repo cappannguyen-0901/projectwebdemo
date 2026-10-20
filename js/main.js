@@ -658,12 +658,16 @@ function quickOrder(itemId) {
     showToast('Tài khoản nhân viên không dùng giỏ hàng', '#856404'); return;
   }
 
-  // Món có size/topping cần khách chọn → không thêm mù, chỉ hướng dẫn sang trang Menu
-  const hasOptions = (item.sizes && item.sizes.length) || (item.toppings && item.toppings.length);
-  if (hasOptions) {
-    showToast(`${item.name} có tuỳ chọn size/topping — anh/chị chọn ở trang Menu nhé`, '#856404');
-    return;
+  // ⚡ FIX: Bấm "+ Thêm" trên thẻ thì thêm luôn size M. Nếu muốn chọn size/topping thì sang trang Menu.
+  try {
+    API.cart.add({ itemId: item.id, name: item.name, price: item.price, img: item.img, size: 'M', toppings: [] });
+    showToast(`✓ Đã thêm ${item.name} vào giỏ`);
+    updateUserArea();
+  } catch (e) {
+    console.warn('[quickOrder] lỗi thêm giỏ:', e);
+    showToast('⚠ Chưa thêm được vào giỏ, anh/chị thử lại nhé', '#c62828');
   }
+
 
   // API.cart.add(item) nhận 1 object, tự đặt qty = 1 và gộp theo (itemId + size)
   try {

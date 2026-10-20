@@ -63,6 +63,7 @@
     <a href="order.html">Đặt nước</a>
     <a href="tracking.html">Theo dõi đơn</a>
     <a href="contact.html">Liên hệ</a>
+    <a href="privacy.html">Chính sách bảo mật</a>
   </div>
   <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
 </footer>
@@ -83,7 +84,7 @@
     </div>
   </div>
   <div class="chat-body" id="chatBody">
-    <div class="msg bot"><div class="bubble">Em là trợ lý AI, có thể sai. Bạn muốn đặt món gì? 🥤</div></div>
+    <div class="msg bot"><div class="bubble">Bạn muốn đặt món gì? 🥤</div></div>
   </div>
   <div class="chat-input">
     <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
@@ -92,31 +93,13 @@
   </div>
 </div>
 
-<!-- ⚡ FIX W5: modal chọn size + toppings -->
-<div class="modal-overlay" id="itemOptionsModal">
-  <div class="modal-box">
-    <button class="modal-close" onclick="closeModal('itemOptionsModal')">✕</button>
-    <h2 id="itemOptionsTitle"></h2>
-    <p class="modal-sub" id="itemOptionsPrice"></p>
-    <div class="form-group" id="sizeGroup">
-      <label>Size</label>
-      <select id="optSize"></select>
-    </div>
-    <div class="form-group" id="toppingGroup">
-      <label>Topping (chọn nhiều)</label>
-      <div id="optToppings" style="display:flex; flex-direction:column; gap:6px;"></div>
-    </div>
-    <button class="btn btn-block" onclick="confirmAddWithOptions()">Thêm vào giỏ</button>
-  </div>
-</div>
-
 <div class="toast" id="toast">✓ Thành công!</div>
 
 <script src="js/data/schema.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
-<script src="js/data/kb.js"></script>
-<script src="js/data/promotions.js"></script>
+<script src="js/data/kb.js"></script>         
+<script src="js/data/promotions.js"></script>     
 <script src="js/api/index.js"></script>
 <script src="js/staff-guard.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
@@ -126,7 +109,6 @@
 
 <script>
 let activeOrderCat = 'coffee';
-let _pendingItem = null;
 
 function renderOrderTabs() {
   const el = document.getElementById('orderCatTabs');
@@ -154,6 +136,10 @@ function renderOrderGrid() {
       <div class="info">
         <h4>${esc(item.name)}</h4>
         <div class="price">${API.utils.formatVND(item.price)}</div>
+        ${item.sizes && item.sizes.length ? `
+          <select class="size-sel" id="sz_${item.id}" aria-label="Chọn size ${esc(item.name)}">
+            ${item.sizes.map(s => `<option value="${esc(s.name)}">Size ${esc(s.name)}${s.extraPrice ? ` (+${API.utils.formatVND(s.extraPrice)})` : ''}</option>`).join('')}
+          </select>` : ''}
         <button class="add-cart-btn"
                 onclick="addCart('${item.id}')"
                 ${!item.inStock ? 'disabled' : ''}>
@@ -173,89 +159,20 @@ function addCart(itemId) {
   const item = API.menu.getById(itemId);
   if (!item || !item.inStock) return;
 
-  // ⚡ FIX W5: nếu có size/toppings → mở modal chọn
-  if ((item.sizes && item.sizes.length > 1) || (item.toppings && item.toppings.length)) {
-    openItemOptions(item);
-    return;
-  }
-
+  const sel = document.getElementById('sz_' + itemId);
+  const sizeName = sel ? sel.value : 'M';
+  const sz = (item.sizes || []).find(s => s.name === sizeName);
   API.cart.add({
     itemId: item.id,
     name: item.name,
-    price: item.price,
+    price: item.price + (sz ? (sz.extraPrice || 0) : 0),
     img: item.img,
-    size: 'M',
+    size: sizeName,
     toppings: []
   });
   renderCartMini();
   updateUserArea();
   showToast(`✓ Đã thêm ${item.name}`);
-}
-
-function openItemOptions(item) {
-  _pendingItem = item;
-  document.getElementById('itemOptionsTitle').textContent = item.name;
-  document.getElementById('itemOptionsPrice').textContent = API.utils.formatVND(item.price);
-
-  const sizeGroup = document.getElementById('sizeGroup');
-  const sizeSel = document.getElementById('optSize');
-  if (item.sizes && item.sizes.length > 1) {
-    sizeGroup.style.display = '';
-    sizeSel.innerHTML = item.sizes.map(s =>
-      `<option value="${esc(s.name)}" data-extra="${s.extraPrice || 0}">${esc(s.name)}${s.extraPrice ? ' (+' + API.utils.formatVND(s.extraPrice) + ')' : ''}</option>`
-    ).join('');
-  } else {
-    sizeGroup.style.display = 'none';
-    sizeSel.innerHTML = '<option value="M" data-extra="0">M</option>';
-  }
-
-  const topGroup = document.getElementById('toppingGroup');
-  const topBox = document.getElementById('optToppings');
-  if (item.toppings && item.toppings.length) {
-    topGroup.style.display = '';
-    topBox.innerHTML = item.toppings.map((t, i) =>
-      `<label style="display:flex; gap:8px; align-items:center; font-size:0.9rem; cursor:pointer;">
-        <input type="checkbox" class="opt-topping" value="${i}" data-name="${esc(t.name)}" data-price="${t.price}">
-        ${esc(t.name)} (+${API.utils.formatVND(t.price)})
-      </label>`
-    ).join('');
-  } else {
-    topGroup.style.display = 'none';
-    topBox.innerHTML = '';
-  }
-
-  openModal('itemOptionsModal');
-}
-
-function confirmAddWithOptions() {
-  if (!_pendingItem) return;
-  const item = _pendingItem;
-  const sizeSel = document.getElementById('optSize');
-  const size = sizeSel.value;
-  const extra = parseInt(sizeSel.selectedOptions[0]?.dataset.extra || 0, 10);
-
-  const toppings = [];
-  document.querySelectorAll('.opt-topping:checked').forEach(cb => {
-    toppings.push({ name: cb.dataset.name, price: parseInt(cb.dataset.price, 10) });
-  });
-
-  const toppingPrice = toppings.reduce((s, t) => s + t.price, 0);
-  const finalPrice = item.price + extra + toppingPrice;
-
-  API.cart.add({
-    itemId: item.id,
-    name: item.name,
-    price: finalPrice,
-    img: item.img,
-    size,
-    toppings
-  });
-
-  closeModal('itemOptionsModal');
-  _pendingItem = null;
-  renderCartMini();
-  updateUserArea();
-  showToast(`✓ Đã thêm ${item.name} (${size})`);
 }
 
 function renderCartMini() {

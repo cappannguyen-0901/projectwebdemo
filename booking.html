@@ -28,13 +28,10 @@
   </nav>
 </header>
 
-<div class="demo-banner">
-  ⚠️ Sơ đồ ghế chỉ đồng bộ trong phiên trình duyệt này. Đây là bản demo.
-</div>
-
 <section class="section">
   <h2 class="section-title">Đặt Chỗ</h2>
   <p class="section-sub">Chọn tầng → chọn chỗ → điền thông tin</p>
+  <p class="demo-note">ℹ️ Bản demo: chỗ được giữ cho đến khi nhân viên bấm “Hoàn thành/Hủy” (chưa chia theo khung giờ). Nhận đặt trước tối đa 14 ngày, trong giờ 07:00 – 22:00.</p>
 
   <div class="floor-switch" id="floorSwitch"></div>
   <div class="floor-summary" id="floorSummary"></div>
@@ -65,6 +62,7 @@
   </div>
 </section>
 
+<!-- Booking Modal -->
 <div class="modal-overlay" id="bookingModal">
   <div class="modal-box wide">
     <button class="modal-close" onclick="closeModal('bookingModal')">✕</button>
@@ -85,8 +83,8 @@
           <input type="date" id="bkDate" required>
         </div>
         <div class="form-group">
-          <label>Giờ đặt (07:00 – 22:30)</label>
-          <input type="time" id="bkTime" min="07:00" max="22:30" required>
+          <label>Giờ đặt</label>
+          <input type="time" id="bkTime" required>
         </div>
         <div class="form-group">
           <label>Số người</label>
@@ -112,6 +110,7 @@
     <a href="order.html">Đặt nước</a>
     <a href="tracking.html">Theo dõi đơn</a>
     <a href="contact.html">Liên hệ</a>
+    <a href="privacy.html">Chính sách bảo mật</a>
   </div>
   <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
 </footer>
@@ -132,7 +131,7 @@
     </div>
   </div>
   <div class="chat-body" id="chatBody">
-    <div class="msg bot"><div class="bubble">Em là trợ lý AI, có thể sai. Bạn muốn ngồi tầng nào? 😊</div></div>
+    <div class="msg bot"><div class="bubble">Bạn muốn ngồi tầng nào? Tôi tư vấn cho! 😊</div></div>
   </div>
   <div class="chat-input">
     <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
@@ -146,8 +145,8 @@
 <script src="js/data/schema.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
-<script src="js/data/kb.js"></script>
-<script src="js/data/promotions.js"></script>
+<script src="js/data/kb.js"></script>              
+<script src="js/data/promotions.js"></script>      
 <script src="js/api/index.js"></script>
 <script src="js/staff-guard.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
@@ -213,6 +212,7 @@ function renderSeatMap() {
   const seats = API.seats.getByFloor(currentFloorId);
   if (!el) return;
 
+  // ⚡ Số cột theo kích thước màn hình
   const w = window.innerWidth;
   let cols;
   if (w < 400) cols = 2;
@@ -280,18 +280,22 @@ function openBookingForm() {
     `Bàn ${seat.id} – ${floor.name} (${seat.capacity} người)`;
   document.getElementById('bkName').value = user.name || '';
   document.getElementById('bkPhone').value = user.phone || '';
-
-  // ⚡ FIX W3: min date = hôm nay
-  const today = API.utils.today();
-  const dateEl = document.getElementById('bkDate');
-  dateEl.value = today;
-  dateEl.min = today;
+  document.getElementById('bkDate').value = API.utils.today();
 
   const now = new Date();
   now.setMinutes(now.getMinutes() + 30);
-  const hh = String(now.getHours()).padStart(2,'0');
-  const mm = String(now.getMinutes()).padStart(2,'0');
-  document.getElementById('bkTime').value = `${hh}:${mm}`;
+  const hhmm = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  const dateEl = document.getElementById('bkDate');
+  dateEl.min = API.utils.today();
+  const sameDay = now.getDate() === new Date().getDate();
+  if (!sameDay || validateBooking(API.utils.today(), hhmm(now))) {
+    /* quá giờ nhận đặt hôm nay → gợi ý sáng mai */
+    const tm = new Date(); tm.setDate(tm.getDate() + 1);
+    dateEl.value = `${tm.getFullYear()}-${String(tm.getMonth()+1).padStart(2,'0')}-${String(tm.getDate()).padStart(2,'0')}`;
+    document.getElementById('bkTime').value = '08:00';
+  } else {
+    document.getElementById('bkTime').value = hhmm(now);
+  }
 
   const guestsEl = document.getElementById('bkGuests');
   guestsEl.innerHTML = '';
@@ -302,44 +306,40 @@ function openBookingForm() {
   openModal('bookingModal');
 }
 
+/* Kiểm tra ngày/giờ đặt chỗ. Trả về thông báo lỗi hoặc null nếu hợp lệ */
+function validateBooking(date, time) {
+  const today = API.utils.today();
+  if (!date || !time) return 'Vui lòng chọn ngày và giờ';
+  if (date < today) return 'Không thể đặt chỗ cho ngày đã qua';
+  const max = new Date(); max.setDate(max.getDate() + 14);
+  const maxStr = `${max.getFullYear()}-${String(max.getMonth()+1).padStart(2,'0')}-${String(max.getDate()).padStart(2,'0')}`;
+  if (date > maxStr) return 'Chỉ nhận đặt trước tối đa 14 ngày';
+  const [h, m] = time.split(':').map(Number);
+  const mins = h * 60 + m;
+  if (mins < 7 * 60 || mins > 22 * 60) return 'Giờ đặt phải trong khoảng 07:00 – 22:00 (quán mở 07:00 – 22:30)';
+  if (date === today) {
+    const n = new Date();
+    if (mins < n.getHours() * 60 + n.getMinutes()) return 'Giờ này đã qua, vui lòng chọn giờ sau thời điểm hiện tại';
+  }
+  return null;
+}
+
 function handleBooking(e) {
   e.preventDefault();
 
-  const date = document.getElementById('bkDate').value;
-  const time = document.getElementById('bkTime').value;
-  const today = API.utils.today();
-
-  // ⚡ FIX W3: validate ngày không quá khứ
-  if (!date || date < today) {
-    showToast('⚠ Ngày đặt không được ở quá khứ!', '#c62828');
-    return false;
-  }
-
-  // ⚡ FIX W3: validate giờ trong khung mở cửa
-  if (!time || time < '07:00' || time > '22:30') {
-    showToast('⚠ Giờ đặt phải trong khung 07:00 – 22:30!', '#c62828');
-    return false;
-  }
-
-  // ⚡ FIX W3: nếu đặt hôm nay, giờ phải sau hiện tại ít nhất 15 phút
-  if (date === today) {
-    const now = new Date();
-    const [h, m] = time.split(':').map(Number);
-    const bookTime = new Date();
-    bookTime.setHours(h, m, 0, 0);
-    if (bookTime.getTime() - now.getTime() < 15 * 60 * 1000) {
-      showToast('⚠ Giờ đặt phải sau hiện tại ít nhất 15 phút!', '#c62828');
-      return false;
-    }
-  }
-
   const user = API.users.getCurrent();
+  const err = validateBooking(document.getElementById('bkDate').value, document.getElementById('bkTime').value);
+  if (err) { showToast('⚠ ' + err, '#c62828'); return false; }
+  if (API.bookings.getByUser(user.id).filter(b => b.status === 'confirmed').length >= 3) {
+    showToast('⚠ Bạn đang có 3 chỗ đặt hoạt động, vui lòng hoàn tất/hủy bớt trước khi đặt thêm', '#c62828');
+    return false;
+  }
   const data = {
     userId: user.id,
     seatId: selectedSeatId,
     floorId: currentFloorId,
-    date: date,
-    time: time,
+    date: document.getElementById('bkDate').value,
+    time: document.getElementById('bkTime').value,
     guests: parseInt(document.getElementById('bkGuests').value),
     note: document.getElementById('bkNote').value.trim()
   };
@@ -359,10 +359,15 @@ function handleBooking(e) {
 
 document.addEventListener('DOMContentLoaded', () => {
   if (Auth.isStaff()) return;
+
   renderFloorSwitch();
   renderFloorSummary();
   renderSeatMap();
 
+  // Đồng bộ giữa các tab/cửa sổ cùng trình duyệt khi có thay đổi chỗ ngồi
+  window.addEventListener('storage', () => { renderFloorSwitch(); renderFloorSummary(); renderSeatMap(); });
+
+  // ⚡ Debounce resize → cập nhật số cột
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);

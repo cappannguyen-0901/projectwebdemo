@@ -316,6 +316,7 @@ CHỈ ĐƯỢC PHÉP: giới thiệu menu, giá, mô tả món; tư vấn chọn
 - "còn chỗ không", "tình trạng chỗ" → gọi get_seat_status
 - "địa chỉ", "wifi", "giờ mở cửa" → gọi get_store_info
 - Tuyệt đối KHÔNG trả lời các câu hỏi về địa chỉ, khuyến mãi, chỗ trống bằng text thường. BẮT BUỘC phải gọi tool tương ứng để render giao diện Thẻ.
+- "giỏ hàng có gì", "đang có món gì", "xem giỏ hàng" → gọi get_cart
 ⚡ QUY TẮC DỮ LIỆU:
 - WIFI/ĐỊA CHỈ/GIỜ/HOTLINE/BÃI XE/EMAIL → get_store_info
 - FAQ → get_faq
@@ -431,7 +432,8 @@ const AI_TOOLS = {
       { query: { type: 'string' } }, ['query']),
     _fn('get_promotions', 'Mã khuyến mãi đang áp dụng hôm nay'),
     _fn('search_menu', 'TÌM MÓN theo từ khóa trong TÊN món. Trả DANH SÁCH món (KHÔNG phải công thức)',
-      { keyword: { type: 'string', description: 'VD: matcha, trà, sinh tố' } }, ['keyword'])
+      { keyword: { type: 'string', description: 'VD: matcha, trà, sinh tố' } }, ['keyword']),
+    _fn('get_cart', 'Xem các món hiện đang có trong giỏ hàng của khách')
   ]
 };
 
@@ -538,10 +540,12 @@ const AIToolExecutor = {
             u.role === 'customer' &&
             (normVN(u.name).includes(kw) || String(u.phone || '').includes(kw.replace(/\s/g, '')))
           ).slice(0, 5);
+          
 
           if (users.length === 0) {
             return { found: 0, message: `Không tìm thấy khách hàng nào khớp với "${args.keyword}".` };
           }
+          
 
           const results = users.map(u => {
             const bookings = API.bookings.getByUser(u.id);
@@ -859,7 +863,7 @@ const AIToolExecutor = {
           }
           return { error: 'Không tìm thấy FAQ phù hợp' };
         }
-        case 'get_promotions': {
+                case 'get_promotions': {
           const today = API.utils.today();
           const fmt = (p, withFrom) => {
             const o = { code: p.code, description: p.description || p.name, discount: p.discount, minOrder: p.minOrder };
@@ -869,12 +873,23 @@ const AIToolExecutor = {
             if (p.terms) o.terms = p.terms;
             return o;
           };
-          const active = API.promotions.getActive(today).map(p => fmt(p, false));
+                    const active = API.promotions.getActive(today).map(p => fmt(p, false));
           const res = { today, promotions: active };
           if (active.length === 0) res.message = 'Hôm nay chưa có khuyến mãi nào đang áp dụng.';
           if (role === 'staff') res.upcoming = API.promotions.getUpcoming(today).map(p => fmt(p, true));
           return res;
         }
+
+        case 'get_cart': {
+          const cart = API.cart.get();
+          if (cart.length === 0) return { hasItems: false, message: 'Dạ giỏ hàng của anh/chị đang trống ạ.' };
+          return {
+            hasItems: true,
+            items: cart.map(i => ({ id: i.itemId, name: i.name, price: i.price, qty: i.qty, size: i.size || 'M' })),
+            total: cart.reduce((s, i) => s + i.price * i.qty, 0)
+          };
+        }
+
         default:
           return { error:`Tool "${toolName}" chưa implement.` };
       }
@@ -887,7 +902,7 @@ const AIToolExecutor = {
   /* ⚡ ZERO-TOKEN TEMPLATE: biến kết quả tool thành thẻ UI / câu trả lời có sẵn, LLM không phải viết chữ.
      Trả về "[UI_X]{json}[/UI_X]" (main.js vẽ thẻ), hoặc text ngắn, hoặc null → để LLM diễn đạt.
      Mỗi tool tự xử lý trường hợp rỗng bằng câu "Dạ ..." (không đẩy message thô của tool ra cho khách). */
-  renderFromTemplate(toolName, res) {
+    renderFromTemplate(toolName, res) {
     if (!res) return null;
     if (res.error) return `Dạ em gặp lỗi: ${res.error}`;
     const card = (tag, data) => `[UI_${tag}]${JSON.stringify(data)}[/UI_${tag}]`;
@@ -975,6 +990,12 @@ const AIToolExecutor = {
       case 'search_customer_history':
         if (!res.customers || !res.customers.length) return 'Dạ em không tìm thấy khách hàng nào khớp ạ.';
         return card('CUSTOMER', res.customers.slice(0, 3));
+
+      /* ---------- Thẻ Giỏ Hàng (MỚI THÊM) ---------- */
+      case 'get_cart':
+        if (!res.hasItems) return 'Dạ giỏ hàng của anh/chị đang trống ạ. Anh/chị muốn xem menu không?';
+        return card('MENU', { title: '🛒 Giỏ hàng của bạn', total: res.items.length, items: res.items }) + 
+               `\nTổng cộng: ${API.utils.formatVND(res.total)}. Anh/chị có thể thanh toán ở trang Giỏ hàng nhé!`;
 
       /* ---------- Text có sẵn (không cần LLM) ---------- */
       case 'check_availability':

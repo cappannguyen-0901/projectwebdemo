@@ -234,6 +234,34 @@ const API = {
     },
 
     getActive(today)   { return this.getAll().filter(p => this.status(p, today) === 'active'); },
+
+    /* Kiểm tra & tính giảm giá cho 1 mã. Trả { ok, discount, promo } hoặc { ok:false, error } */
+    evaluate(code, subtotal, shipping, userId) {
+      const p = this.getByCode(code);
+      if (!p) return { ok: false, error: 'Mã khuyến mãi không tồn tại' };
+      const st = this.status(p);
+      if (st !== 'active') {
+        return { ok: false, error: st === 'upcoming' ? 'Mã chưa đến thời gian áp dụng' : st === 'expired' ? 'Mã đã hết hạn' : 'Mã đang tạm tắt' };
+      }
+      if (p.minOrder && subtotal < p.minOrder) {
+        return { ok: false, error: 'Đơn tối thiểu ' + API.utils.formatVND(p.minOrder) + ' mới dùng được mã này' };
+      }
+      if (/đầu tiên/i.test(p.terms || '') && userId &&
+          API.orders.getByUser(userId).some(o => o.status !== 'cancelled')) {
+        return { ok: false, error: 'Mã chỉ dành cho đơn hàng đầu tiên' };
+      }
+      const d = String(p.discount || '');
+      let discount = 0;
+      if (d.includes('%')) {
+        discount = Math.round(subtotal * (parseFloat(d) || 0) / 100);
+        if (p.maxDiscount) discount = Math.min(discount, p.maxDiscount);
+      } else {
+        discount = parseInt(d.replace(/\D/g, ''), 10) || 0;
+      }
+      if (/ship|giao hàng/i.test((p.name || '') + ' ' + (p.description || ''))) discount = Math.min(discount || shipping, shipping);
+      discount = Math.max(0, Math.min(discount, subtotal + shipping));
+      return { ok: true, discount, promo: p };
+    },
     getUpcoming(today) { return this.getAll().filter(p => this.status(p, today) === 'upcoming'); },
 
     _normalize(data) {
@@ -567,6 +595,8 @@ const API = {
         total: data.total,
         subtotal: data.subtotal || data.total,
         shipping: data.shipping || 0,
+        discount: data.discount || 0,
+        promoCode: data.promoCode || '',
         address: data.address,
         phone: data.phone,
         note: data.note || '',

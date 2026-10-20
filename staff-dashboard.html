@@ -155,6 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   refreshAll();
   setInterval(refreshAll, 10000);
+  window.addEventListener('storage', refreshAll);   // khách đặt chỗ/đặt hàng ở tab khác → cập nhật ngay
 });
 
 function renderClock() {

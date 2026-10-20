@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chính sách bảo mật – CAPPAN</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="theme.css">
+</head>
+<body data-page="privacy">
+
+<header class="app-header">
+  <a class="logo" href="index.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Coffee &amp; More - Home Study</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav">
+    <ul class="nav-list">
+      <li><a href="index.html">Trang chủ</a></li>
+      <li><a href="menu.html">Thực đơn</a></li>
+      <li><a href="booking.html">Đặt chỗ</a></li>
+      <li><a href="order.html">Đặt nước</a></li>
+      <li><a href="tracking.html">Theo dõi đơn</a></li>
+      <li><a href="contact.html" >Liên hệ</a></li>
+    </ul>
+    <div class="user-area" id="userArea"></div>
+  </nav>
+</header>
+
+<section class="section">
+  <h2 class="section-title">Chính Sách Bảo Mật</h2>
+  <p class="section-sub">Bản demo — cập nhật 20/10/2026</p>
+  <div class="legal">
+    <p class="demo-note">Đây là website <strong>demo học thuật</strong>. Nội dung dưới đây mô tả đúng cách hệ thống hiện hoạt động, không phải văn bản pháp lý hoàn chỉnh.</p>
+
+    <h3>1. Chúng tôi thu thập gì?</h3>
+    <ul>
+      <li>Họ tên, số điện thoại, mật khẩu khi đăng ký; địa chỉ giao hàng, ngày sinh, email nếu bạn tự nhập.</li>
+      <li>Lịch sử đặt chỗ, đơn hàng và nội dung trò chuyện với trợ lý AI.</li>
+    </ul>
+
+    <h3>2. Dùng để làm gì?</h3>
+    <p>Chỉ để đặt chỗ, đặt nước, giao hàng, hỗ trợ khách và đo chất lượng trợ lý AI. Không dùng cho quảng cáo, không bán cho bên thứ ba.</p>
+
+    <h3>3. Lưu ở đâu?</h3>
+    <p>Trong bản demo, dữ liệu được lưu <strong>ngay trên trình duyệt của bạn</strong> (localStorage) và không gửi lên máy chủ của quán. Vì vậy mật khẩu chỉ nên là mật khẩu thử nghiệm, đừng dùng mật khẩu thật của bạn.</p>
+
+    <h3>4. Trợ lý AI và nhà cung cấp mô hình</h3>
+    <ul>
+      <li>Câu hỏi bạn gõ trong khung chat có thể được gửi (qua máy chủ trung gian) tới nhà cung cấp mô hình AI bên ngoài (Groq, Google) để tạo câu trả lời; các nhà cung cấp này có thể đặt máy chủ ngoài Việt Nam.</li>
+      <li>Số điện thoại hiển thị cho trợ lý được che bớt chữ số ở giữa.</li>
+      <li>Vui lòng <strong>không nhập</strong> thông tin nhạy cảm (số thẻ, giấy tờ tùy thân, bệnh lý) vào khung chat.</li>
+      <li>Trợ lý AI có thể nhầm. Hãy dùng nút 👍/👎 để báo lại, và gọi hotline cho việc quan trọng.</li>
+    </ul>
+
+    <h3>5. Quyền của bạn</h3>
+    <p>Bạn có thể xem và sửa thông tin tại trang Tài khoản, xóa lịch sử chat bằng biểu tượng thùng rác trong khung chat, và xóa toàn bộ dữ liệu bằng cách xóa dữ liệu trang web trong trình duyệt. Mọi yêu cầu khác: cappannguyen@gmail.com hoặc hotline 0366 474 038 (theo tinh thần Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân).</p>
+  </div>
+</section>
+
+<footer class="app-footer">
+  <div class="footer-brand">CAPP<span>AN</span></div>
+  <div class="footer-tagline">Coffee &amp; More - Home Study</div>
+  <div class="footer-links">
+    <a href="index.html">Trang chủ</a>
+    <a href="menu.html">Thực đơn</a>
+    <a href="booking.html">Đặt chỗ</a>
+    <a href="order.html">Đặt nước</a>
+    <a href="tracking.html">Theo dõi đơn</a>
+    <a href="contact.html">Liên hệ</a>
+    <a href="privacy.html">Chính sách bảo mật</a>
+  </div>
+  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
+</footer>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>              
+<script src="js/data/promotions.js"></script>      
+<script src="js/api/index.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
+</body>
+</html>

@@ -249,6 +249,19 @@ const DemoData = {
       if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) { e.preventDefault(); this.toggle(); }
       if (e.key === 'Escape' && this._panel) this.toggle(false);
     });
+    /* Thông báo minh bạch: đây là bản demo, dữ liệu chỉ nằm trong trình duyệt */
+    try {
+      if (!sessionStorage.getItem('cappan_demo_banner_off')) {
+        const bn = document.createElement('div');
+        bn.className = 'demo-banner';
+        bn.setAttribute('role', 'note');
+        bn.innerHTML = '🎬 Bản demo — dữ liệu lưu ngay trên trình duyệt này, không gửi lên máy chủ. ' +
+          '<a href="privacy.html">Chính sách bảo mật</a>' +
+          '<button type="button" aria-label="Ẩn thông báo">✕</button>';
+        bn.querySelector('button').onclick = () => { bn.remove(); try { sessionStorage.setItem('cappan_demo_banner_off', '1'); } catch (e) {} };
+        document.body.appendChild(bn);
+      }
+    } catch (e) {}
     const isStaff = (document.body.dataset.page || '').startsWith('staff-');
     if (isStaff) {
       const fab = document.createElement('button');

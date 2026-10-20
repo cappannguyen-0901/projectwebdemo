@@ -11,8 +11,8 @@ const SEED_PROMOTIONS = [
     minOrder: 0,
     maxDiscount: 30000,
     active: true,
-    startDate: '2025-01-01',
-    endDate: '2025-12-31',
+    startDate: '2026-01-01',
+    endDate: '2027-12-31',
     terms: 'Áp dụng cho đơn hàng đầu tiên của khách mới'
   },
   {
@@ -22,8 +22,8 @@ const SEED_PROMOTIONS = [
     discount: '15.000đ',
     minOrder: 100000,
     active: true,
-    startDate: '2025-01-01',
-    endDate: '2025-12-31',
+    startDate: '2026-01-01',
+    endDate: '2027-12-31',
     terms: 'Áp dụng cho đơn giao hàng trong bán kính 3km'
   },
   {
@@ -33,8 +33,8 @@ const SEED_PROMOTIONS = [
     discount: '20.000đ',
     minOrder: 100000,
     active: true,
-    startDate: '2025-01-01',
-    endDate: '2025-12-31',
+    startDate: '2026-01-01',
+    endDate: '2027-12-31',
     terms: 'Không áp dụng cùng lúc với mã khác'
   }
 ];

@@ -88,7 +88,22 @@ const KB = {
     {
       question: 'Có món chay không?',
       answer: 'Dạ CAPPAN chưa có menu chay riêng, nhưng có một số món phù hợp: Sinh tố Bơ, Sinh tố Xoài, Nước ép Cam, Trà Sen Vàng. Anh/chị có thể hỏi em thêm về các món này.',
-      keywords: ['chay', 'món chay', 'ăn chay', 'vegetarian']
+      keywords: ['chay', 'món chay', 'ăn chay', 'vegetarian', 'vegan']
+    },
+    {
+      question: 'Quán có bán đồ ăn không?',
+      answer: 'Dạ CAPPAN chủ yếu phục vụ đồ uống, món ăn hiện có là Bánh Flan. Anh/chị gọi hotline 0366 474 038 để hỏi thêm món ăn nhẹ nhé ạ.',
+      keywords: ['đồ ăn', 'món ăn', 'ăn vặt', 'ăn nhẹ', 'bánh']
+    },
+    {
+      question: 'Bạn là AI hay người thật?',
+      answer: 'Dạ em là trợ lý AI của CAPPAN, không phải người thật. Em có thể nhầm, với thông tin quan trọng anh/chị vui lòng gọi hotline 0366 474 038 ạ.',
+      keywords: ['là ai', 'ai hay người', 'người thật', 'robot', 'chatbot']
+    },
+    {
+      question: 'Dữ liệu cá nhân được dùng thế nào?',
+      answer: 'Dạ thông tin của anh/chị chỉ dùng để đặt chỗ và đặt nước. Chi tiết xem trang "Chính sách bảo mật" ở cuối website ạ.',
+      keywords: ['bảo mật', 'dữ liệu cá nhân', 'quyền riêng tư', 'thông tin cá nhân']
     },
     {
       question: 'Có giao hàng không?',

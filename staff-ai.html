@@ -149,9 +149,11 @@ function render() {
   document.getElementById('aiCards').innerHTML = [
     ['💬', s.total, 'Tổng lượt hỏi'],
     ['🆓', s.noLlmPct + '%', 'Không tốn token (KB + cache)'],
-    ['⚡', s.avgTtft + 'ms', 'Chữ đầu tiên (TB)'],
+    ['⚡', s.avgTtft + 'ms', 'Chữ đầu tiên (TB mọi nguồn)'],
+    ['⏱', s.avgTtftBy.llm ? s.avgTtftBy.llm + 'ms' : '—', 'Chữ đầu tiên (chỉ khi gọi AI)'],
     ['🧮', n(s.tokIn + s.tokOut), 'Token ước tính'],
-    ['🛟', s.legacyPct + '%', 'Rơi xuống dự phòng']
+    ['🛟', s.legacyPct + '%', 'Rơi xuống dự phòng'],
+    ['👍', (s.fbUp + s.fbDown) ? Math.round(s.fbUp / (s.fbUp + s.fbDown) * 100) + '%' : '—', 'Hài lòng (' + (s.fbUp + s.fbDown) + ' phản hồi)']
   ].map(([icon, val, label]) => `
     <div class="stat-card">
       <div class="stat-icon">${icon}</div>
@@ -196,7 +198,7 @@ function render() {
   const recent = list.slice(-12).reverse();
   document.getElementById('aiRecent').innerHTML = recent.length ? `
     <table class="staff-table">
-      <thead><tr><th>Giờ</th><th>Vai trò</th><th>Câu hỏi</th><th>Nguồn</th><th>TTFT</th><th>Tổng</th><th>Công cụ</th></tr></thead>
+      <thead><tr><th>Giờ</th><th>Vai trò</th><th>Câu hỏi</th><th>Nguồn</th><th>TTFT</th><th>Tổng</th><th>Công cụ</th><th>Đánh giá</th></tr></thead>
       <tbody>${recent.map(e => `
         <tr>
           <td>${new Date(e.t).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
@@ -206,6 +208,7 @@ function render() {
           <td>${e.ttft != null ? e.ttft + 'ms' : '—'}</td>
           <td>${e.ms}ms</td>
           <td>${(e.tools || []).map(esc).join(', ') || '—'}</td>
+          <td>${e.fb === 'up' ? '👍' : e.fb === 'down' ? '👎' : '—'}</td>
         </tr>`).join('')}</tbody>
     </table>` : '<p class="ai-empty">Chưa có lượt hỏi nào. Hãy chat với trợ lý hoặc bấm “Chạy 10 câu mẫu”.</p>';
 

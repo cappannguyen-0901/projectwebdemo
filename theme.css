@@ -505,3 +505,31 @@ body[data-page^="staff-"] .stat-value { font-size: 1.5rem; }
 body[data-page^="staff-"] .stat-label { font-size: .7rem; letter-spacing: .3px; }
 .fx-scroll-cue { bottom: 112px; }
 @media (max-width: 768px) { .fx-scroll-cue { bottom: 84px; } }
+
+/* ============================================================
+   BỔ SUNG BẢN DEMO — minh bạch AI, phản hồi, khuyến mãi, quyền riêng tư
+============================================================ */
+.demo-banner { position: fixed; left: 12px; bottom: 12px; z-index: 900; max-width: min(460px, calc(100vw - 96px)); background: rgba(40,28,20,.92); color: #f5e6d3; font-size: .74rem; line-height: 1.4; padding: 8px 34px 8px 12px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+.demo-banner a { color: #f0d675; text-decoration: underline; margin-left: 4px; }
+.demo-banner button { position: absolute; top: 4px; right: 6px; background: transparent; border: 0; color: inherit; cursor: pointer; font-size: .85rem; padding: 4px; }
+.ai-disclaimer { font-size: .68rem; color: #8a7a6a; text-align: center; padding: 5px 10px 0; background: #fff; }
+.ai-disclaimer a { color: #6F4E37; font-weight: 600; text-decoration: none; }
+.msg-actions { display: flex; align-items: center; gap: 4px; margin-top: 6px; opacity: .85; }
+.fb-btn { background: transparent; border: 1px solid rgba(111,78,55,.25); border-radius: 999px; cursor: pointer; font-size: .8rem; padding: 1px 8px; line-height: 1.5; transition: background .15s, transform .1s; }
+.fb-btn:hover { background: rgba(201,162,39,.18); }
+.fb-btn:active { transform: scale(.94); }
+.fb-btn.on { background: #C9A227; border-color: #C9A227; }
+.fb-note { font-size: .7rem; color: #8a7a6a; margin-left: 4px; }
+.promo-row { display: flex; gap: 8px; margin: 4px 0 6px; }
+.promo-row input { flex: 1; min-width: 0; text-transform: uppercase; }
+.promo-row button { white-space: nowrap; }
+.promo-msg { font-size: .78rem; min-height: 1.1em; margin-bottom: 6px; }
+.promo-msg.ok { color: #2E7D32; } .promo-msg.err { color: #c62828; }
+.summary-row.discount span:last-child { color: #2E7D32; font-weight: 700; }
+.size-sel { width: 100%; margin: 6px 0 2px; padding: 6px 8px; border: 1px solid #e0d5c3; border-radius: 8px; font: inherit; font-size: .82rem; background: #fff; }
+.demo-note { font-size: .78rem; color: #8a6d1d; background: #fff8e1; border: 1px dashed #e6c76a; border-radius: 10px; padding: 8px 12px; margin: 0 0 14px; }
+.consent-row { display: flex !important; flex-direction: row !important; align-items: flex-start; gap: 8px; font-size: .82rem; }
+.consent-row input { width: auto !important; margin-top: 3px; }
+.legal { max-width: 780px; margin: 0 auto; line-height: 1.7; }
+.legal h3 { margin: 22px 0 6px; color: #6F4E37; }
+.legal ul { padding-left: 20px; }

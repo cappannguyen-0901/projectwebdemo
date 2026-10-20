@@ -28,13 +28,10 @@
   </nav>
 </header>
 
-<div class="demo-banner">
-  ⚠️ Trạng thái đơn chỉ cập nhật khi nhân viên thao tác trên tab khác (demo). Không tự "giao hàng".
-</div>
-
 <section class="section">
   <h2 class="section-title">Theo Dõi Đơn Hàng</h2>
   <p class="section-sub">Xem đơn hàng của bạn đang ở đâu</p>
+  <p class="demo-note">ℹ️ Chế độ mô phỏng: đơn tự chuyển bước mỗi 5 giây để minh họa hành trình giao hàng; thông tin shipper và vị trí là dữ liệu mẫu.</p>
 
   <div id="needLogin" class="empty-state" hidden>
     <div class="empty-icon">🔒</div>
@@ -61,6 +58,7 @@
     <a href="order.html">Đặt nước</a>
     <a href="tracking.html">Theo dõi đơn</a>
     <a href="contact.html">Liên hệ</a>
+    <a href="privacy.html">Chính sách bảo mật</a>
   </div>
   <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
 </footer>
@@ -81,7 +79,7 @@
     </div>
   </div>
   <div class="chat-body" id="chatBody">
-    <div class="msg bot"><div class="bubble">Em là trợ lý AI, có thể sai. Bạn cần hỏi gì về đơn hàng không? 📦</div></div>
+    <div class="msg bot"><div class="bubble">Bạn cần hỏi gì về đơn hàng không? 📦</div></div>
   </div>
   <div class="chat-input">
     <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
@@ -95,8 +93,8 @@
 <script src="js/data/schema.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
-<script src="js/data/kb.js"></script>
-<script src="js/data/promotions.js"></script>
+<script src="js/data/kb.js"></script>             
+<script src="js/data/promotions.js"></script>     
 <script src="js/api/index.js"></script>
 <script src="js/staff-guard.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
@@ -236,16 +234,26 @@ function getETA(step) {
   return eta.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
-/* ⚡ FIX W5: KHÔNG tự đẩy trạng thái — chỉ poll để đồng bộ khi staff cập nhật ở tab khác */
 function startOrderSimulation() {
   if (orderTimer) clearInterval(orderTimer);
+
+  // ⚡ Auto-advance mỗi 5 giây (demo)
   orderTimer = setInterval(() => {
     const user = API.users.getCurrent();
     if (!user) { clearInterval(orderTimer); return; }
-    const myOrders = API.orders.getByUser(user.id);
-    const hasActive = myOrders.some(o => API.orders.isActive(o));
-    if (!hasActive) { clearInterval(orderTimer); return; }
-    renderTracking();
+
+    const activeOrders = API.orders.getByUser(user.id).filter(o => API.orders.isActive(o));   // bỏ đơn đã hủy
+    if (activeOrders.length === 0) { clearInterval(orderTimer); return; }
+
+    let anyAdvanced = false;
+    activeOrders.forEach(o => {
+      const newStep = o.step + 1;
+      API.orders.updateStep(o.id, newStep);
+      anyAdvanced = true;
+      if (newStep >= 4) showToast(`🎉 Đơn #${o.id} đã giao thành công!`);
+    });
+
+    if (anyAdvanced) renderTracking();
   }, 5000);
 }
 
