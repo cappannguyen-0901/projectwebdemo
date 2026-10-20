@@ -15,6 +15,7 @@ if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
 d.dataset.chat=localStorage.getItem('cappan_chat_panel_collapsed')==='1'?'collapsed':'open';
 d.classList.add('no-anim');}catch(e){}})();
 </script>
+<link rel="stylesheet" href="theme.css">
 </head>
 <body data-page="staff-menu">
 
@@ -157,9 +158,9 @@ function renderMenu() {
       <tbody>
         ${items.map(m => `
           <tr>
-            <td><img src="${m.img}" style="width:48px; height:48px; object-fit:cover; border-radius:6px;"></td>
+            <td><img src="${esc(m.img)}" style="width:48px; height:48px; object-fit:cover; border-radius:6px;"></td>
             <td><strong>${m.id}</strong></td>
-            <td>${m.name}</td>
+            <td>${esc(m.name)}</td>
             <td>${API.categories.getById(m.categoryId)?.name || '—'}</td>
             <td>${API.utils.formatVND(m.price)}</td>
             <td>
@@ -197,15 +198,7 @@ function editPrice(id) {
   if (!newPrice) return;
   const num = parseInt(newPrice);
   if (isNaN(num) || num < 1000) { showToast('⚠ Giá không hợp lệ', '#c62828'); return; }
-  if (typeof API.menu.update === 'function') {
-    API.menu.update(id, { price: num });          // lưu bền vững qua API
-  } else {
-    m.price = num;                                // fallback: chỉ lưu trong bộ nhớ
-    if (typeof SEED_MENU_ITEMS !== 'undefined') {
-      const idx = SEED_MENU_ITEMS.findIndex(x => x.id === id);
-      if (idx >= 0) SEED_MENU_ITEMS[idx].price = num;
-    }
-  }
+  API.menu.update(id, { price: num });   // lưu bền vững
   renderMenu();
   showToast('✓ Đã đổi giá');
 }
@@ -244,5 +237,7 @@ function handleAddItem(e) {
   return false;
 }
 </script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
 </body>
 </html>

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Thực đơn – CAPPAN</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="theme.css">
 </head>
 <body data-page="menu">
 
@@ -147,13 +148,13 @@ function renderGrid() {
 
     return `
       <div class="menu-card ${outOfStock ? 'out-of-stock' : ''}">
-        ${item.badge ? `<div class="badge">${item.badge}</div>` : ''}
+        ${item.badge ? `<div class="badge">${esc(item.badge)}</div>` : ''}
         ${outOfStock ? '<div class="badge badge-out">Hết hàng</div>' : ''}
-        <img src="${item.img}" alt="${item.name}" loading="lazy">
+        <img src="${esc(item.img)}" alt="${esc(item.name)}" loading="lazy">
         <div class="info">
-          <h4>${item.name}</h4>
+          <h4>${esc(item.name)}</h4>
           <div class="price">${API.utils.formatVND(item.price)}</div>
-          ${item.description ? `<p class="desc">${item.description}</p>` : ''}
+          ${item.description ? `<p class="desc">${esc(item.description)}</p>` : ''}
           ${actionBtn}
         </div>
       </div>
@@ -198,5 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
 </body>
 </html>

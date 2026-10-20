@@ -2,6 +2,11 @@
    API GIẢ — MÔ PHỎNG BACKEND (ĐÃ FIX LỖI LOGIC)
 ============================================================ */
 
+/* Bản chụp khuyến mãi mặc định — chỉ dùng để nạp lần đầu */
+const _PROMO_SEED = (typeof SEED_PROMOTIONS !== 'undefined' ? SEED_PROMOTIONS : []).map(p => ({ ...p }));
+/* Bản chụp menu gốc */
+const _MENU_BASE = (typeof SEED_MENU_ITEMS !== 'undefined' ? SEED_MENU_ITEMS : []).map(m => ({ ...m }));
+
 const API = {
 
   /* ---------- USERS ---------- */
@@ -67,62 +72,66 @@ const API = {
   /* ---------- MENU ---------- */
   menu: {
     _getStateMap() {
-      try {
-        return JSON.parse(localStorage.getItem('cappan_menu_state') || '{}');
-      } catch { return {}; }
+      try { return JSON.parse(localStorage.getItem('cappan_menu_state') || '{}'); }
+      catch { return {}; }
     },
+    _setStateMap(map) { localStorage.setItem('cappan_menu_state', JSON.stringify(map)); },
 
-    _setStateMap(map) {
-      localStorage.setItem('cappan_menu_state', JSON.stringify(map));
+    _read(key, fallback) {
+      try {
+        const v = JSON.parse(localStorage.getItem(key));
+        return v === null || v === undefined ? fallback : v;
+      } catch { return fallback; }
+    },
+    _custom()    { const v = this._read('cappan_menu_custom', []);    return Array.isArray(v) ? v : []; },
+    _removed()   { const v = this._read('cappan_menu_removed', []);   return Array.isArray(v) ? v : []; },
+    _overrides() { const v = this._read('cappan_menu_overrides', {}); return (v && typeof v === 'object') ? v : {}; },
+
+    /* Giữ SEED_MENU_ITEMS (biến toàn cục) khớp với dữ liệu thật,
+       để các trang đọc trực tiếp SEED_MENU_ITEMS vẫn thấy thay đổi */
+    _syncSeed() {
+      if (typeof SEED_MENU_ITEMS === 'undefined') return;
+      const all = this.getAll();
+      SEED_MENU_ITEMS.length = 0;
+      all.forEach(m => SEED_MENU_ITEMS.push(m));
     },
 
     getAll() {
       const stateMap = this._getStateMap();
-      return SEED_MENU_ITEMS.map(m => ({
-        ...m,
-        inStock: stateMap[m.id] !== undefined ? stateMap[m.id] : m.inStock
-      }));
+      const removed = this._removed();
+      const overrides = this._overrides();
+      return [..._MENU_BASE, ...this._custom()]
+        .filter(m => !removed.includes(m.id))
+        .map(m => {
+          const merged = { ...m, ...(overrides[m.id] || {}) };
+          merged.inStock = stateMap[m.id] !== undefined ? stateMap[m.id] : merged.inStock;
+          return merged;
+        });
     },
 
-    getById(id) {
-      return this.getAll().find(m => m.id === id) || null;
-    },
-
-    getByCategory(catId) {
-      return this.getAll().filter(m => m.categoryId === catId);
-    },
-
-    getAvailable() {
-      return this.getAll().filter(m => m.inStock);
-    },
-
-    getOutOfStock() {
-      return this.getAll().filter(m => !m.inStock);
-    },
+    getById(id) { return this.getAll().find(m => m.id === id) || null; },
+    getByCategory(catId) { return this.getAll().filter(m => m.categoryId === catId); },
+    getAvailable() { return this.getAll().filter(m => m.inStock); },
+    getOutOfStock() { return this.getAll().filter(m => !m.inStock); },
 
     search(kw) {
-      const k = kw.toLowerCase().trim();
+      const k = String(kw || '').toLowerCase().trim();
       if (!k) return this.getAll();
       return this.getAll().filter(m => m.name.toLowerCase().includes(k));
     },
 
     markOutOfStock(id) {
-      const map = this._getStateMap();
-      map[id] = false;
-      this._setStateMap(map);
+      const map = this._getStateMap(); map[id] = false; this._setStateMap(map);
       return this.getById(id);
     },
-
     markInStock(id) {
-      const map = this._getStateMap();
-      map[id] = true;
-      this._setStateMap(map);
+      const map = this._getStateMap(); map[id] = true; this._setStateMap(map);
       return this.getById(id);
     },
 
     add(item) {
       const newItem = {
-        id: 'M' + Date.now().toString().slice(-4),
+        id: 'M' + Date.now().toString().slice(-6),
         name: item.name,
         categoryId: item.categoryId,
         price: item.price,
@@ -133,17 +142,156 @@ const API = {
         sizes: item.sizes || [],
         toppings: item.toppings || []
       };
-      SEED_MENU_ITEMS.push(newItem);
+      const custom = this._custom();
+      custom.push(newItem);
+      localStorage.setItem('cappan_menu_custom', JSON.stringify(custom));
+      this._syncSeed();
       return newItem;
     },
 
+    /* Sửa thông tin món (giá, tên, mô tả...) — lưu bền vững */
+    update(id, patch) {
+      const exists = this.getById(id);
+      if (!exists) return null;
+      const safe = { ...patch };
+      delete safe.id;
+      const custom = this._custom();
+      const ci = custom.findIndex(m => m.id === id);
+      if (ci >= 0) {
+        custom[ci] = { ...custom[ci], ...safe };
+        localStorage.setItem('cappan_menu_custom', JSON.stringify(custom));
+      } else {
+        const ov = this._overrides();
+        ov[id] = { ...(ov[id] || {}), ...safe };
+        localStorage.setItem('cappan_menu_overrides', JSON.stringify(ov));
+      }
+      this._syncSeed();
+      return this.getById(id);
+    },
+
     remove(id) {
-      const i = SEED_MENU_ITEMS.findIndex(m => m.id === id);
-      if (i === -1) return false;
-      SEED_MENU_ITEMS.splice(i, 1);
-      const map = this._getStateMap();
-      delete map[id];
-      this._setStateMap(map);
+      if (!this.getById(id)) return false;
+      const custom = this._custom();
+      const ci = custom.findIndex(m => m.id === id);
+      if (ci >= 0) {
+        custom.splice(ci, 1);
+        localStorage.setItem('cappan_menu_custom', JSON.stringify(custom));
+      } else {
+        const removed = this._removed();
+        if (!removed.includes(id)) removed.push(id);
+        localStorage.setItem('cappan_menu_removed', JSON.stringify(removed));
+      }
+      const map = this._getStateMap(); delete map[id]; this._setStateMap(map);
+      const ov = this._overrides(); delete ov[id];
+      localStorage.setItem('cappan_menu_overrides', JSON.stringify(ov));
+      this._syncSeed();
+      return true;
+    }
+  },
+
+  /* ---------- PROMOTIONS (quản lý trên giao diện staff) ---------- */
+  promotions: {
+    KEY: 'cappan_promotions',
+
+    _save(list) {
+      localStorage.setItem(this.KEY, JSON.stringify(list));
+      this._sync(list);
+    },
+
+    /* Giữ SEED_PROMOTIONS khớp dữ liệu thật (cho trang nào còn đọc trực tiếp) */
+    _sync(list) {
+      if (typeof SEED_PROMOTIONS === 'undefined') return;
+      const src = list || this.getAll();
+      SEED_PROMOTIONS.length = 0;
+      src.forEach(p => SEED_PROMOTIONS.push(p));
+    },
+
+    getAll() {
+      try {
+        const raw = localStorage.getItem(this.KEY);
+        if (raw === null) {                      // lần đầu: nạp mã mặc định
+          const seed = _PROMO_SEED.map(p => ({ ...p }));
+          localStorage.setItem(this.KEY, JSON.stringify(seed));
+          return seed;
+        }
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+      } catch { return []; }
+    },
+
+    getByCode(code) {
+      const c = String(code || '').toUpperCase().trim();
+      return this.getAll().find(p => p.code === c) || null;
+    },
+
+    /* 'active' | 'upcoming' | 'expired' | 'off' */
+    status(p, today) {
+      const d = today || API.utils.today();
+      if (!p.active) return 'off';
+      if (p.startDate && d < p.startDate) return 'upcoming';
+      if (p.endDate && d > p.endDate) return 'expired';
+      return 'active';
+    },
+
+    getActive(today)   { return this.getAll().filter(p => this.status(p, today) === 'active'); },
+    getUpcoming(today) { return this.getAll().filter(p => this.status(p, today) === 'upcoming'); },
+
+    _normalize(data) {
+      const num = v => { const n = Number(v); return isFinite(n) && n > 0 ? n : 0; };
+      const out = {
+        code: String(data.code || '').toUpperCase().replace(/\s+/g, ''),
+        name: String(data.name || '').trim(),
+        description: String(data.description || '').trim(),
+        discount: String(data.discount || '').trim(),
+        minOrder: num(data.minOrder),
+        active: data.active !== false,
+        startDate: data.startDate || '',
+        endDate: data.endDate || '',
+        terms: String(data.terms || '').trim()
+      };
+      const max = num(data.maxDiscount);
+      if (max) out.maxDiscount = max;
+      return out;
+    },
+
+    _validate(p) {
+      if (!p.code) return 'Vui lòng nhập mã khuyến mãi';
+      if (!/^[A-Z0-9_-]{3,20}$/.test(p.code)) return 'Mã chỉ gồm chữ/số/gạch (3–20 ký tự)';
+      if (!p.name) return 'Vui lòng nhập tên chương trình';
+      if (!p.discount) return 'Vui lòng nhập mức giảm (VD: 10% hoặc 20.000đ)';
+      if (p.startDate && p.endDate && p.endDate < p.startDate) return 'Ngày kết thúc phải sau ngày bắt đầu';
+      return null;
+    },
+
+    add(data) {
+      const p = this._normalize(data);
+      const err = this._validate(p);
+      if (err) return { ok: false, error: err };
+      const list = this.getAll();
+      if (list.some(x => x.code === p.code)) return { ok: false, error: `Mã ${p.code} đã tồn tại` };
+      list.push(p);
+      this._save(list);
+      return { ok: true, promo: p };
+    },
+
+    update(code, data) {
+      const list = this.getAll();
+      const i = list.findIndex(x => x.code === String(code).toUpperCase());
+      if (i === -1) return { ok: false, error: 'Không tìm thấy mã khuyến mãi' };
+      const p = this._normalize({ ...list[i], ...data, code: list[i].code });
+      const err = this._validate(p);
+      if (err) return { ok: false, error: err };
+      list[i] = p;
+      this._save(list);
+      return { ok: true, promo: p };
+    },
+
+    remove(code) {
+      const c = String(code).toUpperCase();
+      const list = this.getAll();
+      const next = list.filter(x => x.code !== c);
+      if (next.length === list.length) return false;
+      this._save(next);
       return true;
     }
   },
@@ -252,6 +400,36 @@ const API = {
 
     resetToDefault() {
       localStorage.removeItem('cappan_seats_state');
+    },
+
+    /* Hoàn tất các booking đang hoạt động thỏa điều kiện, trả về số booking */
+    _completeActive(filterFn) {
+      const active = API.bookings.getAll().filter(b => b.status === 'confirmed' && filterFn(b));
+      active.forEach(b => API.bookings.complete(b.id));
+      return active.length;
+    },
+
+    /* Reset 1 chỗ: hoàn tất booking đang giữ chỗ rồi trả ghế */
+    resetSeat(id) {
+      const n = this._completeActive(b => b.seatId === id);
+      this.release(id);
+      this.syncFromBookings();
+      return n;
+    },
+
+    resetByFloor(floorId) {
+      const ids = SEED_SEATS.filter(s => s.floorId === floorId).map(s => s.id);
+      const n = this._completeActive(b => ids.includes(b.seatId));
+      this.releaseByFloor(floorId);
+      this.syncFromBookings();
+      return n;
+    },
+
+    resetAll() {
+      const n = this._completeActive(() => true);
+      this.releaseAll();
+      this.syncFromBookings();
+      return n;
     }
   },
 
@@ -343,6 +521,27 @@ const API = {
       return this.getAll().filter(o => o.userId === uid);
     },
 
+    /* Đơn đang xử lý = chưa hoàn tất VÀ chưa bị hủy */
+    isActive(o) { return o.step < 4 && o.status !== 'cancelled'; },
+    getActive() { return this.getAll().filter(o => this.isActive(o)); },
+
+    update(id, patch) {
+      const list = this.getAll();
+      const i = list.findIndex(o => o.id === id);
+      if (i === -1) return null;
+      list[i] = { ...list[i], ...patch };
+      localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(list));
+      const cur = this.getCurrent();
+      if (cur && cur.id === id) this.setCurrent(list[i]);
+      return list[i];
+    },
+
+    cancel(id) {
+      const o = this.getById(id);
+      if (!o || o.status === 'cancelled') return null;
+      return this.update(id, { status: 'cancelled', cancelledAt: new Date().toISOString() });
+    },
+
     getCurrent() {
       try {
         return JSON.parse(localStorage.getItem(STORAGE_KEYS.currentOrder) || 'null');
@@ -386,6 +585,7 @@ const API = {
       const list = this.getAll();
       const i = list.findIndex(o => o.id === id);
       if (i === -1) return null;
+      if (list[i].status === 'cancelled') return list[i];   // đơn đã hủy không đổi bước nữa
 
       list[i].step = step;
       const map = ['pending', 'preparing', 'delivering', 'delivering', 'completed'];
@@ -723,10 +923,10 @@ const API = {
     ordersByStatus() {
       const list = API.orders.getAll();
       return {
-        pending:    list.filter(o => o.step === 0).length,
-        preparing:  list.filter(o => o.step === 1).length,
-        shipping:   list.filter(o => o.step === 2 || o.step === 3).length,
-        completed:  list.filter(o => o.step >= 4).length,
+        pending:    list.filter(o => o.status !== 'cancelled' && o.step === 0).length,
+        preparing:  list.filter(o => o.status !== 'cancelled' && o.step === 1).length,
+        shipping:   list.filter(o => o.status !== 'cancelled' && (o.step === 2 || o.step === 3)).length,
+        completed:  list.filter(o => o.status !== 'cancelled' && o.step >= 4).length,
         cancelled:  list.filter(o => o.status === 'cancelled').length
       };
     },
@@ -752,9 +952,15 @@ const API = {
     formatVND(n) { return n.toLocaleString('vi-VN') + 'đ'; },
     randomId(prefix='ID', len=4) { return prefix + Math.floor(Math.random() * Math.pow(10, len)); },
     now() { return new Date().toISOString(); },
-    today() { return new Date().toISOString().split('T')[0]; }
+    today() {
+      const d = new Date();
+      const p = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;   // giờ địa phương
+    }
   }
 };
 
 /* Seed demo users khi load */
 API.users.seedDemo();
+API.menu._syncSeed();
+API.promotions._sync();

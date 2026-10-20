@@ -15,6 +15,7 @@ if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
 d.dataset.chat=localStorage.getItem('cappan_chat_panel_collapsed')==='1'?'collapsed':'open';
 d.classList.add('no-anim');}catch(e){}})();
 </script>
+<link rel="stylesheet" href="theme.css">
 </head>
 <body data-page="staff-bookings">
 
@@ -149,8 +150,8 @@ function renderBookings() {
           return `
             <tr>
               <td><strong>${b.id}</strong></td>
-              <td>${user ? user.name : '—'}</td>
-              <td>${user ? user.phone : '—'}</td>
+              <td>${user ? esc(user.name) : '—'}</td>
+              <td>${user ? esc(user.phone) : '—'}</td>
               <td>${b.seatId}</td>
               <td>${floor ? floor.name : '—'}</td>
               <td>${b.date}</td>
@@ -194,5 +195,7 @@ function completeAll() {
   showToast(`✓ Đã hoàn thành ${active.length} booking`);
 }
 </script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
 </body>
 </html>

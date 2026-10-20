@@ -120,7 +120,7 @@ const SEED_RECIPES = {
   },
 
   'M102': {
-    name: 'Matcha Latte',
+    name: 'Trà Xanh Matcha',
     size: '350ml',
     ingredients: [
       '3g bột Matcha Nhật Bản',

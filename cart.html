@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Giỏ hàng – CAPPAN</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="theme.css">
 </head>
 <body data-page="cart">
 
@@ -67,6 +68,16 @@
         <textarea id="coNote" rows="2" placeholder="Ít đá, ít đường..."></textarea>
       </div>
 
+      <!-- ⚡ FIX W5: ô nhập mã khuyến mãi -->
+      <div class="form-group">
+        <label>Mã khuyến mãi</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="coPromo" placeholder="VD: WELCOME10" style="flex:1; text-transform:uppercase;">
+          <button type="button" class="btn" style="padding:10px 16px;" onclick="applyPromo()">Áp dụng</button>
+        </div>
+        <small class="form-hint" id="promoMsg"></small>
+      </div>
+
       <div class="checkout-summary">
         <div class="summary-row">
           <span>Tạm tính</span>
@@ -118,7 +129,7 @@
     </div>
   </div>
   <div class="chat-body" id="chatBody">
-    <div class="msg bot"><div class="bubble">Bạn cần hỗ trợ không? 🛒</div></div>
+    <div class="msg bot"><div class="bubble">Em là trợ lý AI, có thể sai. Bạn cần hỗ trợ gì ạ?</div></div>
   </div>
   <div class="chat-input">
     <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
@@ -132,8 +143,8 @@
 <script src="js/data/schema.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
-<script src="js/data/kb.js"></script>              
-<script src="js/data/promotions.js"></script>      
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
 <script src="js/api/index.js"></script>
 <script src="js/staff-guard.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
@@ -143,6 +154,7 @@
 
 <script>
 const SHIPPING_FEE = 15000;
+let appliedPromo = null;   // { code, discountValue, minOrder }
 
 function renderCartPage() {
   const cart = API.cart.get();
@@ -153,6 +165,7 @@ function renderCartPage() {
   if (cart.length === 0) {
     empty.hidden = false;
     content.hidden = true;
+    appliedPromo = null;
     return;
   }
 
@@ -165,26 +178,39 @@ function renderCartPage() {
   const list = document.getElementById('cartItemsList');
   list.innerHTML = cart.map(i => `
     <div class="cart-item">
-      <img src="${i.img}" alt="${i.name}">
+      <img src="${esc(i.img)}" alt="${esc(i.name)}">
       <div class="cart-item-info">
-        <h4>${i.name}</h4>
-        <small>Size ${i.size || 'M'}</small>
+        <h4>${esc(i.name)}</h4>
+        <small>Size ${esc(i.size || 'M')}${i.toppings && i.toppings.length ? ' + ' + i.toppings.map(t => esc(t.name)).join(', ') : ''}</small>
         <div class="cart-item-price">${API.utils.formatVND(i.price)}</div>
       </div>
       <div class="cart-item-qty">
-        <button class="qty-btn" onclick="changeQty('${i.itemId}','${i.size}',-1)">−</button>
+        <button class="qty-btn" onclick="changeQty('${esc(i.itemId)}','${esc(i.size)}',-1)">−</button>
         <span>${i.qty}</span>
-        <button class="qty-btn" onclick="changeQty('${i.itemId}','${i.size}',1)">+</button>
+        <button class="qty-btn" onclick="changeQty('${esc(i.itemId)}','${esc(i.size)}',1)">+</button>
       </div>
       <div class="cart-item-total">${API.utils.formatVND(i.price * i.qty)}</div>
-      <button class="cart-item-remove" onclick="removeItem('${i.itemId}','${i.size}')">✕</button>
+      <button class="cart-item-remove" onclick="removeItem('${esc(i.itemId)}','${esc(i.size)}')">✕</button>
     </div>
   `).join('');
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const discount = appliedPromo ? appliedPromo.discountValue : 0;
+  const total = subtotal + SHIPPING_FEE - discount;
+
   document.getElementById('sumSubtotal').textContent = API.utils.formatVND(subtotal);
   document.getElementById('sumShipping').textContent = API.utils.formatVND(SHIPPING_FEE);
-  document.getElementById('sumTotal').textContent = API.utils.formatVND(subtotal + SHIPPING_FEE);
+
+  // ⚡ render lại summary có discount
+  const summary = document.querySelector('.checkout-summary');
+  if (summary) {
+    summary.innerHTML = `
+      <div class="summary-row"><span>Tạm tính</span><span>${API.utils.formatVND(subtotal)}</span></div>
+      <div class="summary-row"><span>Phí giao hàng</span><span>${API.utils.formatVND(SHIPPING_FEE)}</span></div>
+      ${discount ? `<div class="summary-row" style="color:#2E7D32;"><span>Giảm giá (${esc(appliedPromo.code)})</span><span>−${API.utils.formatVND(discount)}</span></div>` : ''}
+      <div class="summary-row total"><span>Tổng cộng</span><span>${API.utils.formatVND(Math.max(0, total))}</span></div>
+    `;
+  }
 
   const user = API.users.getCurrent();
   if (user) {
@@ -195,6 +221,51 @@ function renderCartPage() {
     if (phoneEl && !phoneEl.value) phoneEl.value = user.phone || '';
     if (addrEl && !addrEl.value) addrEl.value = user.address || '';
   }
+}
+
+function applyPromo() {
+  const code = document.getElementById('coPromo').value.trim().toUpperCase();
+  const msg = document.getElementById('promoMsg');
+  if (!code) { msg.textContent = ''; return; }
+
+  const promo = API.promotions.getByCode(code);
+  if (!promo) {
+    msg.textContent = '⚠ Mã không tồn tại'; msg.style.color = '#c62828';
+    appliedPromo = null; renderCartPage(); return;
+  }
+
+  const status = API.promotions.status(promo);
+  if (status !== 'active') {
+    const map = { expired: 'Mã đã hết hạn', upcoming: 'Mã chưa đến ngày áp dụng', off: 'Mã đang tạm tắt' };
+    msg.textContent = '⚠ ' + (map[status] || 'Mã không khả dụng');
+    msg.style.color = '#c62828';
+    appliedPromo = null; renderCartPage(); return;
+  }
+
+  const cart = API.cart.get();
+  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  if (promo.minOrder && subtotal < promo.minOrder) {
+    msg.textContent = `⚠ Đơn tối thiểu ${API.utils.formatVND(promo.minOrder)}`;
+    msg.style.color = '#c62828';
+    appliedPromo = null; renderCartPage(); return;
+  }
+
+  let discountValue = 0;
+  const m = String(promo.discount).match(/(\d+(?:[.,]\d+)?)\s*(%)?/);
+  if (m) {
+    const n = parseFloat(m[1].replace(',', '.'));
+    if (m[2] === '%') {
+      discountValue = Math.round(subtotal * n / 100);
+      if (promo.maxDiscount) discountValue = Math.min(discountValue, promo.maxDiscount);
+    } else {
+      discountValue = n;
+    }
+  }
+
+  appliedPromo = { code: promo.code, discountValue, minOrder: promo.minOrder };
+  msg.textContent = `✓ Đã áp dụng ${promo.code} — giảm ${API.utils.formatVND(discountValue)}`;
+  msg.style.color = '#2E7D32';
+  renderCartPage();
 }
 
 function changeQty(itemId, size, delta) {
@@ -214,6 +285,8 @@ function changeQty(itemId, size, delta) {
 function removeItem(itemId, size) {
   if (!confirm('Xoá món này khỏi giỏ?')) return;
   API.cart.remove(itemId, size);
+  // Nếu giỏ trống sau khi xoá → bỏ promo
+  if (API.cart.get().length === 0) appliedPromo = null;
   renderCartPage();
   updateUserArea();
   showToast('Đã xoá món khỏi giỏ');
@@ -222,6 +295,7 @@ function removeItem(itemId, size) {
 function clearCart() {
   if (!confirm('Xoá TẤT CẢ món trong giỏ?')) return;
   API.cart.clear();
+  appliedPromo = null;
   renderCartPage();
   updateUserArea();
   showToast('Đã xoá toàn bộ giỏ hàng');
@@ -252,19 +326,23 @@ function checkout() {
 
   const user = API.users.getCurrent();
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const discount = appliedPromo ? appliedPromo.discountValue : 0;
 
   const order = API.orders.create({
     userId: user.id,
     items: cart,
-    total: subtotal + SHIPPING_FEE,
+    total: Math.max(0, subtotal + SHIPPING_FEE - discount),
     subtotal: subtotal,
     shipping: SHIPPING_FEE,
+    discount: discount,
+    promoCode: appliedPromo ? appliedPromo.code : '',
     address, phone, note,
     customerName: name
   });
 
   API.users.update(user.id, { address });
   API.cart.clear();
+  appliedPromo = null;
   updateUserArea();
 
   showToast(`✓ Đặt hàng thành công! Mã: ${order.id}`);
@@ -276,5 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderCartPage();
 });
 </script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
 </body>
 </html>

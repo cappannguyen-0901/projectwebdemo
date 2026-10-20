@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thống kê AI — CAPPAN Staff</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="chat-panel.css">
+<link rel="stylesheet" href="staff.css">
+<script>
+/* Đặt sẵn độ rộng + trạng thái chat TRƯỚC khi trình duyệt vẽ lần đầu → không bị dựt khi đổi trang */
+(function(){try{var d=document.documentElement,
+w=parseInt(localStorage.getItem('cappan_chat_panel_width'),10);
+if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
+d.dataset.chat=localStorage.getItem('cappan_chat_panel_collapsed')==='1'?'collapsed':'open';
+d.classList.add('no-anim');}catch(e){}})();
+</script>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body data-page="staff-ai">
+
+<header class="app-header">
+  <a class="logo" href="staff-dashboard.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Staff Panel</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav"></nav>
+</header>
+
+<div class="dashboard-layout" id="dashboardLayout">
+  <div class="dashboard-main">
+    <section class="section">
+
+      <h2 class="section-title" style="text-align:left;">🤖 Thống kê trợ lý AI</h2>
+      <p class="section-sub" style="text-align:left;">Mỗi lượt hỏi đều được ghi lại: ai trả lời (luật cứng, cache, mô hình AI hay dự phòng), nhanh bao nhiêu, tốn bao nhiêu token.</p>
+
+      <div class="ai-toolbar">
+        <button class="ai-btn primary" id="btnRun" onclick="runSamples()">▶ Chạy 10 câu mẫu</button>
+        <button class="ai-btn" onclick="exportCSV()">⬇ Xuất CSV</button>
+        <button class="ai-btn" onclick="exportJSON()">⬇ Xuất JSON</button>
+        <button class="ai-btn" onclick="clearMetrics()">🗑 Xóa số liệu</button>
+      </div>
+
+      <div class="stats-grid" id="aiCards"></div>
+
+      <div class="ai-grid">
+        <div class="staff-panel">
+          <div class="panel-header"><h3>🧭 Ai trả lời?</h3></div>
+          <div class="ai-donut-wrap">
+            <div class="ai-donut" id="aiDonut"><div class="ai-donut-center"><b id="aiDonutTotal">0</b><small>lượt hỏi</small></div></div>
+            <div class="ai-legend" id="aiLegend"></div>
+          </div>
+        </div>
+        <div class="staff-panel">
+          <div class="panel-header"><h3>⚡ Thời gian có chữ đầu tiên (TTFT)</h3></div>
+          <div class="ai-bars" id="aiBars"></div>
+          <p class="ai-note">TTFT = từ lúc gửi câu hỏi đến khi chữ đầu tiên hiện ra — chính là thời gian người dùng phải chờ.</p>
+        </div>
+      </div>
+
+      <div class="ai-grid">
+        <div class="staff-panel">
+          <div class="panel-header"><h3>🛠 Công cụ AI được gọi nhiều nhất</h3></div>
+          <div class="ai-bars" id="aiTools"></div>
+        </div>
+        <div class="staff-panel">
+          <div class="panel-header"><h3>🧠 Mô hình đã dùng</h3></div>
+          <div class="ai-bars" id="aiModels"></div>
+          <p class="ai-note">Token là số <strong>ước tính</strong> (số ký tự ÷ 3), không phải số liệu tính phí của nhà cung cấp.</p>
+        </div>
+      </div>
+
+      <div class="staff-panel">
+        <div class="panel-header"><h3>🕘 Các lượt hỏi gần nhất</h3></div>
+        <div class="ai-table-wrap" id="aiRecent"></div>
+      </div>
+
+    </section>
+  </div>
+
+  <div class="panel-resizer" id="panelResizer"></div>
+
+  <aside class="chat-panel" id="chatPanel">
+    <div class="chat-panel-header">
+      <span class="chat-panel-title">🤖 Trợ lý CAPPAN</span>
+      <div class="chat-panel-actions">
+        <button class="chat-panel-btn" id="btnCollapseChat" title="Thu gọn bảng chat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+        <button class="chat-panel-btn emoji-btn" onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+        <button class="chat-panel-btn" id="btnClearChat" title="Xóa lịch sử">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-panel-footer">
+      <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." autocomplete="off">
+      <button id="btnSendChat" title="Gửi">▶</button>
+    </div>
+  </aside>
+
+  <button class="chat-float-btn" id="chatFloatBtn" title="Mở trợ lý"><span>🤖</span></button>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
+<script src="js/api/index.js"></script>
+<script src="js/staff-guard.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+<script src="js/chat-panel.js"></script>
+<script src="js/staff-nav.js"></script>
+
+<script>
+const SRC = {
+  kb:     { label: 'Luật cứng (KB)', color: '#2E7D32' },
+  rule:   { label: 'Bộ não nội bộ',  color: '#6A1B9A' },
+  cache:  { label: 'Cache',          color: '#00897B' },
+  llm:    { label: 'Mô hình AI',     color: '#C9A227' },
+  legacy: { label: 'Dự phòng',       color: '#c62828' }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!Auth.requireStaff()) return;
+  renderStaffNav('ai');
+  render();
+});
+
+function render() {
+  const list = AIMetrics.getAll();
+  const s = AIMetrics.summary(list);
+  const n = v => Number(v).toLocaleString('vi-VN');
+
+  /* ---- thẻ số liệu ---- */
+  document.getElementById('aiCards').innerHTML = [
+    ['💬', s.total, 'Tổng lượt hỏi'],
+    ['🆓', s.noLlmPct + '%', 'Không tốn token (KB + cache)'],
+    ['⚡', s.avgTtft + 'ms', 'Chữ đầu tiên (TB)'],
+    ['🧮', n(s.tokIn + s.tokOut), 'Token ước tính'],
+    ['🛟', s.legacyPct + '%', 'Rơi xuống dự phòng']
+  ].map(([icon, val, label]) => `
+    <div class="stat-card">
+      <div class="stat-icon">${icon}</div>
+      <div class="stat-info"><div class="stat-value">${val}</div><div class="stat-label">${label}</div></div>
+    </div>`).join('');
+
+  /* ---- biểu đồ tròn ---- */
+  document.getElementById('aiDonutTotal').textContent = s.total;
+  let acc = 0;
+  const parts = Object.keys(SRC).map(k => {
+    const pct = s.total ? (s.bySrc[k] / s.total) * 100 : 0;
+    const seg = `${SRC[k].color} ${acc}% ${acc + pct}%`;
+    acc += pct;
+    return seg;
+  });
+  document.getElementById('aiDonut').style.background =
+    s.total ? `conic-gradient(${parts.join(', ')})` : 'conic-gradient(#eadfcb 0 100%)';
+  document.getElementById('aiLegend').innerHTML = Object.keys(SRC).map(k => `
+    <div><i style="background:${SRC[k].color}"></i>${SRC[k].label}
+      <b>${s.bySrc[k]} · ${s.total ? Math.round(s.bySrc[k] / s.total * 100) : 0}%</b></div>`).join('');
+
+  /* ---- TTFT theo nguồn ---- */
+  const maxT = Math.max(1, ...Object.values(s.avgTtftBy));
+  document.getElementById('aiBars').innerHTML = Object.keys(SRC).map(k => `
+    <div class="ai-bar-row"><span>${SRC[k].label}</span>
+      <div class="ai-bar-track"><div class="ai-bar-fill" data-w="${s.bySrc[k] ? Math.max(3, s.avgTtftBy[k] / maxT * 100) : 0}" style="background:${SRC[k].color}"></div></div>
+      <b>${s.bySrc[k] ? s.avgTtftBy[k] + 'ms' : '—'}</b></div>`).join('');
+
+  /* ---- công cụ / mô hình ---- */
+  const barList = (arr, color) => {
+    if (!arr.length) return '<p class="ai-empty">Chưa có dữ liệu.</p>';
+    const max = arr[0].count;
+    return arr.slice(0, 6).map(t => `
+      <div class="ai-bar-row"><span title="${esc(t.name)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</span>
+        <div class="ai-bar-track"><div class="ai-bar-fill" data-w="${t.count / max * 100}" style="background:${color}"></div></div>
+        <b>${t.count}</b></div>`).join('');
+  };
+  document.getElementById('aiTools').innerHTML  = barList(s.tools, '#6F4E37');
+  document.getElementById('aiModels').innerHTML = barList(s.models, '#C9A227');
+
+  /* ---- bảng lượt hỏi gần nhất ---- */
+  const recent = list.slice(-12).reverse();
+  document.getElementById('aiRecent').innerHTML = recent.length ? `
+    <table class="staff-table">
+      <thead><tr><th>Giờ</th><th>Vai trò</th><th>Câu hỏi</th><th>Nguồn</th><th>TTFT</th><th>Tổng</th><th>Công cụ</th></tr></thead>
+      <tbody>${recent.map(e => `
+        <tr>
+          <td>${new Date(e.t).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
+          <td>${e.role === 'staff' ? 'Nhân viên' : 'Khách'}</td>
+          <td class="ai-q" title="${esc(e.q)}">${esc(e.q)}</td>
+          <td><span class="ai-src" style="background:${(SRC[e.source] || SRC.llm).color}">${(SRC[e.source] || SRC.llm).label}</span></td>
+          <td>${e.ttft != null ? e.ttft + 'ms' : '—'}</td>
+          <td>${e.ms}ms</td>
+          <td>${(e.tools || []).map(esc).join(', ') || '—'}</td>
+        </tr>`).join('')}</tbody>
+    </table>` : '<p class="ai-empty">Chưa có lượt hỏi nào. Hãy chat với trợ lý hoặc bấm “Chạy 10 câu mẫu”.</p>';
+
+  requestAnimationFrame(() => requestAnimationFrame(() =>
+    document.querySelectorAll('.ai-bar-fill').forEach(el => { el.style.width = el.dataset.w + '%'; })));
+}
+
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function exportCSV()  { download('cappan-ai-metrics.csv', AIMetrics.toCSV(), 'text/csv;charset=utf-8'); }
+function exportJSON() { download('cappan-ai-metrics.json', JSON.stringify(AIMetrics.getAll(), null, 2), 'application/json'); }
+function clearMetrics() {
+  if (!confirm('Xóa toàn bộ số liệu AI đã ghi?')) return;
+  AIMetrics.clear(); render(); showToast('✓ Đã xóa số liệu AI');
+}
+
+const SAMPLES = [
+  'wifi là gì', 'mấy giờ quán mở cửa', 'còn bao nhiêu chỗ trống ở lầu 2',
+  'món nào đang bán chạy', 'doanh thu hôm nay là bao nhiêu', 'hiện có những đơn nào đang xử lý',
+  'công thức cà phê muối', 'khuyến mãi hôm nay có gì', 'lịch ca hôm nay thế nào',
+  'so sánh trà đào cam sả và trà sen vàng'
+];
+async function runSamples() {
+  if (!confirm('Chạy 10 câu hỏi mẫu? Các câu cần mô hình AI sẽ tiêu hao hạn mức (quota) của bạn.')) return;
+  const btn = document.getElementById('btnRun');
+  btn.disabled = true;
+  for (let i = 0; i < SAMPLES.length; i++) {
+    btn.textContent = `⏳ Đang chạy ${i + 1}/${SAMPLES.length}…`;
+    try { await AIBrain.streamReply(SAMPLES[i]); } catch (e) { console.warn(e); }
+    render();
+  }
+  btn.disabled = false; btn.textContent = '▶ Chạy 10 câu mẫu';
+  showToast('✓ Đã chạy xong 10 câu mẫu');
+}
+</script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
+</body>
+</html>

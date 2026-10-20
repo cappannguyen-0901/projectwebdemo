@@ -15,6 +15,7 @@ if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
 d.dataset.chat=localStorage.getItem('cappan_chat_panel_collapsed')==='1'?'collapsed':'open';
 d.classList.add('no-anim');}catch(e){}})();
 </script>
+<link rel="stylesheet" href="theme.css">
 </head>
 <body data-page="staff-schedule">
 
@@ -327,5 +328,7 @@ function clearSchedule() {
   showToast('✓ Đã xoá lịch');
 }
 </script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
 </body>
 </html>

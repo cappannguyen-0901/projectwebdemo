@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CAPPAN – Coffee & More</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="theme.css">
 </head>
 <body data-page="home">
 
@@ -27,8 +28,11 @@
   </nav>
 </header>
 
-<section class="hero">
-  <div class="hero-content">
+<div class="demo-banner">
+  ⚠️ Bản demo học tập — dữ liệu lưu trên trình duyệt, không đồng bộ giữa các thiết bị.
+</div>
+
+<section class="hero" style="padding-top: 40px;">  <div class="hero-content">
     <p class="hero-tagline">COFFEE &amp; MORE — HOME STUDY</p>
     <h1 class="hero-title">CAPPAN</h1>
     <p class="hero-desc">Hương vị đậm đà · Không gian yên tĩnh · Nơi lý tưởng để học tập &amp; làm việc</p>
@@ -62,7 +66,7 @@
     <div class="highlight-card">
       <div class="highlight-icon">📊</div>
       <h4>Đặt chỗ trực quan</h4>
-      <p>Sơ đồ ghế realtime, biết ngay chỗ nào còn trống.</p>
+      <p>Sơ đồ ghế cập nhật trong phiên trình duyệt — không đồng bộ giữa thiết bị (demo).</p>
     </div>
   </div>
 </section>
@@ -97,7 +101,7 @@
     </div>
   </div>
   <div class="chat-body" id="chatBody">
-    <div class="msg bot"><div class="bubble">Xin chào! 👋 Tôi có thể giúp bạn tìm hiểu về menu, chỗ ngồi, hoặc hướng dẫn đặt hàng.</div></div>
+    <div class="msg bot"><div class="bubble">Xin chào! Em là trợ lý AI của CAPPAN 🤖. Em có thể sai — thông tin quan trọng vui lòng gọi hotline 0366 474 038 ạ.</div></div>
   </div>
   <div class="chat-input">
     <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
@@ -111,8 +115,8 @@
 <script src="js/data/schema.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
-<script src="js/data/kb.js"></script>              
-<script src="js/data/promotions.js"></script>      
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
 <script src="js/api/index.js"></script>
 <script src="js/staff-guard.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
@@ -135,5 +139,7 @@
     `).join('');
   });
 </script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
 </body>
 </html>

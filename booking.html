@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Đặt chỗ – CAPPAN</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="theme.css">
 </head>
 <body data-page="booking">
 
@@ -26,6 +27,10 @@
     <div class="user-area" id="userArea"></div>
   </nav>
 </header>
+
+<div class="demo-banner">
+  ⚠️ Sơ đồ ghế chỉ đồng bộ trong phiên trình duyệt này. Đây là bản demo.
+</div>
 
 <section class="section">
   <h2 class="section-title">Đặt Chỗ</h2>
@@ -60,7 +65,6 @@
   </div>
 </section>
 
-<!-- Booking Modal -->
 <div class="modal-overlay" id="bookingModal">
   <div class="modal-box wide">
     <button class="modal-close" onclick="closeModal('bookingModal')">✕</button>
@@ -81,8 +85,8 @@
           <input type="date" id="bkDate" required>
         </div>
         <div class="form-group">
-          <label>Giờ đặt</label>
-          <input type="time" id="bkTime" required>
+          <label>Giờ đặt (07:00 – 22:30)</label>
+          <input type="time" id="bkTime" min="07:00" max="22:30" required>
         </div>
         <div class="form-group">
           <label>Số người</label>
@@ -128,7 +132,7 @@
     </div>
   </div>
   <div class="chat-body" id="chatBody">
-    <div class="msg bot"><div class="bubble">Bạn muốn ngồi tầng nào? Tôi tư vấn cho! 😊</div></div>
+    <div class="msg bot"><div class="bubble">Em là trợ lý AI, có thể sai. Bạn muốn ngồi tầng nào? 😊</div></div>
   </div>
   <div class="chat-input">
     <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
@@ -142,8 +146,8 @@
 <script src="js/data/schema.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
-<script src="js/data/kb.js"></script>              
-<script src="js/data/promotions.js"></script>      
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
 <script src="js/api/index.js"></script>
 <script src="js/staff-guard.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
@@ -209,7 +213,6 @@ function renderSeatMap() {
   const seats = API.seats.getByFloor(currentFloorId);
   if (!el) return;
 
-  // ⚡ Số cột theo kích thước màn hình
   const w = window.innerWidth;
   let cols;
   if (w < 400) cols = 2;
@@ -277,12 +280,18 @@ function openBookingForm() {
     `Bàn ${seat.id} – ${floor.name} (${seat.capacity} người)`;
   document.getElementById('bkName').value = user.name || '';
   document.getElementById('bkPhone').value = user.phone || '';
-  document.getElementById('bkDate').value = API.utils.today();
+
+  // ⚡ FIX W3: min date = hôm nay
+  const today = API.utils.today();
+  const dateEl = document.getElementById('bkDate');
+  dateEl.value = today;
+  dateEl.min = today;
 
   const now = new Date();
   now.setMinutes(now.getMinutes() + 30);
-  document.getElementById('bkTime').value =
-    `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('bkTime').value = `${hh}:${mm}`;
 
   const guestsEl = document.getElementById('bkGuests');
   guestsEl.innerHTML = '';
@@ -296,13 +305,41 @@ function openBookingForm() {
 function handleBooking(e) {
   e.preventDefault();
 
+  const date = document.getElementById('bkDate').value;
+  const time = document.getElementById('bkTime').value;
+  const today = API.utils.today();
+
+  // ⚡ FIX W3: validate ngày không quá khứ
+  if (!date || date < today) {
+    showToast('⚠ Ngày đặt không được ở quá khứ!', '#c62828');
+    return false;
+  }
+
+  // ⚡ FIX W3: validate giờ trong khung mở cửa
+  if (!time || time < '07:00' || time > '22:30') {
+    showToast('⚠ Giờ đặt phải trong khung 07:00 – 22:30!', '#c62828');
+    return false;
+  }
+
+  // ⚡ FIX W3: nếu đặt hôm nay, giờ phải sau hiện tại ít nhất 15 phút
+  if (date === today) {
+    const now = new Date();
+    const [h, m] = time.split(':').map(Number);
+    const bookTime = new Date();
+    bookTime.setHours(h, m, 0, 0);
+    if (bookTime.getTime() - now.getTime() < 15 * 60 * 1000) {
+      showToast('⚠ Giờ đặt phải sau hiện tại ít nhất 15 phút!', '#c62828');
+      return false;
+    }
+  }
+
   const user = API.users.getCurrent();
   const data = {
     userId: user.id,
     seatId: selectedSeatId,
     floorId: currentFloorId,
-    date: document.getElementById('bkDate').value,
-    time: document.getElementById('bkTime').value,
+    date: date,
+    time: time,
     guests: parseInt(document.getElementById('bkGuests').value),
     note: document.getElementById('bkNote').value.trim()
   };
@@ -322,12 +359,10 @@ function handleBooking(e) {
 
 document.addEventListener('DOMContentLoaded', () => {
   if (Auth.isStaff()) return;
-
   renderFloorSwitch();
   renderFloorSummary();
   renderSeatMap();
 
-  // ⚡ Debounce resize → cập nhật số cột
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
@@ -335,5 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
 </body>
 </html>

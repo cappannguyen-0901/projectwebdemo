@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Đăng ký – CAPPAN</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="theme.css">
 </head>
 <body data-page="register">
 
@@ -26,6 +27,10 @@
     <div class="user-area" id="userArea"></div>
   </nav>
 </header>
+
+<div class="demo-banner">
+  ⚠️ Bản demo học tập — dữ liệu lưu trên trình duyệt. Không dùng mật khẩu thật.
+</div>
 
 <section class="auth-section">
   <div class="auth-card">
@@ -65,10 +70,10 @@
       <div class="form-group" id="inviteGroup" style="display:none;">
         <label>Mã mời nhân viên</label>
         <input type="text" id="regInvite" placeholder="CAPPANNGUYEN-STAFF">
-        <small class="form-hint">Mã demo: CAPPANNGUYEN-STAFF</small>
+        <small class="form-hint" id="inviteHint"></small>
       </div>
 
-      <button type="submit" class="btn btn-block">Đăng ký</button>
+      <button type="submit" class="btn btn-block" id="regBtn">Đăng ký</button>
     </form>
 
     <p class="auth-link">
@@ -88,8 +93,8 @@
 <script src="js/data/schema.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
-<script src="js/data/kb.js"></script>              
-<script src="js/data/promotions.js"></script>      
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
 <script src="js/api/index.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
 <script src="js/ai/brain.js"></script>
@@ -101,9 +106,17 @@ function switchRole(role) {
   document.getElementById('roleCustomer').classList.toggle('active', role === 'customer');
   document.getElementById('roleStaff').classList.toggle('active', role === 'staff');
   document.getElementById('inviteGroup').style.display = role === 'staff' ? 'flex' : 'none';
+
+  // ⚡ FIX: chỉ hiện mã demo khi DEMO_MODE
+  const hint = document.getElementById('inviteHint');
+  if (hint) {
+    hint.textContent = (role === 'staff' && Auth.DEMO_MODE)
+      ? 'Demo: mã là CAPPANNGUYEN-STAFF'
+      : '';
+  }
 }
 
-function handleRegister(e) {
+async function handleRegister(e) {
   e.preventDefault();
 
   const roleEl = document.querySelector('input[name="role"]:checked');
@@ -131,25 +144,39 @@ function handleRegister(e) {
     return false;
   }
 
-  const result = Auth.register(data);
+  const btn = document.getElementById('regBtn');
+  btn.disabled = true;
+  btn.textContent = 'Đang đăng ký...';
 
-  if (!result.ok) {
-    showToast('⚠ ' + result.error, '#c62828');
-    return false;
+  try {
+    const result = await Auth.register(data);
+
+    if (!result.ok) {
+      showToast('⚠ ' + result.error, '#c62828');
+      btn.disabled = false;
+      btn.textContent = 'Đăng ký';
+      return false;
+    }
+
+    showToast('✓ Đăng ký thành công! Chào ' + result.user.name);
+
+    setTimeout(function() {
+      const url = result.user.role === 'staff'
+        ? 'staff-dashboard.html'
+        : 'index.html';
+      window.location.href = url;
+    }, 1000);
+  } catch (err) {
+    console.error(err);
+    showToast('⚠ Lỗi đăng ký, thử lại sau', '#c62828');
+    btn.disabled = false;
+    btn.textContent = 'Đăng ký';
   }
-
-  showToast('✓ Đăng ký thành công! Chào ' + result.user.name);
-
-  // ⚡ FIX: redirect theo role
-  setTimeout(function() {
-    const url = result.user.role === 'staff'
-      ? 'staff-dashboard.html'
-      : 'index.html';
-    window.location.href = url;
-  }, 1000);
 
   return false;
 }
 </script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
 </body>
 </html>

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Đặt nước – CAPPAN</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="theme.css">
 </head>
 <body data-page="order">
 
@@ -82,7 +83,7 @@
     </div>
   </div>
   <div class="chat-body" id="chatBody">
-    <div class="msg bot"><div class="bubble">Bạn muốn đặt món gì? 🥤</div></div>
+    <div class="msg bot"><div class="bubble">Em là trợ lý AI, có thể sai. Bạn muốn đặt món gì? 🥤</div></div>
   </div>
   <div class="chat-input">
     <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
@@ -91,13 +92,31 @@
   </div>
 </div>
 
+<!-- ⚡ FIX W5: modal chọn size + toppings -->
+<div class="modal-overlay" id="itemOptionsModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('itemOptionsModal')">✕</button>
+    <h2 id="itemOptionsTitle"></h2>
+    <p class="modal-sub" id="itemOptionsPrice"></p>
+    <div class="form-group" id="sizeGroup">
+      <label>Size</label>
+      <select id="optSize"></select>
+    </div>
+    <div class="form-group" id="toppingGroup">
+      <label>Topping (chọn nhiều)</label>
+      <div id="optToppings" style="display:flex; flex-direction:column; gap:6px;"></div>
+    </div>
+    <button class="btn btn-block" onclick="confirmAddWithOptions()">Thêm vào giỏ</button>
+  </div>
+</div>
+
 <div class="toast" id="toast">✓ Thành công!</div>
 
 <script src="js/data/schema.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
-<script src="js/data/kb.js"></script>         
-<script src="js/data/promotions.js"></script>     
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
 <script src="js/api/index.js"></script>
 <script src="js/staff-guard.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
@@ -107,6 +126,7 @@
 
 <script>
 let activeOrderCat = 'coffee';
+let _pendingItem = null;
 
 function renderOrderTabs() {
   const el = document.getElementById('orderCatTabs');
@@ -128,11 +148,11 @@ function renderOrderGrid() {
 
   el.innerHTML = items.map(item => `
     <div class="menu-card ${!item.inStock ? 'out-of-stock' : ''}">
-      ${item.badge ? `<div class="badge">${item.badge}</div>` : ''}
+      ${item.badge ? `<div class="badge">${esc(item.badge)}</div>` : ''}
       ${!item.inStock ? '<div class="badge badge-out">Hết hàng</div>' : ''}
-      <img src="${item.img}" alt="${item.name}" loading="lazy">
+      <img src="${esc(item.img)}" alt="${esc(item.name)}" loading="lazy">
       <div class="info">
-        <h4>${item.name}</h4>
+        <h4>${esc(item.name)}</h4>
         <div class="price">${API.utils.formatVND(item.price)}</div>
         <button class="add-cart-btn"
                 onclick="addCart('${item.id}')"
@@ -153,6 +173,12 @@ function addCart(itemId) {
   const item = API.menu.getById(itemId);
   if (!item || !item.inStock) return;
 
+  // ⚡ FIX W5: nếu có size/toppings → mở modal chọn
+  if ((item.sizes && item.sizes.length > 1) || (item.toppings && item.toppings.length)) {
+    openItemOptions(item);
+    return;
+  }
+
   API.cart.add({
     itemId: item.id,
     name: item.name,
@@ -164,6 +190,72 @@ function addCart(itemId) {
   renderCartMini();
   updateUserArea();
   showToast(`✓ Đã thêm ${item.name}`);
+}
+
+function openItemOptions(item) {
+  _pendingItem = item;
+  document.getElementById('itemOptionsTitle').textContent = item.name;
+  document.getElementById('itemOptionsPrice').textContent = API.utils.formatVND(item.price);
+
+  const sizeGroup = document.getElementById('sizeGroup');
+  const sizeSel = document.getElementById('optSize');
+  if (item.sizes && item.sizes.length > 1) {
+    sizeGroup.style.display = '';
+    sizeSel.innerHTML = item.sizes.map(s =>
+      `<option value="${esc(s.name)}" data-extra="${s.extraPrice || 0}">${esc(s.name)}${s.extraPrice ? ' (+' + API.utils.formatVND(s.extraPrice) + ')' : ''}</option>`
+    ).join('');
+  } else {
+    sizeGroup.style.display = 'none';
+    sizeSel.innerHTML = '<option value="M" data-extra="0">M</option>';
+  }
+
+  const topGroup = document.getElementById('toppingGroup');
+  const topBox = document.getElementById('optToppings');
+  if (item.toppings && item.toppings.length) {
+    topGroup.style.display = '';
+    topBox.innerHTML = item.toppings.map((t, i) =>
+      `<label style="display:flex; gap:8px; align-items:center; font-size:0.9rem; cursor:pointer;">
+        <input type="checkbox" class="opt-topping" value="${i}" data-name="${esc(t.name)}" data-price="${t.price}">
+        ${esc(t.name)} (+${API.utils.formatVND(t.price)})
+      </label>`
+    ).join('');
+  } else {
+    topGroup.style.display = 'none';
+    topBox.innerHTML = '';
+  }
+
+  openModal('itemOptionsModal');
+}
+
+function confirmAddWithOptions() {
+  if (!_pendingItem) return;
+  const item = _pendingItem;
+  const sizeSel = document.getElementById('optSize');
+  const size = sizeSel.value;
+  const extra = parseInt(sizeSel.selectedOptions[0]?.dataset.extra || 0, 10);
+
+  const toppings = [];
+  document.querySelectorAll('.opt-topping:checked').forEach(cb => {
+    toppings.push({ name: cb.dataset.name, price: parseInt(cb.dataset.price, 10) });
+  });
+
+  const toppingPrice = toppings.reduce((s, t) => s + t.price, 0);
+  const finalPrice = item.price + extra + toppingPrice;
+
+  API.cart.add({
+    itemId: item.id,
+    name: item.name,
+    price: finalPrice,
+    img: item.img,
+    size,
+    toppings
+  });
+
+  closeModal('itemOptionsModal');
+  _pendingItem = null;
+  renderCartMini();
+  updateUserArea();
+  showToast(`✓ Đã thêm ${item.name} (${size})`);
 }
 
 function renderCartMini() {
@@ -183,7 +275,7 @@ function renderCartMini() {
   const shown = cart.slice(0, 3);
   preview.innerHTML = shown.map(i => `
     <div class="cart-mini-row">
-      <span>${i.name} × ${i.qty}</span>
+      <span>${esc(i.name)} × ${i.qty}</span>
       <span>${API.utils.formatVND(i.price * i.qty)}</span>
     </div>
   `).join('') + (cart.length > 3
@@ -207,5 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderCartMini();
 });
 </script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
 </body>
 </html>

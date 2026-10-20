@@ -1,10 +1,29 @@
 /* ============================================================
    AUTH — ĐĂNG NHẬP / ĐĂNG KÝ / PHÂN QUYỀN
+   ⚠ DEMO: hash SHA-256 + salt phone chỉ để tránh plaintext,
+     KHÔNG phải bảo mật thật (client-side, ai có DevTools đều xem được).
 ============================================================ */
 
 const Auth = {
 
   INVITE_CODE: 'CAPPANNGUYEN-STAFF',
+  DEMO_MODE: true,   // ⚡ đặt false khi có backend thật
+
+  /* ---------- HASH PASSWORD (demo) ---------- */
+  async hashPassword(phone, password) {
+    try {
+      const data = new TextEncoder().encode(`${phone}::${password}::cappan-salt-v1`);
+      const buf = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+      // Fallback nếu trình duyệt cũ không có crypto.subtle
+      console.warn('[Auth] crypto.subtle không khả dụng, dùng fallback đơn giản:', e);
+      let h = 0;
+      const s = `${phone}::${password}`;
+      for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+      return 'fb_' + Math.abs(h).toString(16);
+    }
+  },
 
   /* ---------- TRẠNG THÁI ---------- */
   isLoggedIn() { return !!API.users.getCurrent(); },
@@ -17,23 +36,34 @@ const Auth = {
     return !!(u && u.role === 'customer');
   },
 
-  /* ---------- ĐĂNG NHẬP ---------- */
-  login(phone, password) {
+  /* ---------- ĐĂNG NHẬP (async) ---------- */
+  async login(phone, password) {
     if (!phone || !password) {
       return { ok: false, error: 'Vui lòng nhập đầy đủ thông tin' };
     }
 
     const user = API.users.getByPhone(phone.trim());
     if (!user) return { ok: false, error: 'Số điện thoại chưa đăng ký' };
-    if (user.password !== password) return { ok: false, error: 'Mật khẩu không đúng' };
+
+    const hashed = await this.hashPassword(user.phone, password);
+    const match = user.password === hashed || user.password === password; // legacy fallback
+
+    if (!match) return { ok: false, error: 'Mật khẩu không đúng' };
+
+    // Migration: nếu đang plaintext → hash lại
+    if (user.password === password) {
+      API.users.update(user.id, { password: hashed });
+      const refreshed = API.users.getById(user.id);
+      if (refreshed) Object.assign(user, refreshed);
+    }
 
     API.users.setCurrent(user);
     try { API.cart.mergeGuestToUser(user.id); } catch (e) { console.warn(e); }
     return { ok: true, user };
   },
 
-  /* ---------- ĐĂNG KÝ ---------- */
-  register(data) {
+  /* ---------- ĐĂNG KÝ (async) ---------- */
+  async register(data) {
     if (!data || !data.name || !data.phone || !data.password) {
       return { ok: false, error: 'Vui lòng điền đầy đủ thông tin' };
     }
@@ -47,10 +77,12 @@ const Auth = {
       return { ok: false, error: 'Số điện thoại đã được đăng ký' };
     }
 
+    const hashed = await this.hashPassword(data.phone.trim(), data.password);
+
     const user = API.users.create({
       name: data.name.trim(),
       phone: data.phone.trim(),
-      password: data.password,
+      password: hashed,
       role: data.role || 'customer'
     });
 

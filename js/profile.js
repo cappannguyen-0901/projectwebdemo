@@ -89,7 +89,7 @@ const Profile = {
               <span>🕐 ${b.time}</span>
               <span>👥 ${b.guests || 2} người</span>
             </div>
-            ${b.note ? `<div class="history-note">📝 ${b.note}</div>` : ''}
+            ${b.note ? `<div class="history-note">📝 ${esc(b.note)}</div>` : ''}
           </div>
           <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
             <div class="history-status ${b.status === 'cancelled' ? 'cancelled' : 'success'}">
@@ -120,22 +120,23 @@ const Profile = {
     }
 
     el.innerHTML = '<div class="history-list">' + orders.map(o => {
-      const isDone = o.step >= 4;
+      const isCancelled = o.status === 'cancelled';
+      const isDone = !isCancelled && o.step >= 4;
       return `
         <div class="history-card">
           <div class="history-icon">📦</div>
           <div class="history-body">
             <div class="history-title">
               Đơn #${o.id}
-              <span class="order-status ${isDone ? 'success' : 'pending'}">
-                ${isDone ? 'Đã giao' : 'Đang xử lý'}
+              <span class="order-status ${isCancelled ? 'cancelled' : (isDone ? 'success' : 'pending')}">
+                ${isCancelled ? 'Đã hủy' : (isDone ? 'Đã giao' : 'Đang xử lý')}
               </span>
             </div>
             <div class="history-meta"><span>📅 ${new Date(o.createdAt).toLocaleString('vi-VN')}</span></div>
             <div class="order-items">
-              ${o.items.map(i => `<span class="order-item-tag">${i.name} × ${i.qty}</span>`).join('')}
+              ${o.items.map(i => `<span class="order-item-tag">${esc(i.name)} × ${i.qty}</span>`).join('')}
             </div>
-            ${o.address ? `<div class="history-note">📍 ${o.address}</div>` : ''}
+            ${o.address ? `<div class="history-note">📍 ${esc(o.address)}</div>` : ''}
           </div>
           <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
             <div class="history-total">
@@ -155,14 +156,12 @@ const Profile = {
     const el = document.getElementById('vouchersList');
     if (!el) return;
 
-    const orders = API.orders.getByUser(user.id).filter(o => o.step >= 4);
+    const orders = API.orders.getByUser(user.id).filter(o => o.step >= 4 && o.status !== 'cancelled');
     const points = Math.floor(orders.reduce((s, o) => s + o.total, 0) / 10000);
 
-    const vouchers = [
-      { code: 'WELCOME10', desc: 'Giảm 10% đơn đầu tiên', minPoints: 0 },
-      { code: 'FREESHIP',  desc: 'Miễn phí giao hàng',     minPoints: 5 },
-      { code: 'CAFE20',    desc: 'Giảm 20k cho đơn từ 100k', minPoints: 10 }
-    ];
+    // Khuyến mãi lấy từ dữ liệu staff thiết lập — chỉ hiện mã còn hiệu lực hôm nay
+    const promos = API.promotions.getActive();
+    const fmtDate = d => d.split('-').reverse().join('/');
 
     el.innerHTML = `
       <div class="voucher-header">
@@ -172,18 +171,23 @@ const Profile = {
         </div>
         <p class="points-hint">💡 10.000đ chi tiêu = 1 điểm</p>
       </div>
+      ${promos.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-icon">🎁</div>
+          <p>Hiện chưa có khuyến mãi nào đang áp dụng.</p>
+        </div>` : `
       <div class="voucher-grid">
-        ${vouchers.map(v => {
-          const canUse = points >= v.minPoints;
-          return `
-            <div class="voucher-card ${canUse ? '' : 'disabled'}">
-              <div class="voucher-code">${v.code}</div>
-              <div class="voucher-desc">${v.desc}</div>
-              <div class="voucher-points">${v.minPoints === 0 ? 'Miễn phí' : `Cần ${v.minPoints} điểm`}</div>
+        ${promos.map(p => `
+          <div class="voucher-card">
+            <div class="voucher-code">${esc(p.code)}</div>
+            <div class="voucher-desc">${esc(p.description || p.name)}</div>
+            <div class="voucher-points">
+              ${p.minOrder ? 'Đơn từ ' + API.utils.formatVND(p.minOrder) : 'Không yêu cầu tối thiểu'}
+              ${p.endDate ? ' · HSD ' + fmtDate(p.endDate) : ''}
             </div>
-          `;
-        }).join('')}
-      </div>
+          </div>
+        `).join('')}
+      </div>`}
     `;
   },
 

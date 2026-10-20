@@ -1,5 +1,6 @@
 /* ============================================================
-   MAIN.JS — FINAL v2
+   MAIN.JS — FINAL v3
+   ⚡ Thêm feedback 👍/👎 cho câu trả lời AI
 ============================================================ */
 
 /* ---------- 1. TOAST ---------- */
@@ -65,7 +66,7 @@ function updateUserArea() {
 
   if (isStaff) {
     el.innerHTML = `
-      <a href="staff-dashboard.html" class="user-link">👨‍💼 ${user.name}</a>
+      <a href="staff-dashboard.html" class="user-link">👨‍💼 ${esc(user.name)}</a>
       <button onclick="handleLogout()">Đăng xuất</button>
     `;
     return;
@@ -73,7 +74,7 @@ function updateUserArea() {
 
   el.innerHTML = `
     ${cartBtn}
-    <a href="profile.html" class="user-link">👤 ${user.name}</a>
+    <a href="profile.html" class="user-link">👤 ${esc(user.name)}</a>
     <button onclick="handleLogout()">Đăng xuất</button>
   `;
 }
@@ -199,16 +200,27 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;');
 }
 
+function esc(v) {
+  return String(v === undefined || v === null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+window.esc = esc;
+
 /* ---------- 8. ADD CHAT MSG ---------- */
-function addChatMsg(text, who) {
+function addChatMsg(textOrHtml, who, isHtml = false) {
   const body = document.getElementById('chatBody');
   if (!body) return;
   const div = document.createElement('div');
   div.className = 'msg ' + who;
-  const safe = escapeHtml(filterMarkdown(text));
-  div.innerHTML = `<div class="bubble">${safe.replace(/\n/g, '<br>')}</div>`;
+  const content = isHtml ? textOrHtml : escapeHtml(filterMarkdown(textOrHtml)).replace(/\n/g, '<br>');
+  div.innerHTML = `<div class="bubble">${content}</div>`;
   body.appendChild(div);
   body.scrollTop = body.scrollHeight;
+  return div;
 }
 
 /* ---------- 9. TYPING INDICATOR ---------- */
@@ -248,7 +260,6 @@ function addConfirmButtons(text, toolName, toolCallId, args) {
 
   const div = document.createElement('div');
   div.className = 'msg bot';
-
   const safe = escapeHtml(filterMarkdown(text));
 
   div.innerHTML = `
@@ -274,7 +285,12 @@ function addConfirmButtons(text, toolName, toolCallId, args) {
     try {
       const res = await AIBrain.confirmPending(toolName, toolCallId, args);
       hideTypingIndicator();
-      addChatMsg(res.message || res, 'bot');
+      if (res && res.type === 'pending') {
+        addConfirmButtons(res.message, res.toolName, res.toolCallId, res.args);
+      } else {
+        const m = (res && res.message) || res;
+        if (UICards.has(m)) UICards.appendTo(m); else addChatMsg(m, 'bot');
+      }
     } catch (e) {
       hideTypingIndicator();
       addChatMsg('Xin lỗi, thao tác bị lỗi.', 'bot');
@@ -292,9 +308,34 @@ function addConfirmButtons(text, toolName, toolCallId, args) {
   body.scrollTop = body.scrollHeight;
 }
 
-/* ============================================================
-   11. QUICK REPLIES — ⚡ ĐÃ ĐỊNH NGHĨA Ở ĐÂY
-============================================================ */
+/* ---------- 11. FEEDBACK 👍/👎 ---------- */
+function addFeedbackButtons(msgDiv, question, answer) {
+  if (!msgDiv) return;
+  const wrap = msgDiv.querySelector('.bubble');
+  if (!wrap) return;
+  if (wrap.querySelector('.ai-feedback')) return;
+
+  const actions = document.createElement('div');
+  actions.className = 'ai-feedback';
+  actions.innerHTML = `
+    <button class="fb-btn fb-up" title="Hữu ích">👍</button>
+    <button class="fb-btn fb-down" title="Chưa đúng">👎</button>
+  `;
+  wrap.appendChild(actions);
+
+  actions.querySelector('.fb-up').onclick = () => {
+    try { AIMetrics.logFeedback(question, answer, 'up'); } catch(e) {}
+    actions.remove();
+    showToast('✓ Cảm ơn phản hồi của bạn!');
+  };
+  actions.querySelector('.fb-down').onclick = () => {
+    try { AIMetrics.logFeedback(question, answer, 'down'); } catch(e) {}
+    actions.remove();
+    showToast('⚠ Đã ghi nhận — gọi hotline 0366 474 038 nếu cần hỗ trợ ngay.', '#c62828');
+  };
+}
+
+/* ---------- 12. QUICK REPLIES ---------- */
 const QUICK_CUSTOMER = [
   'Còn chỗ yên tĩnh không?',
   'Menu có gì?',
@@ -335,11 +376,328 @@ function sendQuickReply(text) {
 }
 
 /* ============================================================
-   SEND CHAT — STREAMING MƯỢT (v2)
-   - Typing indicator (3 chấm) khi chờ LLM
-   - Bubble LAZY (chỉ tạo khi có chunk đầu)
-   - Append text (không ghi lại toàn bộ)
-   - Xử lý tool → typing → bubble mới
+   UI CARDS — Generative UI (Zero-Token)
+   brain.js trả về chuỗi [UI_TYPE]{json}[/UI_TYPE]; đoạn này vẽ thành thẻ HTML.
+   Mọi dữ liệu đều đi qua esc() để chống chèn HTML/JS.
+   Muốn thêm thẻ mới: thêm 1 hàm vào UICards.renderers + 1 case trong
+   AIToolExecutor.renderFromTemplate (brain.js).
+============================================================ */
+const UICards = {
+  has(msg) { return typeof msg === 'string' && /\[UI_\w+\]/.test(msg); },
+
+  /* Tách chuỗi thành các phần: text thường và thẻ */
+  parse(msg) {
+    const parts = [];
+    const re = /\[UI_(\w+)\]([\s\S]*?)\[\/UI_\1\]/g;
+    const pushText = s => { s = s.trim(); if (s) parts.push({ kind: 'text', value: s }); };
+    let last = 0, m;
+    while ((m = re.exec(msg)) !== null) {
+      pushText(msg.slice(last, m.index));
+      try { parts.push({ kind: 'card', type: m[1], data: JSON.parse(m[2]) }); }
+      catch (e) { console.warn('[UICards] JSON thẻ lỗi:', m[1], e); }
+      last = re.lastIndex;
+    }
+    pushText(msg.slice(last));
+    return parts;
+  },
+
+  /* Vẽ vào khung chat. Trả về div của tin cuối để gắn 👍/👎 */
+  appendTo(msg, question) {
+    let lastDiv = null;
+    this.parse(msg).forEach(p => {
+      if (p.kind === 'text') { lastDiv = addChatMsg(p.value, 'bot'); return; }
+      const fn = this.renderers[p.type];
+      if (!fn) return;
+      let html = '';
+      try { html = fn.call(this, p.data); }
+      catch (e) { console.warn('[UICards] render lỗi:', p.type, e); }
+      if (html) lastDiv = addChatMsg(html, 'bot', true);
+    });
+    if (lastDiv && question) {
+      addFeedbackButtons(lastDiv, question, String(msg).replace(/\[UI_(\w+)\][\s\S]*?\[\/UI_\1\]/g, '[thẻ $1]'));
+    }
+    return lastDiv;
+  },
+
+  fmt(n) {
+    try { return API.utils.formatVND(n); }
+    catch (e) { return Number(n || 0).toLocaleString('vi-VN') + 'đ'; }
+  },
+
+  /* 2026-10-20 → 20/10 */
+  day(d) { return String(d || '').slice(5).split('-').reverse().join('/'); },
+
+  /* Nhân viên không dùng giỏ hàng → ẩn nút "+ Thêm" */
+  canOrder() {
+    try { return !(typeof Auth !== 'undefined' && Auth.isStaff && Auth.isStaff()); }
+    catch (e) { return true; }
+  },
+
+  addBtn(m) {
+    if (m.inStock === false) return `<button class="btn ui-btn-sm" disabled>Hết hàng</button>`;
+    return this.canOrder() ? `<button class="btn ui-btn-sm" data-ui-add="${esc(m.id)}">+ Thêm</button>` : '';
+  },
+
+  menuRow(m) {
+    return `
+      <div class="ui-row ui-menu-row">
+        <div class="ui-grow">
+          <div class="menu-item-name">${esc(m.name)}${m.badge ? ` <span class="ui-badge">${esc(m.badge)}</span>` : ''}</div>
+          <div class="menu-item-price">${this.fmt(m.price)}</div>
+        </div>
+        ${this.addBtn(m)}
+      </div>`;
+  },
+
+  renderers: {
+    SEAT(d) {
+      if (Array.isArray(d)) d = { available: d.length, floors: [], seats: d };   // tương thích lịch sử cũ
+      const floors = (d.floors || []).length > 1
+        ? `<div class="ui-chips">${d.floors.map(f =>
+            `<span class="ui-chip ui-chip-muted">${esc(f.name)}: ${esc(f.available)}/${esc(f.total)}</span>`).join('')}</div>`
+        : '';
+      const seats = (d.seats || []).map(s =>
+        `<span class="ui-chip">Bàn ${esc(s.id)} · ${esc(s.capacity)} người</span>`).join('');
+      return `
+        <div class="ui-card">
+          <h4>🪑 ${d.title ? esc(d.title) : `Còn ${esc(d.available)} chỗ trống`}</h4>
+          ${floors}
+          <div class="ui-chips">${seats}</div>
+          <a href="booking.html" class="btn ui-btn-block">Đặt chỗ ngay</a>
+        </div>`;
+    },
+
+    PROMO(d) {
+      return `
+        <div class="ui-card ui-card-gold">
+          <h4>🎁 Ưu đãi hôm nay</h4>
+          ${(d || []).map(p => `
+            <div class="ui-promo">
+              <div class="ui-grow">
+                <div class="ui-promo-code">${esc(p.code)}</div>
+                <div class="ui-sub">${esc(p.description)}</div>
+                ${p.validTo ? `<div class="ui-sub">HSD: ${esc(p.validTo)}</div>` : ''}
+              </div>
+              <button class="btn ui-btn-sm" data-ui-copy="${esc(p.code)}">Copy</button>
+            </div>`).join('')}
+        </div>`;
+    },
+
+    ORDER(d) {
+      if (Array.isArray(d)) d = { total: d.length, orders: d };
+      const orders = d.orders || [];
+      return `
+        <div class="ui-card">
+          <h4>📦 ${esc(d.title || `Đơn đang xử lý (${d.total})`)}</h4>
+          ${orders.map(o => {
+            const cancelled = o.status === 'cancelled';
+            const step = Math.max(0, Math.min(4, Number(o.step) || 0));
+            return `
+            <div class="ui-order${cancelled ? ' ui-dim' : ''}">
+              <div class="ui-row">
+                <b>#${esc(o.id)}</b>
+                <span class="ui-price">${UICards.fmt(o.total)}</span>
+              </div>
+              <div class="ui-sub">Khách: ${esc(o.customerName)}</div>
+              ${cancelled
+                ? `<div class="ui-step ui-red">Đã hủy</div>`
+                : `<div class="ui-progress"><div style="width:${step / 4 * 100}%"></div></div>
+                   <div class="ui-step">${esc(o.stepText || ['Chờ xử lý','Đang pha','Shipper lấy','Đang giao','Hoàn tất'][step])}</div>`}
+            </div>`;
+          }).join('')}
+          <a href="staff-orders.html" class="btn ui-btn-block">Quản lý đơn</a>
+        </div>`;
+    },
+
+    KPI(d) {
+      const st = d.status || {};
+      const chips = [['Chờ xử lý', st.pending], ['Đang pha', st.preparing], ['Đang giao', st.shipping],
+                     ['Hoàn tất', st.completed], ['Đã hủy', st.cancelled]]
+        .filter(([, n]) => n !== undefined)
+        .map(([l, n]) => `<span class="ui-chip ui-chip-muted">${l}: ${esc(n)}</span>`).join('');
+      return `
+        <div class="ui-card">
+          <h4>📊 Doanh thu</h4>
+          <div class="ui-kpi-main">
+            <div class="ui-sub">Hôm nay</div>
+            <div class="ui-kpi-value">${UICards.fmt(d.today && d.today.revenue)}</div>
+            <div class="ui-sub">${esc(d.today && d.today.orders)} đơn</div>
+          </div>
+          <div class="ui-kpi-grid">
+            <div><div class="ui-sub">Tuần này</div><b>${UICards.fmt(d.week)}</b></div>
+            <div><div class="ui-sub">Tháng này</div><b>${UICards.fmt(d.month)}</b></div>
+          </div>
+          <div class="ui-chips">${chips}</div>
+          <a href="staff-dashboard.html" class="btn ui-btn-block">Mở dashboard</a>
+        </div>`;
+    },
+
+    BOOKING(d) {
+      const rows = (d.bookings || []);
+      return `
+        <div class="ui-card">
+          <h4>📅 Booking hôm nay (${esc(d.total)})</h4>
+          ${rows.map(b => `
+            <div class="ui-order">
+              <div class="ui-row"><b>${esc(b.time)} · Bàn ${esc(b.seatId)}</b><span class="ui-sub">${esc(b.floorName)}</span></div>
+              <div class="ui-sub">${esc(b.customerName)} · ${esc(b.guests)} khách</div>
+              ${b.note ? `<div class="ui-sub">📝 ${esc(b.note)}</div>` : ''}
+            </div>`).join('')}
+          ${d.total > rows.length ? `<div class="ui-sub ui-more">…và ${d.total - rows.length} booking khác</div>` : ''}
+        </div>`;
+    },
+
+    OOS(d) {
+      return `
+        <div class="ui-card">
+          <h4>🚫 Món hết hàng (${esc(d.count)})</h4>
+          <div class="ui-sub ui-mb">Bấm vào món để đánh dấu còn hàng lại</div>
+          <div class="ui-chips">
+            ${(d.items || []).map(m => `<button class="ui-chip ui-chip-btn" data-ui-say="Đánh dấu món ${esc(m.id)} còn hàng trở lại">${esc(m.name)}</button>`).join('')}
+          </div>
+        </div>`;
+    },
+
+    STAFF(d) {
+      return `
+        <div class="ui-card">
+          <h4>👥 Nhân viên (${(d || []).length})</h4>
+          ${(d || []).map(p => `
+            <div class="ui-row ui-line"><span><b>${esc(p.name)}</b></span><span class="ui-sub">${esc(p.role)} · ${esc(p.id)}</span></div>`).join('')}
+        </div>`;
+    },
+
+    SHIFT(d) {
+      const name = {}; (d.shifts || []).forEach(s => { name[s.id] = s; });
+      return `
+        <div class="ui-card">
+          <h4>🗓 Lịch phân ca</h4>
+          ${Object.keys(d.upcoming || {}).map(date => `
+            <div class="ui-cat"><span>${esc(UICards.day(date))}</span></div>
+            ${Object.entries(d.upcoming[date]).map(([sid, list]) => `
+              <div class="ui-line">
+                <div class="ui-sub"><b>${esc((name[sid] && name[sid].name) || sid)}</b>${name[sid] ? ` (${esc(name[sid].timeRange)})` : ''}</div>
+                <div>${(list || []).map(esc).join(', ')}</div>
+              </div>`).join('')}
+          `).join('')}
+        </div>`;
+    },
+
+    CUSTOMER(d) {
+      return `
+        <div class="ui-card">
+          <h4>🧑 Khách hàng</h4>
+          ${(d || []).map(c => `
+            <div class="ui-order">
+              <div class="ui-row"><b>${esc(c.name)}</b><span class="ui-sub">${esc(c.phone)}</span></div>
+              <div class="ui-chips ui-mt">
+                <span class="ui-chip ui-chip-muted">Booking: ${esc(c.totalBookings)}</span>
+                <span class="ui-chip ui-chip-muted">Đơn: ${esc(c.totalOrders)}</span>
+                <span class="ui-chip ${c.noShowCount > 0 ? 'ui-chip-warn' : 'ui-chip-muted'}">No-show: ${esc(c.noShowCount)}</span>
+              </div>
+              ${(c.recentOrders || []).length ? `<div class="ui-sub">Đơn gần nhất: ${c.recentOrders.map(o => `#${esc(o.id)} (${UICards.fmt(o.total)})`).join(', ')}</div>` : ''}
+            </div>`).join('')}
+        </div>`;
+    },
+
+    MENU(d) {
+      if (Array.isArray(d)) d = { total: d.length, items: d };
+      const items = d.items || [];
+      const more = d.total > items.length ? `<div class="ui-sub ui-more">…và ${d.total - items.length} món khác</div>` : '';
+      return `
+        <div class="ui-card">
+          <h4>🥤 ${esc(d.title || 'Món gợi ý')}</h4>
+          ${items.map(m => this.menuRow(m)).join('')}
+          ${more}
+          <a href="menu.html" class="btn-outline ui-btn-block">Xem toàn bộ Menu</a>
+        </div>`;
+    },
+
+    CATALOG(d) {
+      return `
+        <div class="ui-card">
+          <h4>📖 Menu CAPPAN (${esc(d.totalItems)} món)</h4>
+          ${(d.categories || []).map(c => `
+            <div class="ui-cat"><span>${esc(c.name)}</span><span class="ui-sub">${esc(c.count)} món</span></div>
+            ${(c.items || []).map(m => this.menuRow(m)).join('')}
+          `).join('')}
+          <a href="menu.html" class="btn ui-btn-block">Xem toàn bộ Menu</a>
+        </div>`;
+    },
+
+    STORE(d) {
+      const wifi = d.wifi && typeof d.wifi === 'object' ? `${d.wifi.name} / ${d.wifi.password}` : d.wifi;
+      const tel = String(d.hotline || '').replace(/\s/g, '');
+      return `
+        <div class="ui-card ui-center">
+          <h4>☕ CAPPAN</h4>
+          <p class="ui-sub ui-mb">${esc(d.slogan)}</p>
+          <div class="ui-info">
+            <p>📍 <b>Địa chỉ:</b> ${esc(d.address)}</p>
+            <p>🕐 <b>Giờ mở:</b> ${esc(d.hours)}</p>
+            ${wifi ? `<p>📶 <b>Wifi:</b> ${esc(wifi)}</p>` : ''}
+            ${d.parking ? `<p>🛵 <b>Gửi xe:</b> ${esc(d.parking)}</p>` : ''}
+          </div>
+          <div class="ui-row ui-gap">
+            <a href="tel:${esc(tel)}" class="btn ui-btn-half">📞 Gọi ngay</a>
+            <a href="contact.html" class="btn-outline ui-btn-half">🗺 Xem bản đồ</a>
+          </div>
+        </div>`;
+    }
+  }
+};
+window.UICards = UICards;
+
+/* ---------- Thêm món vào giỏ từ thẻ Menu ---------- */
+function quickOrder(itemId) {
+  let item = null;
+  try { item = API.menu.getById(itemId); } catch (e) {}
+  if (!item) { showToast('⚠ Không tìm thấy món này', '#c62828'); return; }
+  if (item.inStock === false) { showToast(`⚠ ${item.name} đã hết hàng`, '#c62828'); return; }
+  if (typeof Auth !== 'undefined' && Auth.isStaff && Auth.isStaff()) {
+    showToast('Tài khoản nhân viên không dùng giỏ hàng', '#856404'); return;
+  }
+
+  // Món có size/topping cần khách chọn → không thêm mù, chỉ hướng dẫn sang trang Menu
+  const hasOptions = (item.sizes && item.sizes.length) || (item.toppings && item.toppings.length);
+  if (hasOptions) {
+    showToast(`${item.name} có tuỳ chọn size/topping — anh/chị chọn ở trang Menu nhé`, '#856404');
+    return;
+  }
+
+  // API.cart.add(item) nhận 1 object, tự đặt qty = 1 và gộp theo (itemId + size)
+  try {
+    API.cart.add({ itemId: item.id, name: item.name, price: item.price, img: item.img, size: '' });
+    showToast(`✓ Đã thêm ${item.name} vào giỏ`);
+    updateUserArea();
+  } catch (e) {
+    console.warn('[quickOrder] lỗi thêm giỏ:', e);
+    showToast('⚠ Chưa thêm được vào giỏ, anh/chị thử lại nhé', '#c62828');
+  }
+}
+window.quickOrder = quickOrder;
+
+/* Click trong thẻ (event delegation → hoạt động cả với thẻ khôi phục từ lịch sử) */
+document.addEventListener('click', (e) => {
+  const copyBtn = e.target.closest('[data-ui-copy]');
+  if (copyBtn) {
+    const code = copyBtn.dataset.uiCopy;
+    const ok = () => showToast(`✓ Đã copy mã ${code}`);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(ok, () => showToast(`Mã của bạn: ${code}`, '#856404'));
+    } else {
+      showToast(`Mã của bạn: ${code}`, '#856404');
+    }
+    return;
+  }
+  const addBtn = e.target.closest('[data-ui-add]');
+  if (addBtn) { quickOrder(addBtn.dataset.uiAdd); return; }
+  const sayBtn = e.target.closest('[data-ui-say]');
+  if (sayBtn) sendQuickReply(sayBtn.dataset.uiSay);
+});
+
+/* ============================================================
+   SEND CHAT — STREAMING
 ============================================================ */
 async function sendChat() {
   const input = document.getElementById('chatInput');
@@ -347,7 +705,6 @@ async function sendChat() {
   const text = input.value.trim();
   if (!text) return;
 
-  /* ---------- GUARD ---------- */
   if (typeof AIBrain === 'undefined' || typeof AIBrain.streamReply !== 'function') {
     addChatMsg(text, 'user');
     input.value = '';
@@ -358,27 +715,22 @@ async function sendChat() {
   const qr = document.getElementById('quickReplies');
   if (qr) qr.remove();
 
+  document.querySelectorAll('#chatBody .confirm-actions').forEach(el => el.remove());
+
   addChatMsg(text, 'user');
   input.value = '';
 
   const body = document.getElementById('chatBody');
   if (!body) return;
 
-  /* ============================================================
-     STATE
-  ============================================================ */
-  let botDiv = null;              // khung bot hiện tại
-  let streamTxt = null;           // span chứa text
-  let cursorEl = null;            // span cursor '|'
-  let renderedLength = 0;         // độ dài đã render
-  let firstChunkReceived = false; // đã nhận chunk đầu?
+  let botDiv = null;
+  let streamTxt = null;
+  let cursorEl = null;
+  let renderedLength = 0;
+  let firstChunkReceived = false;
 
-  /* ============================================================
-     LAZY CREATE BUBBLE — chỉ tạo khi có chunk đầu tiên
-  ============================================================ */
   const ensureBubble = () => {
-    if (botDiv) return;           // đã có → không tạo lại
-
+    if (botDiv) return;
     botDiv = document.createElement('div');
     botDiv.className = 'msg bot';
     botDiv.innerHTML =
@@ -388,8 +740,8 @@ async function sendChat() {
       '</div>';
     body.appendChild(botDiv);
     body.scrollTop = body.scrollHeight;
-
     streamTxt = botDiv.querySelector('.stream-text');
+    streamTxt.style.whiteSpace = 'pre-wrap';
     cursorEl  = botDiv.querySelector('.streaming-cursor');
   };
 
@@ -399,7 +751,6 @@ async function sendChat() {
   };
 
   const resetBubble = () => {
-    // Xóa bubble cũ nếu có
     if (botDiv && botDiv.parentNode) botDiv.remove();
     botDiv = null;
     streamTxt = null;
@@ -407,97 +758,82 @@ async function sendChat() {
     renderedLength = 0;
     firstChunkReceived = false;
   };
+  
 
-  /* ============================================================
-     ONCHUNK — được gọi mỗi khi có token mới
-     - Lần đầu: ẩn typing, tạo bubble
-     - Các lần sau: append text mới
-  ============================================================ */
   const onChunk = (delta, full) => {
-    // ⚡ Lần đầu — ẩn typing, tạo bubble
     if (!firstChunkReceived) {
       firstChunkReceived = true;
       hideTypingIndicator();
       ensureBubble();
     }
-
-    // ⚡ Chỉ append phần MỚI — không ghi lại toàn bộ
-    const newPart = full.slice(renderedLength);
-    if (!newPart) return;
-
-    streamTxt.appendChild(document.createTextNode(newPart));
+    streamTxt.textContent = filterMarkdown(full);
     renderedLength = full.length;
     body.scrollTop = body.scrollHeight;
   };
 
-  /* ============================================================
-     PHASE CALLBACK — brain báo khi chuyển sang stream 2
-  ============================================================ */
   AIBrain._onPhaseChange = (phase) => {
     if (phase === 'stream2') {
-      // Xóa bubble hiện tại (nếu có) — vì sẽ stream lần 2
       removeCursor();
       resetBubble();
-      // Hiện typing cho stream 2
       showTypingIndicator();
     }
   };
 
-  /* ============================================================
-     BẮT ĐẦU — hiện typing ngay, KHÔNG hiện bubble
-  ============================================================ */
   showTypingIndicator();
 
   try {
     const response = await AIBrain.streamReply(text, onChunk);
 
-    /* ---------- PENDING CONFIRM ---------- */
     if (response && response.type === 'pending') {
       hideTypingIndicator();
-      // Xóa bubble streaming (nếu có) — thay bằng nút
       if (botDiv && botDiv.parentNode) botDiv.remove();
       botDiv = null;
-
-      addConfirmButtons(
-        response.message,
-        response.toolName,
-        response.toolCallId,
-        response.args
-      );
+      addConfirmButtons(response.message, response.toolName, response.toolCallId, response.args);
       return;
     }
 
-    /* ---------- XONG — ẨN TYPING + CURSOR ---------- */
     hideTypingIndicator();
     removeCursor();
 
-    /* ---------- FALLBACK: KHÔNG CÓ CHUNK NÀO ---------- */
-    if (!firstChunkReceived) {
-      ensureBubble();
-      streamTxt.textContent =
-        'Xin lỗi, em chưa có câu trả lời cho câu hỏi này. Anh/chị hỏi lại giúp em nhé!';
+    // ⚡ GENERATIVE UI: có thẻ [UI_...] → bỏ bong bóng stream, vẽ thẻ (xem UICards ở trên)
+    if (response && response.type === 'text' && UICards.has(response.message)) {
+      if (botDiv && botDiv.parentNode) botDiv.remove();
+      botDiv = null;
+      UICards.appendTo(response.message, text);
       return;
     }
 
-    /* ---------- FALLBACK: TEXT RỖNG ---------- */
-    const finalMsg = (response && response.message) ? response.message : '';
-    if (!finalMsg.trim() && streamTxt && !streamTxt.textContent.trim()) {
-      streamTxt.textContent =
-        'Xin lỗi, em chưa có câu trả lời cho câu hỏi này. Anh/chị hỏi lại giúp em nhé!';
+    const finalMsg = (response && response.message) ? String(response.message) : '';
+
+    if (!firstChunkReceived) {
+      ensureBubble();
+      removeCursor();
+      streamTxt.textContent = finalMsg.trim()
+        ? filterMarkdown(finalMsg)
+        : 'Xin lỗi, em chưa có câu trả lời cho câu hỏi này. Anh/chị hỏi lại giúp em nhé!';
+    } else {
+      if (finalMsg.trim()) {
+        streamTxt.textContent = filterMarkdown(finalMsg);
+      } else if (streamTxt && !streamTxt.textContent.trim()) {
+        streamTxt.textContent = 'Xin lỗi, em chưa có câu trả lời cho câu hỏi này. Anh/chị hỏi lại giúp em nhé!';
+      }
     }
+
+    // ⚡ FIX: gắn feedback 👍/👎 sau khi có câu trả lời
+    if (botDiv) addFeedbackButtons(botDiv, text, finalMsg);
+
+    // ⚡ Bộ não nội bộ: câu giải thích (đã stream ở trên) + thẻ có nút bấm
+    if (response && response.cards) UICards.appendTo(response.cards);
 
   } catch (e) {
     console.error('[sendChat] lỗi:', e);
     hideTypingIndicator();
     removeCursor();
-
     if (!firstChunkReceived) {
       ensureBubble();
-      streamTxt.textContent =
-        'Xin lỗi, em đang gặp sự cố kỹ thuật. Anh/chị thử lại nhé!';
+      streamTxt.textContent = 'Xin lỗi, em đang gặp sự cố kỹ thuật. Anh/chị thử lại nhé!';
     } else if (streamTxt && !streamTxt.textContent.trim()) {
-      streamTxt.textContent =
-        'Xin lỗi, em đang gặp sự cố kỹ thuật. Anh/chị thử lại nhé!';
+      streamTxt.textContent = 'Xin lỗi, em đang gặp sự cố kỹ thuật. Anh/chị thử lại nhé!';
     }
   } finally {
     AIBrain._onPhaseChange = null;
@@ -529,11 +865,11 @@ function restoreChatHistory() {
         addChatMsg(item.content, 'user');
         rendered++;
       } else if (item.role === 'assistant' && item.content) {
-        addChatMsg(item.content, 'bot');
+        if (UICards.has(item.content)) UICards.appendTo(item.content);   // khôi phục cả thẻ
+        else addChatMsg(item.content, 'bot');
         rendered++;
       }
     });
-
     console.log(`[Chat] Đã khôi phục ${rendered} tin`);
   } catch (e) {
     console.error('[Chat] Lỗi khôi phục:', e);
@@ -551,6 +887,7 @@ document.addEventListener('DOMContentLoaded', () => {
     restoreChatHistory();
   }
 });
+
 function clearAICache() {
   if (typeof ResponseCache === 'undefined') {
     showToast('⚠ Cache chưa khởi tạo', '#c62828');
@@ -587,3 +924,4 @@ window.showTypingIndicator = showTypingIndicator;
 window.hideTypingIndicator = hideTypingIndicator;
 window.filterMarkdown      = filterMarkdown;
 window.escapeHtml          = escapeHtml;
+window.addFeedbackButtons  = addFeedbackButtons;

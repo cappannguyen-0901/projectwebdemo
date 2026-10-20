@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Khuyến mãi — CAPPAN Staff</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="chat-panel.css">
+<link rel="stylesheet" href="staff.css">
+<script>
+/* Đặt sẵn độ rộng + trạng thái chat TRƯỚC khi trình duyệt vẽ lần đầu → không bị dựt khi đổi trang */
+(function(){try{var d=document.documentElement,
+w=parseInt(localStorage.getItem('cappan_chat_panel_width'),10);
+if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
+d.dataset.chat=localStorage.getItem('cappan_chat_panel_collapsed')==='1'?'collapsed':'open';
+d.classList.add('no-anim');}catch(e){}})();
+</script>
+<style>
+  .promo-tag { display:inline-block; padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; white-space:nowrap; }
+  .promo-tag.active   { background:#e8f5e9; color:#2e7d32; }
+  .promo-tag.upcoming { background:#e3f2fd; color:#1565c0; }
+  .promo-tag.expired  { background:#fdecea; color:#c62828; }
+  .promo-tag.off      { background:#eceff1; color:#546e7a; }
+  .promo-code { font-family:monospace; font-weight:700; letter-spacing:.5px; }
+  .promo-sub  { display:block; color:#888; font-size:0.8rem; margin-top:2px; }
+  .promo-row-expired td { opacity:.65; }
+  .promo-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .promo-quick { display:flex; gap:6px; flex-wrap:wrap; margin:-4px 0 10px; }
+  .promo-quick button { border:1px solid #d7c4a8; background:#fff8ee; color:#6F4E37; border-radius:14px; padding:3px 10px; font-size:0.78rem; cursor:pointer; }
+  .promo-quick button:hover { background:#f3e3c8; }
+  .promo-today { color:var(--gray); font-size:0.9rem; align-self:center; }
+  .promo-check { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  .promo-check input { width:auto; }
+  @media (max-width:600px) { .promo-grid2 { grid-template-columns:1fr; } }
+</style>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body data-page="staff-promotions">
+
+<header class="app-header">
+  <a class="logo" href="staff-dashboard.html">
+    <span class="brand">CAPP<span>AN</span></span>
+    <span class="tagline">Staff Panel</span>
+  </a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+  <nav class="nav" id="mainNav"></nav>
+</header>
+
+<div class="dashboard-layout" id="dashboardLayout">
+  <div class="dashboard-main">
+    <section class="section">
+
+      <h2 class="section-title" style="text-align:left;">🎁 Quản lý khuyến mãi</h2>
+      <p class="section-sub" style="text-align:left;">
+        Thêm mã theo ngày áp dụng. Chatbot và trang khách tự động chỉ hiển thị mã còn hiệu lực <strong>hôm nay</strong>.
+      </p>
+
+      <div class="staff-tabs" id="promoTabs">
+        <button class="staff-tab active" data-tab="active"   onclick="setPromoFilter('active')">Đang áp dụng</button>
+        <button class="staff-tab"        data-tab="upcoming" onclick="setPromoFilter('upcoming')">Sắp tới</button>
+        <button class="staff-tab"        data-tab="expired"  onclick="setPromoFilter('expired')">Hết hạn</button>
+        <button class="staff-tab"        data-tab="off"      onclick="setPromoFilter('off')">Đang tắt</button>
+        <button class="staff-tab"        data-tab="all"      onclick="setPromoFilter('all')">Tất cả</button>
+      </div>
+
+      <div class="menu-toolbar" style="justify-content:flex-start; gap:12px; flex-wrap:wrap;">
+        <button class="btn" onclick="openPromoModal()">+ Thêm khuyến mãi</button>
+        <span class="promo-today" id="todayLabel"></span>
+      </div>
+
+      <div class="staff-panel">
+        <div id="promoContainer"></div>
+      </div>
+
+    </section>
+  </div>
+
+  <div class="panel-resizer" id="panelResizer"></div>
+  <aside class="chat-panel" id="chatPanel">
+    <div class="chat-panel-header">
+      <span class="chat-panel-title">🤖 Trợ lý CAPPAN</span>
+      <div class="chat-panel-actions">
+        <button class="chat-panel-btn" id="btnCollapseChat" title="Thu gọn bảng chat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+        <button class="chat-panel-btn emoji-btn" onclick="clearAICache()" title="Xóa cache AI">🧹</button>
+        <button class="chat-panel-btn" id="btnClearChat" title="Xóa lịch sử">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-panel-footer">
+      <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." autocomplete="off">
+      <button id="btnSendChat" title="Gửi">▶</button>
+    </div>
+  </aside>
+  <button class="chat-float-btn" id="chatFloatBtn" title="Mở trợ lý"><span>🤖</span></button>
+</div>
+
+<!-- MODAL THÊM / SỬA KHUYẾN MÃI -->
+<div class="modal-overlay" id="promoModal">
+  <div class="modal-box" style="max-width:520px; max-height:92vh; overflow-y:auto;">
+    <button class="modal-close" onclick="closeModal('promoModal')">✕</button>
+    <h2 id="promoModalTitle">Thêm khuyến mãi</h2>
+    <form onsubmit="return handlePromoSave(event)">
+      <div class="promo-grid2">
+        <div class="form-group">
+          <label>Mã *</label>
+          <input type="text" id="pCode" placeholder="VD: SALE20" maxlength="20" style="text-transform:uppercase;" required>
+        </div>
+        <div class="form-group">
+          <label>Mức giảm *</label>
+          <input type="text" id="pDiscount" placeholder="10% hoặc 20.000đ" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Tên chương trình *</label>
+        <input type="text" id="pName" placeholder="VD: Giảm giá cuối tuần" required>
+      </div>
+      <div class="form-group">
+        <label>Mô tả (hiển thị cho khách)</label>
+        <input type="text" id="pDesc" placeholder="VD: Giảm 20.000đ cho đơn từ 100.000đ">
+      </div>
+      <div class="promo-grid2">
+        <div class="form-group">
+          <label>Đơn tối thiểu (VNĐ)</label>
+          <input type="number" id="pMin" min="0" step="1000" placeholder="0 = không yêu cầu">
+        </div>
+        <div class="form-group">
+          <label>Giảm tối đa (VNĐ)</label>
+          <input type="number" id="pMax" min="0" step="1000" placeholder="Bỏ trống = không giới hạn">
+        </div>
+      </div>
+      <div class="promo-grid2">
+        <div class="form-group">
+          <label>Từ ngày</label>
+          <input type="date" id="pStart">
+        </div>
+        <div class="form-group">
+          <label>Đến ngày</label>
+          <input type="date" id="pEnd">
+        </div>
+      </div>
+      <div class="promo-quick">
+        <button type="button" onclick="setPromoRange(0)">Chỉ hôm nay</button>
+        <button type="button" onclick="setPromoRange(1)">Hôm nay + ngày mai</button>
+        <button type="button" onclick="setPromoRange(6)">7 ngày</button>
+        <button type="button" onclick="setPromoRange(29)">30 ngày</button>
+        <button type="button" onclick="setPromoRange(-1)">Không giới hạn</button>
+      </div>
+      <div class="form-group">
+        <label>Điều kiện áp dụng</label>
+        <input type="text" id="pTerms" placeholder="VD: Không áp dụng cùng mã khác">
+      </div>
+      <label class="promo-check">
+        <input type="checkbox" id="pActive" checked> Bật khuyến mãi này
+      </label>
+      <button type="submit" class="btn btn-block" id="promoSaveBtn">Lưu khuyến mãi</button>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Thành công!</div>
+
+<script src="js/data/schema.js"></script>
+<script src="js/data/seed.js"></script>
+<script src="js/data/recipes.js"></script>
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
+<script src="js/api/index.js"></script>
+<script src="js/staff-guard.js"></script>
+<script src="js/ai/brain-legacy.js"></script>
+<script src="js/ai/brain.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+<script src="js/chat-panel.js"></script>
+<script src="js/staff-nav.js"></script>
+
+<script>
+let promoFilter = 'active';
+let editingCode = null;     // null = đang thêm mới
+
+const STATUS_LABEL = {
+  active:   '🟢 Đang áp dụng',
+  upcoming: '🔵 Sắp tới',
+  expired:  '🔴 Hết hạn',
+  off:      '⚪ Đang tắt'
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!Auth.requireStaff()) return;
+  renderStaffNav('promotions');
+  renderToday();
+  renderPromos();
+});
+
+/* ---------- tiện ích ngày ---------- */
+function ymd(d) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function fmtDate(s) { return s ? s.split('-').reverse().join('/') : ''; }
+function addDays(dateStr, n) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return ymd(new Date(y, m - 1, d + n));
+}
+function renderToday() {
+  const el = document.getElementById('todayLabel');
+  if (el) el.textContent = '📅 Hôm nay: ' + fmtDate(API.utils.today());
+}
+
+function rangeText(p) {
+  if (!p.startDate && !p.endDate) return 'Không giới hạn';
+  if (p.startDate && p.endDate) {
+    return p.startDate === p.endDate ? fmtDate(p.startDate) : `${fmtDate(p.startDate)} → ${fmtDate(p.endDate)}`;
+  }
+  return p.startDate ? `Từ ${fmtDate(p.startDate)}` : `Đến ${fmtDate(p.endDate)}`;
+}
+
+/* ---------- danh sách ---------- */
+function setPromoFilter(f) {
+  promoFilter = f;
+  document.querySelectorAll('#promoTabs .staff-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.tab === f));
+  renderPromos();
+}
+
+function renderPromos() {
+  const today = API.utils.today();
+  const order = { active: 0, upcoming: 1, off: 2, expired: 3 };
+  let list = API.promotions.getAll().map(p => ({ p, st: API.promotions.status(p, today) }));
+
+  // cập nhật số lượng trên tab
+  const counts = { all: list.length, active: 0, upcoming: 0, expired: 0, off: 0 };
+  list.forEach(x => counts[x.st]++);
+  const names = { active: 'Đang áp dụng', upcoming: 'Sắp tới', expired: 'Hết hạn', off: 'Đang tắt', all: 'Tất cả' };
+  document.querySelectorAll('#promoTabs .staff-tab').forEach(t => {
+    t.textContent = `${names[t.dataset.tab]} (${counts[t.dataset.tab]})`;
+  });
+
+  if (promoFilter !== 'all') list = list.filter(x => x.st === promoFilter);
+  list.sort((a, b) => order[a.st] - order[b.st] || (b.p.startDate || '').localeCompare(a.p.startDate || ''));
+
+  const el = document.getElementById('promoContainer');
+  if (list.length === 0) {
+    el.innerHTML = `<p class="empty-note">Không có khuyến mãi nào${promoFilter === 'active' ? ' đang áp dụng hôm nay' : ''}. Bấm "+ Thêm khuyến mãi" để tạo mới.</p>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <table class="staff-table">
+      <thead>
+        <tr><th>Mã</th><th>Chương trình</th><th>Giảm</th><th>Đơn tối thiểu</th><th>Thời gian</th><th>Trạng thái</th><th>Hành động</th></tr>
+      </thead>
+      <tbody>
+        ${list.map(({ p, st }) => `
+          <tr class="${st === 'expired' ? 'promo-row-expired' : ''}">
+            <td><span class="promo-code">${esc(p.code)}</span></td>
+            <td>
+              <strong>${esc(p.name)}</strong>
+              ${p.description ? `<span class="promo-sub">${esc(p.description)}</span>` : ''}
+            </td>
+            <td>${esc(p.discount)}${p.maxDiscount ? `<span class="promo-sub">tối đa ${API.utils.formatVND(p.maxDiscount)}</span>` : ''}</td>
+            <td>${p.minOrder ? API.utils.formatVND(p.minOrder) : '—'}</td>
+            <td>${esc(rangeText(p))}</td>
+            <td><span class="promo-tag ${st}">${STATUS_LABEL[st]}</span></td>
+            <td style="white-space:nowrap;">
+              <button class="btn-mini-action" onclick="openPromoModal('${esc(p.code)}')">✏️ Sửa</button>
+              <button class="btn-mini-action" onclick="togglePromo('${esc(p.code)}')">${p.active ? '⏸ Tắt' : '▶ Bật'}</button>
+              <button class="btn-mini-action" onclick="useToday('${esc(p.code)}')" title="Đặt áp dụng đúng hôm nay">📅 Hôm nay</button>
+              <button class="btn-mini-action" onclick="duplicatePromo('${esc(p.code)}')" title="Nhân bản thành mã mới">📄 Nhân bản</button>
+              <button class="btn-mini-action delete" onclick="removePromo('${esc(p.code)}')">🗑️</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+/* ---------- thao tác nhanh ---------- */
+function togglePromo(code) {
+  const p = API.promotions.getByCode(code);
+  if (!p) return;
+  API.promotions.update(code, { active: !p.active });
+  renderPromos();
+  showToast(p.active ? '⏸ Đã tắt ' + code : '▶ Đã bật ' + code);
+}
+
+function useToday(code) {
+  const today = API.utils.today();
+  const r = API.promotions.update(code, { startDate: today, endDate: today, active: true });
+  if (!r.ok) { showToast('⚠ ' + r.error, '#c62828'); return; }
+  renderPromos();
+  showToast(`✓ ${code} áp dụng hôm nay (${fmtDate(today)})`);
+}
+
+function removePromo(code) {
+  if (!confirm(`Xóa khuyến mãi ${code}?`)) return;
+  API.promotions.remove(code);
+  renderPromos();
+  showToast('✓ Đã xóa ' + code);
+}
+
+/* ---------- modal thêm / sửa ---------- */
+function fillForm(p) {
+  document.getElementById('pCode').value     = p.code || '';
+  document.getElementById('pName').value     = p.name || '';
+  document.getElementById('pDesc').value     = p.description || '';
+  document.getElementById('pDiscount').value = p.discount || '';
+  document.getElementById('pMin').value      = p.minOrder || '';
+  document.getElementById('pMax').value      = p.maxDiscount || '';
+  document.getElementById('pStart').value    = p.startDate || '';
+  document.getElementById('pEnd').value      = p.endDate || '';
+  document.getElementById('pTerms').value    = p.terms || '';
+  document.getElementById('pActive').checked = p.active !== false;
+}
+
+function openPromoModal(code) {
+  const today = API.utils.today();
+  editingCode = code || null;
+  const codeInput = document.getElementById('pCode');
+
+  if (editingCode) {
+    const p = API.promotions.getByCode(editingCode);
+    if (!p) return;
+    fillForm(p);
+    codeInput.readOnly = true;
+    document.getElementById('promoModalTitle').textContent = 'Sửa khuyến mãi ' + p.code;
+  } else {
+    fillForm({ startDate: today, endDate: today, active: true });   // mặc định: áp dụng hôm nay
+    codeInput.readOnly = false;
+    document.getElementById('promoModalTitle').textContent = 'Thêm khuyến mãi';
+  }
+  openModal('promoModal');
+}
+
+function duplicatePromo(code) {
+  const p = API.promotions.getByCode(code);
+  if (!p) return;
+  const today = API.utils.today();
+  openPromoModal();                                    // chế độ thêm mới
+  fillForm({ ...p, code: '', startDate: today, endDate: today, active: true });
+  document.getElementById('pCode').focus();
+}
+
+function setPromoRange(days) {
+  const today = API.utils.today();
+  if (days < 0) {
+    document.getElementById('pStart').value = '';
+    document.getElementById('pEnd').value = '';
+    return;
+  }
+  document.getElementById('pStart').value = today;
+  document.getElementById('pEnd').value = addDays(today, days);
+}
+
+function handlePromoSave(e) {
+  e.preventDefault();
+  const data = {
+    code:        document.getElementById('pCode').value,
+    name:        document.getElementById('pName').value,
+    description: document.getElementById('pDesc').value,
+    discount:    document.getElementById('pDiscount').value,
+    minOrder:    document.getElementById('pMin').value,
+    maxDiscount: document.getElementById('pMax').value,
+    startDate:   document.getElementById('pStart').value,
+    endDate:     document.getElementById('pEnd').value,
+    terms:       document.getElementById('pTerms').value,
+    active:      document.getElementById('pActive').checked
+  };
+
+  const res = editingCode
+    ? API.promotions.update(editingCode, data)
+    : API.promotions.add(data);
+
+  if (!res.ok) { showToast('⚠ ' + res.error, '#c62828'); return false; }
+
+  closeModal('promoModal');
+  // nếu mã vừa lưu không nằm trong tab đang xem → chuyển sang tab của nó
+  const st = API.promotions.status(res.promo);
+  if (promoFilter !== 'all' && promoFilter !== st) setPromoFilter(st);
+  else renderPromos();
+  showToast(editingCode ? '✓ Đã cập nhật ' + res.promo.code : '✓ Đã thêm ' + res.promo.code);
+  return false;
+}
+</script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
+</body>
+</html>

@@ -3397,3 +3397,211 @@ button[title*="Xóa"]:active,
   .chat-btn img, .chat-btn svg,
   #chatFloatBtn img, #chatFloatBtn svg { width: 32px; height: 32px; }
 }
+/* ============================================================
+   DEMO BANNER + AI FEEDBACK + PROMO INPUT (Bản final fix giao diện)
+============================================================ */
+.demo-banner {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
+  padding: 10px 16px;
+  border-radius: 8px;
+  margin: 86px 20px 0 20px; /* ⚡ FIX: Đẩy xuống dưới thanh menu (cao 72px) + 14px khoảng trắng */
+  font-size: 0.85rem;
+  text-align: center;
+  position: relative;
+  z-index: 5;
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
+}
+
+/* Riêng trang chủ có ảnh Hero (không padding-top) -> đẩy banner xuống thấp hơn chút */
+body[data-page="home"] .demo-banner {
+  margin-top: 86px;
+}
+
+/* Trên điện thoại (menu nhỏ hơn) */
+@media (max-width: 768px) {
+  .demo-banner {
+    margin: 74px 12px 0 12px;
+    font-size: 0.78rem;
+    padding: 8px 12px;
+  }
+  body[data-page="home"] .demo-banner {
+    margin-top: 74px;
+  }
+}
+
+.ai-feedback {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.ai-feedback:hover { opacity: 1; }
+.fb-btn {
+  background: transparent;
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+}
+.fb-btn:hover { background: #f0f0f0; transform: scale(1.1); }
+.fb-down:hover { background: #fdecea; border-color: #c62828; }
+
+/* Promo hint */
+#promoMsg { display: block; margin-top: 4px; min-height: 18px; }
+/* ============================================================
+   GENERATIVE UI CARDS (gộp từ 2 khối trùng lặp trước đây)
+============================================================ */
+/* Bong bóng chứa thẻ: bỏ nền kem + padding, cho thẻ rộng hơn */
+.msg.bot .bubble:has(.ui-card) {
+  background: transparent;
+  padding: 0;
+  width: 92%;
+  max-width: 92%;
+}
+
+.ui-card {
+  background: #fff;
+  border: 1px solid #f0e6d2;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  width: 100%;
+  font-family: inherit;
+  word-break: break-word;
+  animation: uiCardIn .28s ease-out both;
+}
+.ui-card-gold { border-left: 4px solid #C9A227; }
+.ui-center { text-align: center; }
+@keyframes uiCardIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.ui-card h4 {
+  color: #5D4037;
+  margin: 0 0 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Nút */
+.ui-card .btn,
+.ui-card .btn-outline {
+  display: inline-block;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all .2s;
+}
+.ui-card .btn {
+  border: none;
+  background: #C9A227;
+  color: #fff;
+}
+.ui-card .btn:hover:not(:disabled) { background: #b08d1e; transform: translateY(-1px); }
+.ui-card .btn:disabled { background: #ccc; cursor: not-allowed; }
+.ui-card .btn-outline {
+  border: 1px solid #C9A227;
+  color: #C9A227;
+  background: transparent;
+}
+.ui-card .btn-outline:hover { background: #fff8e6; }
+
+.ui-btn-block { display: block !important; width: 100%; padding: 8px 12px; font-size: 13px; margin-top: 10px; box-sizing: border-box; }
+.ui-btn-half  { flex: 1; padding: 8px; font-size: 13px; box-sizing: border-box; }
+.ui-btn-sm    { padding: 5px 10px; font-size: 12px; flex-shrink: 0; }
+
+/* Bố cục */
+.ui-row  { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ui-gap  { gap: 8px; }
+.ui-grow { flex: 1; min-width: 0; }
+.ui-sub  { font-size: 11px; color: #666; }
+.ui-mb   { margin-bottom: 12px; }
+.ui-more { text-align: center; margin-top: 4px; }
+
+/* Chỗ trống */
+.ui-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.ui-chip {
+  background: #fff3e0;
+  border: 1px solid #f0e6d2;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5D4037;
+}
+.ui-chip-muted { background: #f6f6f6; border-color: #eee; color: #666; font-weight: 500; }
+
+/* Khuyến mãi */
+.ui-promo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff8e6;
+  border: 1px dashed #e0c88a;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+.ui-promo-code { font-weight: bold; color: #2E7D32; font-size: 14px; }
+
+/* Đơn hàng */
+.ui-order { border: 1px solid #eee; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+.ui-order .ui-row { color: #3E2723; margin-bottom: 4px; }
+.ui-price { color: #2E7D32; font-weight: bold; }
+.ui-progress { background: #f0f0f0; height: 4px; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.ui-progress > div { background: #C9A227; height: 100%; border-radius: 2px; transition: width .4s; }
+.ui-step { font-size: 11px; color: #C9A227; margin-top: 4px; text-align: right; }
+
+/* Menu */
+.ui-menu-row { margin-bottom: 12px; }
+.ui-card .menu-item-name {
+  font-weight: bold;
+  color: #3E2723;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ui-card .menu-item-price { color: #2E7D32; font-size: 12px; font-weight: bold; white-space: nowrap; }
+.ui-badge {
+  background: #C9A227; color: #fff; font-size: 10px; font-weight: 600;
+  padding: 1px 6px; border-radius: 10px; vertical-align: middle;
+}
+
+/* Thông tin quán */
+.ui-info { background: #fdf9f3; padding: 10px; border-radius: 8px; font-size: 13px; text-align: left; margin-bottom: 12px; }
+.ui-info p { margin: 0 0 6px; }
+.ui-info p:last-child { margin-bottom: 0; }
+
+/* ---------- Thẻ mở rộng: KPI, danh mục, danh sách, nút chip ---------- */
+.ui-mt { margin-top: 6px; }
+.ui-red { color: #c62828 !important; }
+.ui-dim { opacity: .6; }
+.ui-line { padding: 6px 0; border-bottom: 1px solid #f3ece0; font-size: 13px; }
+.ui-line:last-child { border-bottom: none; }
+.ui-cat {
+  display: flex; justify-content: space-between; align-items: center;
+  font-weight: 700; color: #5D4037; font-size: 13px;
+  margin: 10px 0 6px; padding-bottom: 4px; border-bottom: 1px solid #f0e6d2;
+}
+.ui-kpi-main { background: #fdf9f3; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.ui-kpi-value { font-size: 22px; font-weight: 800; color: #2E7D32; line-height: 1.2; }
+.ui-kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; font-size: 13px; }
+.ui-kpi-grid > div { background: #fff8e6; border-radius: 8px; padding: 8px 10px; }
+.ui-chip-btn { cursor: pointer; font-family: inherit; transition: all .2s; }
+.ui-chip-btn:hover { background: #C9A227; color: #fff; border-color: #C9A227; }
+.ui-chip-warn { background: #fdecea; border-color: #f5c6c2; color: #c62828; }

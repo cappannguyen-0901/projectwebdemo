@@ -15,6 +15,7 @@ if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
 d.dataset.chat=localStorage.getItem('cappan_chat_panel_collapsed')==='1'?'collapsed':'open';
 d.classList.add('no-anim');}catch(e){}})();
 </script>
+<link rel="stylesheet" href="theme.css">
 </head>
 <body data-page="staff-dashboard">
 
@@ -179,7 +180,7 @@ function renderStats() {
   const seats = API.seats.getAll();
   const available = seats.filter(s => s.status === 'available').length;
   const booked = seats.filter(s => s.status === 'booked').length;
-  const activeOrders = API.orders.getAll().filter(o => o.step < 4).length;
+  const activeOrders = API.orders.getActive().length;
   const today = API.stats.today();
 
   const el = document.getElementById('statsGrid');
@@ -314,8 +315,7 @@ function resetAllSeats() {
 /* ---------- ORDERS ---------- */
 function renderOrders() {
   const el = document.getElementById('staffOrders');
-  const orders = API.orders.getAll()
-    .filter(o => o.step < 4)
+  const orders = API.orders.getActive()
     .slice().reverse().slice(0, 5);
 
   if (orders.length === 0) {
@@ -369,7 +369,7 @@ function renderBookings() {
           return `
             <tr>
               <td><strong>${b.id}</strong></td>
-              <td>${user ? user.name : '—'}</td>
+              <td>${user ? esc(user.name) : '—'}</td>
               <td>${b.seatId}</td>
               <td>${floor ? floor.name : '—'}</td>
               <td>${b.time}</td>
@@ -391,5 +391,7 @@ function completeBooking(id) {
   showToast('✓ Đã hoàn thành booking');
 }
 </script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
 </body>
 </html>

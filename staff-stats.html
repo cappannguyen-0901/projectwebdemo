@@ -15,6 +15,7 @@ if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
 d.dataset.chat=localStorage.getItem('cappan_chat_panel_collapsed')==='1'?'collapsed':'open';
 d.classList.add('no-anim');}catch(e){}})();
 </script>
+<link rel="stylesheet" href="theme.css">
 </head>
 <body data-page="staff-stats">
 
@@ -167,7 +168,7 @@ function renderAll() {
       <div class="top-item-row">
         <div class="top-rank">${i + 1}</div>
         <div class="top-info">
-          <strong>${it.name}</strong>
+          <strong>${esc(it.name)}</strong>
           <small>${it.qty} ly · ${API.utils.formatVND(it.revenue)}</small>
         </div>
       </div>
@@ -211,5 +212,7 @@ function renderAll() {
   `;
 }
 </script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
 </body>
 </html>

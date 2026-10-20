@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Theo dõi đơn – CAPPAN</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="theme.css">
 </head>
 <body data-page="tracking">
 
@@ -26,6 +27,10 @@
     <div class="user-area" id="userArea"></div>
   </nav>
 </header>
+
+<div class="demo-banner">
+  ⚠️ Trạng thái đơn chỉ cập nhật khi nhân viên thao tác trên tab khác (demo). Không tự "giao hàng".
+</div>
 
 <section class="section">
   <h2 class="section-title">Theo Dõi Đơn Hàng</h2>
@@ -76,7 +81,7 @@
     </div>
   </div>
   <div class="chat-body" id="chatBody">
-    <div class="msg bot"><div class="bubble">Bạn cần hỏi gì về đơn hàng không? 📦</div></div>
+    <div class="msg bot"><div class="bubble">Em là trợ lý AI, có thể sai. Bạn cần hỏi gì về đơn hàng không? 📦</div></div>
   </div>
   <div class="chat-input">
     <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
@@ -90,8 +95,8 @@
 <script src="js/data/schema.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
-<script src="js/data/kb.js"></script>             
-<script src="js/data/promotions.js"></script>     
+<script src="js/data/kb.js"></script>
+<script src="js/data/promotions.js"></script>
 <script src="js/api/index.js"></script>
 <script src="js/staff-guard.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
@@ -159,21 +164,23 @@ function renderTracking() {
 
 function renderOrderCard(order) {
   const statusText = ['Đã xác nhận', 'Đang pha chế', 'Shipper lấy hàng', 'Đang giao', 'Đã giao'];
-  const isActive = order.step < 4;
-  const isDone = order.step >= 4;
+  const isCancelled = order.status === 'cancelled';
+  const isActive = !isCancelled && order.step < 4;
+  const isDone = !isCancelled && order.step >= 4;
 
   return `
-    <div class="order-tracking-card ${isDone ? 'done' : ''}">
+    <div class="order-tracking-card ${isDone ? 'done' : ''} ${isCancelled ? 'cancelled' : ''}">
       <div class="shipper-header">
         <div>
-          <h3>Đơn hàng #${order.id} ${isDone ? '✅' : ''}</h3>
+          <h3>Đơn hàng #${order.id} ${isDone ? '✅' : (isCancelled ? '❌' : '')}</h3>
           <small>${new Date(order.createdAt).toLocaleString('vi-VN')}</small>
         </div>
         <div class="shipper-status ${isDone ? 'done' : ''}">
-          ${statusText[order.step] || 'Đang xử lý'}
+          ${isCancelled ? 'Đã hủy' : (statusText[order.step] || 'Đang xử lý')}
         </div>
       </div>
 
+      ${isCancelled ? '' : `
       <div class="progress-steps">
         ${[0,1,2,3,4].map(i => `
           <div class="step ${i <= order.step ? 'active' : ''}">
@@ -181,7 +188,7 @@ function renderOrderCard(order) {
             <span>${statusText[i]}</span>
           </div>
         `).join('')}
-      </div>
+      </div>`}
 
       ${isActive ? `
         <div class="map-container">
@@ -198,16 +205,18 @@ function renderOrderCard(order) {
           <div class="row"><span>📍 Vị trí hiện tại</span><span>${SHIPPER_LOCATIONS[order.step]}</span></div>
           <div class="row"><span>⏱️ Dự kiến giao</span><span>${getETA(order.step)}</span></div>
         </div>
+      ` : (isCancelled ? `
+        <div class="order-done-msg" style="background:#fdecea;color:#b71c1c;">❌ Đơn hàng này đã bị hủy.</div>
       ` : `
         <div class="order-done-msg">🎉 Đơn hàng đã được giao thành công!</div>
-      `}
+      `)}
 
       <div class="order-details">
         <h4>📋 Chi tiết đơn</h4>
         <ul class="order-items-detail">
           ${order.items.map(item => `
             <li>
-              <span>${item.name} × ${item.qty}</span>
+              <span>${esc(item.name)} × ${item.qty}</span>
               <span>${API.utils.formatVND(item.price * item.qty)}</span>
             </li>
           `).join('')}
@@ -216,7 +225,7 @@ function renderOrderCard(order) {
           <span>Tổng cộng</span>
           <strong>${API.utils.formatVND(order.total)}</strong>
         </div>
-        <div class="order-address">📍 ${order.address}</div>
+        <div class="order-address">📍 ${esc(order.address)}</div>
       </div>
     </div>
   `;
@@ -227,26 +236,16 @@ function getETA(step) {
   return eta.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
+/* ⚡ FIX W5: KHÔNG tự đẩy trạng thái — chỉ poll để đồng bộ khi staff cập nhật ở tab khác */
 function startOrderSimulation() {
   if (orderTimer) clearInterval(orderTimer);
-
-  // ⚡ Auto-advance mỗi 5 giây (demo)
   orderTimer = setInterval(() => {
     const user = API.users.getCurrent();
     if (!user) { clearInterval(orderTimer); return; }
-
-    const activeOrders = API.orders.getByUser(user.id).filter(o => o.step < 4);
-    if (activeOrders.length === 0) { clearInterval(orderTimer); return; }
-
-    let anyAdvanced = false;
-    activeOrders.forEach(o => {
-      const newStep = o.step + 1;
-      API.orders.updateStep(o.id, newStep);
-      anyAdvanced = true;
-      if (newStep >= 4) showToast(`🎉 Đơn #${o.id} đã giao thành công!`);
-    });
-
-    if (anyAdvanced) renderTracking();
+    const myOrders = API.orders.getByUser(user.id);
+    const hasActive = myOrders.some(o => API.orders.isActive(o));
+    if (!hasActive) { clearInterval(orderTimer); return; }
+    renderTracking();
   }, 5000);
 }
 
@@ -255,5 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderTracking();
 });
 </script>
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
 </body>
 </html>
