@@ -3590,8 +3590,17 @@ body[data-page="home"] .demo-banner {
 }
 
 @media (max-width: 768px) {
+  /* Bật lại thanh kéo trên mobile */
   .chat-box-resizer { 
-    display: none !important; 
+    display: block !important; 
+  }
+  .chat-box {
+    /* Bỏ thuộc tính left/right để có thể kéo giãn tự do */
+    bottom: 90px !important;
+    right: 20px !important;
+    left: unset !important; 
+    width: 90vw !important;
+    height: 70vh !important;
   }
 }
   /* ============================================================

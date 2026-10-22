@@ -1233,9 +1233,8 @@ window.openAuth = function() {
 };
 function initChatResizer() {
   const chatBox = document.getElementById('chatBox');
-  if (!chatBox) return; // Nếu không có chatBox thì bỏ qua
-  
-  if (document.getElementById('chatBoxResizer')) return; // Tránh tạo trùng
+  if (!chatBox) return; 
+  if (document.getElementById('chatBoxResizer')) return; 
 
   const resizer = document.createElement('div');
   resizer.id = 'chatBoxResizer';
@@ -1245,8 +1244,7 @@ function initChatResizer() {
   let resizing = false, sx = 0, sy = 0, sw = 0, sh = 0;
 
   const start = (clientX, clientY) => {
-    // Chặn trên mobile
-    if (window.innerWidth <= 768) return; 
+    // ⚡ ĐÃ XÓA DÒNG CHẶN MOBILE Ở ĐÂY
     resizing = true;
     sx = clientX; sy = clientY;
     sw = chatBox.offsetWidth; sh = chatBox.offsetHeight;
@@ -1256,10 +1254,19 @@ function initChatResizer() {
 
   const move = (clientX, clientY) => {
     if (!resizing) return;
+    
+    // ⚡ Tự động điều chỉnh giới hạn cho Mobile và Desktop
+    const isMobile = window.innerWidth <= 768;
+    const minW = isMobile ? 260 : 320; 
+    const minH = isMobile ? 300 : 400;
+    
     let w = sw + (sx - clientX);
     let h = sh + (sy - clientY);
-    w = Math.max(320, Math.min(w, window.innerWidth - 40));
-    h = Math.max(400, Math.min(h, window.innerHeight - 100));
+    
+    // Chặn không cho kéo quá màn hình
+    w = Math.max(minW, Math.min(w, window.innerWidth - 20));
+    h = Math.max(minH, Math.min(h, window.innerHeight - 80));
+    
     chatBox.style.setProperty('width',  w + 'px', 'important');
     chatBox.style.setProperty('height', h + 'px', 'important');
   };
@@ -1269,35 +1276,39 @@ function initChatResizer() {
     resizing = false;
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
+    // Lưu kích thước lại
     localStorage.setItem('cappan_chat_customer_w', chatBox.offsetWidth);
     localStorage.setItem('cappan_chat_customer_h', chatBox.offsetHeight);
   };
 
-  // Chuột
+  // Sự kiện Chuột
   resizer.addEventListener('mousedown', (e) => { e.preventDefault(); start(e.clientX, e.clientY); });
   document.addEventListener('mousemove', (e) => move(e.clientX, e.clientY));
   document.addEventListener('mouseup', end);
 
-  // Cảm ứng
+  // Sự kiện Cảm ứng (Mobile)
   resizer.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (e.touches[0]) start(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: false });
+  
   document.addEventListener('touchmove', (e) => {
     if (resizing && e.touches[0]) move(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: true });
+  
   document.addEventListener('touchend', end);
+  document.addEventListener('touchcancel', end);
 
-  // Khôi phục kích thước đã lưu
+  // Khôi phục kích thước đã lưu trước đó
   const savedW = parseInt(localStorage.getItem('cappan_chat_customer_w'), 10);
   const savedH = parseInt(localStorage.getItem('cappan_chat_customer_h'), 10);
-  if (savedW && savedH && window.innerWidth > 768) {
+  if (savedW && savedH) {
     chatBox.style.setProperty('width',  savedW + 'px', 'important');
     chatBox.style.setProperty('height', savedH + 'px', 'important');
   }
 }
 
-// Gọi hàm khởi tạo
+// Khởi chạy
 if (document.readyState === 'complete') {
   initChatResizer();
 } else {
