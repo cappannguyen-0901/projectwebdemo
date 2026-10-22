@@ -1314,60 +1314,7 @@ if (document.readyState === 'complete') {
 } else {
   window.addEventListener('load', initChatResizer, { once: true });
 }
-/* ============================================================
-   UPGRADE 9: Chat message copy button
-============================================================ */
-(function() {
-  function attachCopyButtons() {
-    const body = document.getElementById('chatBody');
-    if (!body) return;
 
-    new MutationObserver(muts => {
-      muts.forEach(m => m.addedNodes.forEach(n => {
-        if (n.nodeType !== 1 || !n.classList.contains('msg') || !n.classList.contains('bot')) return;
-        const bubble = n.querySelector('.bubble');
-        if (!bubble || bubble.querySelector('.copy-btn')) return;
-        if (bubble.classList.contains('typing-bubble')) return;
-
-        const btn = document.createElement('button');
-        btn.className = 'copy-btn';
-        btn.innerHTML = '📋';
-        btn.title = 'Copy tin nhắn';
-        btn.setAttribute('aria-label', 'Copy tin nhắn');
-        btn.onclick = (e) => {
-          e.stopPropagation();
-          const clone = bubble.cloneNode(true);
-          
-          // ⚡ Xóa cả các thẻ <a> chứa link CTA (Quản lý đơn, Xem menu...)
-          clone.querySelectorAll('.ai-feedback, .copy-btn, .confirm-actions, .quick-replies, button, a.btn, a.btn-outline, a.ui-btn-block, a.ui-btn-half').forEach(el => el.remove());
-
-          const text = (clone.innerText || '').replace(/\s+$/,'').trim();
-          if (!text) {
-            showToast('⚠ Không có nội dung để copy', '#c62828');
-            return;
-          }
-
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(
-              () => showToast('✓ Đã copy tin nhắn'),
-              () => showToast('⚠ Không copy được', '#c62828')
-            );
-          } else {
-            showToast('⚠ Trình duyệt không hỗ trợ copy', '#c62828');
-          }
-        };
-        bubble.style.position = 'relative';
-        bubble.appendChild(btn);
-      }));
-    }).observe(body, { childList: true, subtree: false });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attachCopyButtons);
-  } else {
-    attachCopyButtons();
-  }
-})();
 /* ============================================================
    UPGRADE 10: Global keyboard shortcuts
 ============================================================ */
