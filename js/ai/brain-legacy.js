@@ -1,18 +1,11 @@
 /* ============================================================
    AI BRAIN LEGACY — BỘ NÃO DỰ PHÒNG (RULE-BASED)
-   Dùng khi LLM (brain.js) lỗi/timeout
-   - Đọc KB tập trung
-   - Có rule FAQ + Promotions
-   - Có _checkStaffQueries cho staff
 ============================================================ */
 
 const AIBrainLegacy = {
 
   _lastTopic: null,
 
-  /* ----------------------------------------------------------
-     HELPER — đọc KB an toàn
-  ---------------------------------------------------------- */
   _kb(path, fallback = '') {
     try {
       const parts = path.split('.');
@@ -27,11 +20,6 @@ const AIBrainLegacy = {
     }
   },
 
-  /* ----------------------------------------------------------
-     HÀM CHÍNH
-  ---------------------------------------------------------- */
-  /* Chế độ "chỉ trả lời khi chắc chắn": trả về null thay vì câu "tôi chưa hiểu" / đoán món theo từ khóa.
-     Dùng để brain.js quyết định có cần hỏi LLM hay không. */
   _strict: false,
   tryReply(input) {
     this._strict = true;
@@ -64,15 +52,14 @@ const AIBrainLegacy = {
       const contextReply = this._handleContext(text, lastTopic, user);
       if (contextReply) return contextReply;
     }
-if (this._strict && /doanh thu|doanh số|đánh dấu|hủy|huỷ|hoàn thành|hoàn tất|reset|phân ca|xếp ca|đổi giá|sửa giá|tra cứu khách|lịch sử khách|lịch sử của khách|đổi trạng thái|xóa|xóa đơn|xóa booking|tìm khách/.test(text)) return null;
+    
+    if (this._strict && /doanh thu|doanh số|đánh dấu|hủy|huỷ|hoàn thành|hoàn tất|reset|phân ca|xếp ca|đổi giá|sửa giá|tra cứu khách|lịch sử khách|lịch sử của khách|đổi trạng thái|xóa|xóa đơn|xóa booking|tìm khách/.test(text)) return null;
 
     // ⚡ STAFF rules ưu tiên
     if (isStaff) {
       const staffReply = this._checkStaffQueries(text);
       if (staffReply) return staffReply;
     }
-
-    /* Chế độ chắc chắn: câu cần gọi tool (thống kê, thao tác ghi, tra khách) → để LLM xử lý, không đoán bằng từ khóa */
 
     return this._checkBookingHelp(text)
         || this._checkOrderHelp(text)
@@ -98,45 +85,118 @@ if (this._strict && /doanh thu|doanh số|đánh dấu|hủy|huỷ|hoàn thành|
         || this._fallback(text);
   },
 
-    /* ----------------------------------------------------------
-     STAFF QUERIES — trả lời nhanh cho nhân viên (fix P0-2)
-  ---------------------------------------------------------- */
-    /* ⚡ Chặn khách hỏi dữ liệu nội bộ / công thức / thao tác ghi.
-   Trả về chuỗi từ chối hoặc null nếu được phép trả lời. */
-_checkBlockedForCustomer(text) {
-  const n = (typeof normVN === 'function') ? normVN(text) : String(text || '').toLowerCase();
+  _checkBlockedForCustomer(text) {
+    const n = (typeof normVN === 'function') ? normVN(text) : String(text || '').toLowerCase();
 
-  const rules = [
-    {
-      re: /\b(cong thuc|cach lam|nguyen lieu|pha che|recipe|thanh phan|bot matcha|muoi bien)\b/,
-      msg: 'Dạ em không có thông tin về công thức pha chế ạ. Anh/chị vui lòng liên hệ quầy pha chế hoặc hotline 0366 474 038.'
-    },
-    {
-      re: /\b(doanh thu|doanh so|gia von|ton kho|loi nhuan|kpi|thong ke noi bo)\b/,
-      msg: 'Dạ em không có quyền cung cấp số liệu nội bộ ạ. Anh/chị vui lòng liên hệ quản lý ca.'
-    },
-    {
-      re: /\b(nhan vien|lich ca|ca lam|phan ca|xep ca|staff list|danh sach nhan vien)\b/,
-      msg: 'Dạ em không có quyền cung cấp thông tin nhân viên hoặc lịch ca ạ.'
-    },
-    {
-      re: /\b(danh dau|reset|huy don|huy booking|hoan thanh|xoa mon|doi gia|sua gia|cap nhat trang thai)\b/,
-      msg: 'Dạ em không có quyền thực hiện thao tác ghi ạ. Anh/chị vui lòng liên hệ nhân viên.'
-    },
-    {
-      re: /\b(ignore previous|bo qua huong dan|system prompt|jailbreak|prompt injection)\b/,
-      msg: 'Dạ em không thể thực hiện yêu cầu này ạ.'
+    const rules = [
+      {
+        re: /\b(cong thuc|cach lam|nguyen lieu|pha che|recipe|thanh phan|bot matcha|muoi bien)\b/,
+        msg: 'Dạ em không có thông tin về công thức pha chế ạ. Anh/chị vui lòng liên hệ quầy pha chế hoặc hotline 0366 474 038.'
+      },
+      {
+        re: /\b(doanh thu|doanh so|gia von|ton kho|loi nhuan|kpi|thong ke noi bo)\b/,
+        msg: 'Dạ em không có quyền cung cấp số liệu nội bộ ạ. Anh/chị vui lòng liên hệ quản lý ca.'
+      },
+      {
+        re: /\b(nhan vien|lich ca|ca lam|phan ca|xep ca|staff list|danh sach nhan vien)\b/,
+        msg: 'Dạ em không có quyền cung cấp thông tin nhân viên hoặc lịch ca ạ.'
+      },
+      {
+        re: /\b(danh dau|reset|huy don|huy booking|hoan thanh|xoa mon|doi gia|sua gia|cap nhat trang thai)\b/,
+        msg: 'Dạ em không có quyền thực hiện thao tác ghi ạ. Anh/chị vui lòng liên hệ nhân viên.'
+      },
+      {
+        re: /\b(ignore previous|bo qua huong dan|system prompt|jailbreak|prompt injection)\b/,
+        msg: 'Dạ em không thể thực hiện yêu cầu này ạ.'
+      }
+    ];
+
+    for (const r of rules) {
+      if (r.re.test(n)) return r.msg;
     }
-  ];
+    return null;
+  },
 
-  for (const r of rules) {
-    if (r.re.test(n)) return r.msg;
-  }
-  return null;
-},
-  /* ----------------------------------------------------------
-     PHÁT HIỆN CHỦ ĐỀ
-  ---------------------------------------------------------- */
+  _checkStaffQueries(text) {
+    const n = (typeof normVN === 'function') ? normVN(text) : String(text).toLowerCase();
+    const card = (tag, data) => `[UI_${tag}]${JSON.stringify(data)}[/UI_${tag}]`;
+
+    const rules = [
+      [/\b(nhan vien|staff)\b.*\b(danh sach|list|ai|co ai)\b/, () => {
+        const staff = API.staff.getAll();
+        if (!staff.length) return '👥 Chưa có nhân viên trong hệ thống.';
+        return card('STAFF', staff.slice(0, 12).map(s => ({ id: s.id, name: s.name, role: s.role })));
+      }],
+
+      [/\b(cho|ban).*(trong|con)\b|\bcon (bao nhieu|may) (cho|ban)\b/, () => {
+        const avail = API.seats.getAvailable();
+        if (!avail.length) return '🪑 Hiện đã hết chỗ trống.';
+        const byFloor = {};
+        avail.forEach(s => {
+          if (!byFloor[s.floorId]) {
+            byFloor[s.floorId] = {
+              floorName: (API.floors.getById(s.floorId) || {}).name || s.floorId,
+              total: API.seats.getByFloor(s.floorId).length,
+              available: 0, seats: []
+            };
+          }
+          byFloor[s.floorId].available++;
+          byFloor[s.floorId].seats.push({ id: s.id, capacity: s.capacity, zone: s.zone });
+        });
+        const floors = Object.values(byFloor).map(f => ({ name: f.floorName, available: f.available, total: f.total }));
+        const seats = [];
+        Object.values(byFloor).forEach(f => f.seats.forEach(s => seats.push({ ...s, floor: f.floorName })));
+        return card('SEAT', { available: avail.length, floors, seats: seats.slice(0, 6) });
+      }],
+
+      [/\b(don|order).*(dang|xu ly|cho|active)\b|\bco (bao nhieu|may) don\b/, () => {
+        const active = API.orders.getActive();
+        if (!active.length) return '📦 Không có đơn đang xử lý.';
+        return card('ORDER', {
+          total: active.length,
+          orders: active.slice(0, 5).map(o => ({
+            id: o.id, customerName: o.customerName || 'Khách', total: o.total, step: o.step,
+            stepText: ['Chờ xử lý','Đang pha','Shipper lấy','Đang giao','Hoàn tất'][o.step]
+          }))
+        });
+      }],
+
+      [/\b(booking|dat cho).*(hom nay|today)\b|\bco (bao nhieu|may) booking\b/, () => {
+        const today = API.utils.today();
+        const list = API.bookings.getAll().filter(b => b.date === today && b.status === 'confirmed');
+        if (!list.length) return '📅 Hôm nay chưa có booking đang hoạt động.';
+        return card('BOOKING', {
+          date: today, total: list.length,
+          bookings: list.slice(0, 6).map(b => {
+            const u = API.users.getById(b.userId);
+            const f = API.floors.getById(b.floorId);
+            return { id: b.id, customerName: u ? u.name : 'Khách', seatId: b.seatId,
+                     floorName: f ? f.name : b.floorId, time: b.time, guests: b.guests, note: b.note };
+          })
+        });
+      }],
+
+      [/\b(doanh thu|revenue)\b.*\b(hom nay|today)\b/, () => {
+        return card('KPI', {
+          today: { revenue: API.stats.today().total, orders: API.stats.today().count, completedCount: API.stats.today().completedCount, pendingCount: API.stats.today().pendingCount },
+          week: API.stats.thisWeek().total, month: API.stats.thisMonth().total,
+          status: API.stats.ordersByStatus()
+        });
+      }],
+
+      [/\b(mon|hang).*(het|out of stock)\b/, () => {
+        const oos = API.menu.getOutOfStock();
+        if (!oos.length) return '✅ Tất cả các món đều còn hàng.';
+        return card('OOS', { count: oos.length, items: oos.map(m => ({ id: m.id, name: m.name })) });
+      }]
+    ];
+
+    for (const [re, build] of rules) {
+      if (re.test(n)) { try { return build(); } catch (e) { return null; } }
+    }
+    return null;
+  },
+
   _detectTopic(text) {
     if (/chỗ|bàn|ngồi|khu vực/.test(text)) return 'seat';
     if (/menu|thực đơn|đồ uống|món/.test(text)) return 'menu';
@@ -146,9 +206,6 @@ _checkBlockedForCustomer(text) {
     return null;
   },
 
-  /* ----------------------------------------------------------
-     XỬ LÝ CÂU NGẮN THEO CONTEXT
-  ---------------------------------------------------------- */
   _handleContext(text, topic, user) {
     if (topic === 'seat') {
       const zoneMap = {
@@ -179,9 +236,6 @@ _checkBlockedForCustomer(text) {
     return null;
   },
 
-  /* ----------------------------------------------------------
-     TRẢ LỜI CHỖ THEO ZONE
-  ---------------------------------------------------------- */
   _replySeatsByZone(zone, zoneName) {
     const filtered = API.seats.getAvailable().filter(s => s.zone === zone);
     if (filtered.length === 0) {
@@ -193,9 +247,6 @@ _checkBlockedForCustomer(text) {
     return `Dạ còn ${filtered.length} chỗ ở khu vực ${zoneName}:\n${list}\n\nBạn vào mục "Đặt chỗ" để chọn nhé!`;
   },
 
-  /* ----------------------------------------------------------
-     TRẢ LỜI MENU THEO NHÓM
-  ---------------------------------------------------------- */
   _replyMenuByCategory(catId) {
     const cat = API.categories.getById(catId);
     if (!cat) return null;
@@ -204,11 +255,6 @@ _checkBlockedForCustomer(text) {
     return `${cat.name} có ${items.length} món:\n${list}`;
   },
 
-  
-
-  /* ============================================================
-     1. CHÀO HỎI
-  ============================================================ */
   _checkGreeting(text, user) {
     const greetings = ['chào', 'hello', 'hi', 'xin chào', 'alo'];
     if (!greetings.some(g => text.includes(g))) return null;
@@ -227,10 +273,6 @@ _checkBlockedForCustomer(text) {
     return `${timeGreet}! 👋 Tôi là trợ lý ảo CAPPAN.\nBạn có thể hỏi tôi về menu, chỗ ngồi, giờ mở cửa...`;
   },
 
-  /* ============================================================
-     2. MÓN HẾT HÀNG
-  ============================================================ */
-  /* Bộ não nội bộ: gợi ý món / chỗ, tra giá, so sánh... (xem LocalBrain ở cuối file) */
   _checkLocal(input) {
     if (typeof LocalBrain === 'undefined') return null;
     const r = LocalBrain.answer(input);
@@ -252,9 +294,8 @@ _checkBlockedForCustomer(text) {
     return `Hiện tại quán đã HẾT các món sau:\n${list}\n\nCòn lại ${avail.length} món khác đang phục vụ ạ!`;
   },
 
-    _checkSeats(text) {
+  _checkSeats(text) {
     if (/cách.*(đặt|book)|hướng dẫn|làm sao/.test(text)) return null;
-    // ⚡ Nhường quyền sinh Thẻ cho LLM nếu hỏi chung chung
     if (/^(còn chỗ không|hết chỗ chưa|còn bàn không|trống không|có chỗ trống không)\??$/.test(text.trim())) return null;
 
     const zoneOnly = {
@@ -290,14 +331,10 @@ _checkBlockedForCustomer(text) {
     return reply + '\nBạn muốn ngồi khu vực nào? (yên tĩnh / cửa sổ / nhóm / ngoài trời)';
   },
 
-  /* ============================================================
-     4. MENU
-  ============================================================ */
-        _checkMenu(text) {
+  _checkMenu(text) {
     if (/giỏ hàng|gio hang|cart/.test(text)) return null;
     if (/\b(đầy đủ|toàn bộ|full|tất cả)\b/i.test(text)) return null;
 
-    // ⚡ FIX: Nếu có từ khóa chỉ nhóm món cụ thể -> nhường quyền cho AI gọi Tool
     const specificCats = ['cà phê', 'ca phe', 'coffee', 'trà', 'tra', 'tea', 'sinh tố', 'sinh to', 'smoothie', 'nước ép', 'nuoc ep', 'juice', 'soda', 'đá xay', 'da xay', 'khác', 'khac', 'other'];
     if (specificCats.some(k => text.includes(k))) return null;
 
@@ -316,9 +353,7 @@ _checkBlockedForCustomer(text) {
     reply += '\nBạn muốn uống nhóm nào ạ?';
     return reply;
   },
-  /* ============================================================
-     5. GIÁ CẢ
-  ============================================================ */
+
   _checkPrice(text) {
     const keys = ['giá', 'bao nhiêu', 'mắc không', 'đắt không'];
     if (!keys.some(k => text.includes(k))) return null;
@@ -335,9 +370,6 @@ _checkBlockedForCustomer(text) {
     return `Dạ đồ uống CAPPAN dao động từ ${API.utils.formatVND(min)} đến ${API.utils.formatVND(max)}. Bạn muốn hỏi giá món nào cụ thể không?`;
   },
 
-  /* ============================================================
-     6. GIỜ MỞ CỬA
-  ============================================================ */
   _checkHours(text) {
     const keys = ['giờ', 'mở cửa', 'đóng cửa', 'mấy giờ'];
     if (!keys.some(k => text.includes(k))) return null;
@@ -354,25 +386,15 @@ _checkBlockedForCustomer(text) {
     return `🕐 Hiện tại quán đã ĐÓNG CỬA.\nGiờ hoạt động: ${hoursText}. Hẹn gặp bạn ngày mai!`;
   },
 
-  /* ============================================================
-     7. ĐỊA CHỈ
-  ============================================================ */
-    _checkAddress(text) {
-    // ⚡ FIX: câu "địa chỉ giao hàng của tôi" không phải địa chỉ quán
+  _checkAddress(text) {
     if (/địa chỉ\s+(giao|nhận|của (tôi|mình|em))/i.test(text)) return null;
-    return null; // Nhường quyền sinh Thẻ cho LLM (gọi get_store_info)
+    return null;
   },
 
-  /* ============================================================
-     8. WIFI
-  ============================================================ */
-    _checkWifi(text) {
-    return null; // ⚡ Nhường quyền sinh Thẻ cho LLM (gọi get_store_info)
+  _checkWifi(text) {
+    return null;
   },
 
-  /* ============================================================
-     9. HƯỚNG DẪN ĐẶT CHỖ
-  ============================================================ */
   _checkBookingHelp(text) {
     const howToKeys = ['cách đặt chỗ', 'làm sao đặt', 'đặt chỗ thế nào',
                        'hướng dẫn đặt', 'book chỗ sao', 'đặt bàn thế nào',
@@ -383,9 +405,6 @@ _checkBlockedForCustomer(text) {
     return `🪑 Để đặt chỗ, bạn làm theo 4 bước:\n1. Vào mục "Đặt chỗ" trên menu\n2. Chọn tầng bạn muốn ngồi\n3. Click vào chỗ màu XANH\n4. Điền thông tin và xác nhận\n\nBạn muốn ngồi tầng nào? (trệt / lầu 1 / lầu 2 / thượng)`;
   },
 
-  /* ============================================================
-     10. HƯỚNG DẪN ĐẶT NƯỚC
-  ============================================================ */
   _checkOrderHelp(text) {
     const keys = ['đặt nước', 'đặt món', 'order', 'giao hàng', 'ship'];
     if (!keys.some(k => text.includes(k))) return null;
@@ -394,9 +413,6 @@ _checkBlockedForCustomer(text) {
     return `🥤 Để đặt nước, bạn làm theo 4 bước:\n1. Vào mục "Đặt nước"\n2. Chọn món → "+ Thêm vào giỏ"\n3. Vào "Giỏ hàng" để kiểm tra\n4. Điền địa chỉ → "Đặt hàng ngay"\n\nSau đó bạn có thể theo dõi shipper ở mục "Theo dõi đơn" nhé!`;
   },
 
-  /* ============================================================
-     11. CÁC TẦNG
-  ============================================================ */
   _checkFloors(text) {
     const keys = ['tầng', 'lầu', 'không gian', 'khu vực'];
     if (!keys.some(k => text.includes(k))) return null;
@@ -410,9 +426,6 @@ _checkBlockedForCustomer(text) {
     return reply;
   },
 
-  /* ============================================================
-     12. BÃI ĐẬU XE
-  ============================================================ */
   _checkParking(text) {
     const keys = ['đậu xe', 'gửi xe', 'parking', 'bãi xe', 'để xe'];
     if (!keys.some(k => text.includes(k))) return null;
@@ -420,27 +433,18 @@ _checkBlockedForCustomer(text) {
     return `🅿️ CAPPAN có bãi giữ xe ${parking.toLowerCase()} ngay phía sau quán.\nBạn cứ yên tâm mang xe đến nhé!`;
   },
 
-  /* ============================================================
-     13. MÓN CHAY
-  ============================================================ */
   _checkVegetarian(text) {
     const keys = ['món chay', 'đồ chay', 'ăn chay', 'chay'];
     if (!keys.some(k => text.includes(k))) return null;
     return '🥗 Hiện tại CAPPAN chưa có menu chay riêng, nhưng có một số món phù hợp:\n• Sinh tố Bơ\n• Sinh tố Xoài\n• Nước ép Cam\n• Trà Sen Vàng\n\nBạn muốn thử món nào không ạ?';
   },
 
-  /* ============================================================
-     14. GIỜ CAO ĐIỂM
-  ============================================================ */
   _checkPeakHours(text) {
     const keys = ['đông nhất', 'cao điểm', 'đông khách', 'vắng nhất'];
     if (!keys.some(k => text.includes(k))) return null;
     return '📊 Quán thường ĐÔNG NHẤT vào:\n• 8:00 – 10:00 (giờ đi làm)\n• 14:00 – 16:00 (giờ xế chiều)\n• 19:00 – 21:00 (giờ tối)\n\nNếu bạn muốn yên tĩnh, nên đến lúc 7:00 hoặc sau 16:00 nhé!';
   },
 
-  /* ============================================================
-     15. ĐỔI CHỖ
-  ============================================================ */
   _checkChangeSeat(text) {
     const keys = ['đổi chỗ', 'đổi bàn', 'thay đổi chỗ', 'chuyển chỗ'];
     if (!keys.some(k => text.includes(k))) return null;
@@ -448,9 +452,6 @@ _checkBlockedForCustomer(text) {
     return `🔄 Bạn có thể đổi chỗ bằng cách:\n1. Vào "Tài khoản" → tab "Lịch sử đặt chỗ"\n2. Bấm "Hủy" ở chỗ cũ\n3. Vào "Đặt chỗ" → chọn chỗ mới\n\nHoặc gọi hotline: ${hotline} để được hỗ trợ nhanh nhé!`;
   },
 
-  /* ============================================================
-     16. ĐẶT TIỆC
-  ============================================================ */
   _checkBulkOrder(text) {
     const keys = ['tiệc', 'sinh nhật', 'sự kiện', 'đặt nhiều', 'số lượng lớn', '20 người', '30 người'];
     if (!keys.some(k => text.includes(k))) return null;
@@ -458,10 +459,7 @@ _checkBlockedForCustomer(text) {
     return `🎉 CAPPAN có dịch vụ đặt tiệc riêng!\n\nVới đoàn đông (trên 10 người), bạn vui lòng:\n• Gọi hotline: ${hotline}\n• Hoặc để lại tin nhắn ở mục "Liên hệ"\n\nChúng tôi sẽ tư vấn menu và sắp xếp không gian phù hợp nhất!`;
   },
 
-  /* ============================================================
-     17. FAQ (từ KB)
-  ============================================================ */
-    _checkFAQ(text) {
+  _checkFAQ(text) {
     if (typeof KB === 'undefined' || !Array.isArray(KB.faq)) return null;
 
     let bestMatch = null, bestScore = 0;
@@ -480,17 +478,10 @@ _checkBlockedForCustomer(text) {
     return null;
   },
 
-  /* ============================================================
-     18. PROMOTIONS (từ KB)
-  ============================================================ */
   _checkPromotions(text) {
-    return null; // ⚡ Nhường quyền sinh Thẻ cho LLM (gọi get_promotions)
-  
+    return null;
   },
 
-  /* ============================================================
-     19. TÀI KHOẢN
-  ============================================================ */
   _checkMyAccount(text, user) {
     const keys = ['tài khoản', 'đơn hàng', 'lịch sử', 'đặt chỗ của tôi'];
     if (!keys.some(k => text.includes(k))) return null;
@@ -509,9 +500,6 @@ _checkBlockedForCustomer(text) {
     return reply;
   },
 
-  /* ============================================================
-     20. CẢM ƠN
-  ============================================================ */
   _checkThanks(text) {
     const keys = ['cảm ơn', 'thanks', 'thank you', 'cám ơn'];
     if (!keys.some(k => text.includes(k))) return null;
@@ -525,14 +513,10 @@ _checkBlockedForCustomer(text) {
     return replies[Math.floor(Math.random() * replies.length)];
   },
 
-  /* ============================================================
-     21. FALLBACK — không nhầm món
-  ============================================================ */
   _fallback(text) {
-    if (this._strict) return null;   // không chắc → để LLM xử lý
+    if (this._strict) return null;
     const items = API.menu.getAll();
 
-    // ⚡ Tìm món theo điểm số khớp từ
     const words = text.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
     let bestMatch = null, bestScore = 0;
 
@@ -545,7 +529,6 @@ _checkBlockedForCustomer(text) {
       }
     });
 
-    // Chỉ match nếu >= 2 từ khớp
     if (bestMatch && bestScore >= 2) {
       return `Bạn đang hỏi về ${bestMatch.name} phải không? Món này giá ${API.utils.formatVND(bestMatch.price)}. Bạn muốn đặt không?`;
     }
@@ -574,16 +557,8 @@ _checkBlockedForCustomer(text) {
 
 /* ============================================================
    LOCAL BRAIN — bộ não nội bộ (KHÔNG cần key, KHÔNG tốn quota)
-   Hiểu: gợi ý món theo khẩu vị / thời tiết / ngân sách, gợi ý chỗ ngồi theo nhu cầu,
-         tra giá, so sánh, còn hàng không, câu hỏi nối tiếp ("rẻ hơn", "chỗ khác").
-   Chạy hoàn toàn ở trình duyệt, dữ liệu lấy từ API thật (menu, ghế, giá...).
-   ⚠ Nhãn vị (LB_TAGS) là đánh giá ước lượng — hãy sửa cho đúng khẩu vị thực tế của quán.
-   ⚠ Bộ này KHÔNG trả lời công thức, thành phần chi tiết, dữ liệu nội bộ; câu hỏi về
-     dị ứng/bệnh lý luôn được chuyển cho nhân viên.
 ============================================================ */
 
-/* Nhãn vị: beo ngot dang chua thanh traicay giainhiet tinhtao itngot man
-   nong (phục vụ nóng) · cafe (có cà phê) · cafein (có caffeine, gồm trà) · banh (món ăn) */
 const LB_TAGS = {
   M001: ['cafe', 'cafein', 'tinhtao', 'dang', 'ngot'],
   M002: ['cafe', 'cafein', 'beo', 'ngot'],
@@ -813,24 +788,44 @@ const LocalBrain = {
   FLOORS: { tret: 'F1', 'lau 1': 'F2', 'lau 2': 'F3', thuong: 'F4' },
   NUMW: { mot: 1, hai: 2, ba: 3, bon: 4, nam: 5, sau: 6, bay: 7, tam: 8, chin: 9, muoi: 10 },
 
-  parseSeat(raw) {
+    parseSeat(raw) {
     const n = this.norm(raw);
     const S = { zone: null, floor: null, size: null, view: false, quiet: false, group: false, outdoor: false,
-                projector: false, outlet: false, desc: [], signals: 0 };
+                projector: false, outlet: false, date: null, time: null, desc: [], signals: 0 };
     const sig = l => { S.signals++; if (l) S.desc.push(l); };
 
+    // ⚡ 1. Nhận diện Ngày
+    if (/\b(hom nay|toi nay|chieu nay|sang nay)\b/.test(n)) S.date = 'Hôm nay';
+    else if (/\b(ngay mai|toi mai|sang mai|chieu mai)\b/.test(n)) S.date = 'Ngày mai';
+    else if (/\b(ngay mot|toi mot)\b/.test(n)) S.date = 'Ngày mốt';
+    else if (/\b(thu 2|thu 3|thu 4|thu 5|thu 6|thu 7|chu nhat)\b/.test(n)) S.date = raw.match(/\b(thu 2|thu 3|thu 4|thu 5|thu 6|thu 7|chu nhat)\b/)[0];
+
+    // ⚡ 2. Nhận diện Giờ (19:30, 19h, 7 gio toi, 19 30)
+    const timeMatch = n.match(/\b(\d{1,2})\s*(?::|h|gio)\s*(\d{2})?\b/) || n.match(/\b(\d{1,2})\s+(\d{2})\b/);
+    if (timeMatch) {
+      let h = parseInt(timeMatch[1], 10);
+      let m = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
+      if (/toi|chieu/.test(n) && h < 12) h += 12;
+      if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+        S.time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      }
+    }
+
+    // ⚡ 3. Nhận diện Số người & Khu vực
     if (/\b(yen tinh|im lang|it on|tap trung|hoc bai|lam bai|on thi|doc sach|deadline|lam viec|hoc)\b/.test(n)) { S.quiet = true; sig('yên tĩnh'); }
     if (/\b(nhom|hop|team|sinh nhat|tiec|ban be dong|liên hoan)\b/.test(n)) { S.group = true; sig('họp nhóm'); }
     if (/\b(view|ngam|chup anh|check in|song ao|cua so|hoang hon)\b/.test(n)) { S.view = true; sig('có view đẹp'); }
     if (/\b(ngoai troi|san thuong|tang thuong|thoang|gio mat|view thanh pho)\b/.test(n)) { S.outdoor = true; sig('ngoài trời'); }
     if (/\b(may chieu|thuyet trinh|present)\b/.test(n)) { S.projector = true; sig('có máy chiếu'); }
     if (/\b(o cam|sac|cam dien)\b/.test(n)) { S.outlet = true; }
+    
     const fl = n.match(/\b(tang tret|lau 1|lau 2|tang thuong|san thuong)\b/);
     if (fl) {
       S.floor = /tret/.test(fl[1]) ? 'F1' : fl[1] === 'lau 1' ? 'F2' : fl[1] === 'lau 2' ? 'F3' : 'F4';
       sig(null);
       S.desc.push({ F1: 'tầng trệt', F2: 'Lầu 1', F3: 'Lầu 2', F4: 'tầng thượng' }[S.floor]);
     }
+    
     let m = n.match(/\b(\d{1,2})\s*(nguoi|ban|ng|nguoi lon)\b/);
     if (m) S.size = parseInt(m[1], 10);
     else {
@@ -838,6 +833,7 @@ const LocalBrain = {
       if (m && /\bnguoi\b/.test(n) && !/\bmuoi\s+nguoi\b.*\bmuoi\b/.test(n)) S.size = this.NUMW[m[1]];
     }
     if (S.size) { sig(`cho ${S.size} người`); if (S.size >= 5) S.group = true; }
+    
     return S;
   },
 
@@ -887,13 +883,88 @@ const LocalBrain = {
     const note = S.outlet ? `\n\nQuán có ổ cắm điện tại mọi bàn ạ.` : '';
     return `${head}\n${lines.join('\n')}${note}\n\nĐây là tình trạng hiện tại. Anh/chị vào mục "Đặt chỗ" để giữ bàn theo ngày giờ mong muốn nhé.`;
   },
+    _handleBookingFlow(S, raw) {
+    this.bookingDraft = this.bookingDraft || {};
+    // Cập nhật thông tin mới nhất vào nháp
+    if (S.size) this.bookingDraft.size = S.size;
+    if (S.date) this.bookingDraft.date = S.date;
+    if (S.time) this.bookingDraft.time = S.time;
+    if (S.floor) this.bookingDraft.floor = S.floor;
+    
+    const d = this.bookingDraft;
 
-  answer(input, opts = {}) {
+    // 1. Thiếu Số người
+    if (!d.size) {
+      return this._r('booking', 'Dạ anh/chị muốn đặt bàn cho bao nhiêu người ạ?', 0.95);
+    }
+
+    // 2. Thiếu Ngày
+    if (!d.date) {
+      return this._r('booking', `Dạ bàn cho ${d.size} người. Anh/chị muốn đặt vào ngày nào ạ? (VD: hôm nay, ngày mai, thứ 7...)`, 0.95);
+    }
+
+    // 3. Thiếu Giờ (Trường hợp phổ biến nhất)
+    if (!d.time) {
+      return this._r('booking', `Dạ đặt bàn ${d.size} người vào ${d.date.toLowerCase()}. Anh/chị dự định đến lúc mấy giờ ạ? (VD: 19:30, 8h tối...)`, 0.95);
+    }
+
+    // 4. Đã đủ thông tin -> Chốt đơn
+    const S_full = { ...S, size: d.size, date: d.date, time: d.time, floor: d.floor };
+    this.bookingDraft = null; // Xóa nháp
+    
+    // Gọi logic tìm bàn
+    let rows = this._seatRows(S_full);
+    if (!rows.length) {
+      return this._r('seat', `Dạ hiện tại chưa có bàn nào trống cho ${d.size} người vào lúc ${d.time} ${d.date.toLowerCase()} ạ. Anh/chị thông cảm!`, 0.9);
+    }
+
+    const top = rows.slice(0, 3);
+    const lines = top.map(r => {
+      const f = API.floors.getById(r.seat.floorId);
+      return `• Bàn ${r.seat.id} – ${f ? f.name : r.seat.floorId}, ${r.seat.capacity} người`;
+    });
+
+    this.ctx = { kind: 'seat', prefs: S_full, shown: top.map(r => r.seat.id), ts: Date.now() };
+    
+    const summary = `Dạ em đã ghi nhận đặt bàn **${d.size} người** vào **${d.time} ${d.date.toLowerCase()}**. Đây là các gợi ý cho anh/chị:`;
+    const note = `\n\n💡 Lưu ý: Hệ thống của em chỉ đang xem chỗ trống hiện tại. Để chắc chắn giữ bàn cho ${d.date.toLowerCase()}, anh/chị hãy bấm vào nút "Đặt chỗ ngay" bên dưới nhé!`;
+    
+    return this._r('seat', `${summary}\n${lines.join('\n')}${note}`, 0.95);
+  },
+
+    answer(input, opts = {}) {
     try {
       const raw = String(input || '').trim();
       if (!raw || raw.length > 300) return null;
       const n = this.norm(raw);
 
+      // ⚡ NẾU ĐANG TRONG LUỒNG HỎI ĐÁP ĐẶT BÀN (Đã có nháp)
+      if (this.bookingDraft) {
+        const isCancelling = /\b(huy|thoi|khong can|reset)\b/.test(n);
+        if (isCancelling) {
+          this.bookingDraft = null;
+          return this._r('cancel', 'Dạ em đã hủy yêu cầu đặt bàn. Anh/chị cần hỗ trợ gì khác không?', 0.95);
+        }
+
+        const S_new = this.parseSeat(raw);
+        // Nếu câu trả lời chứa thông tin mới (số người, giờ, ngày) -> Cập nhật tiếp
+        if (S_new.size || S_new.time || S_new.date) {
+          return this._handleBookingFlow(S_new, raw);
+        }
+        
+        // Nếu user nói câu gì đó lan man, có thể họ đổi ý. 
+        // Ta kiểm tra xem câu này có rơi vào intent khác không, nếu không thì nhắc lại.
+        // Nhưng để đơn giản, ta cứ nhắc họ trả lời câu hỏi.
+        if (n.split(' ').length <= 3) {
+          const d = this.bookingDraft;
+          const missing = !d.size ? 'số người' : !d.date ? 'ngày' : 'giờ';
+          return this._r('booking', `Dạ em vẫn đang chờ thông tin **${missing}** để đặt bàn cho anh/chị ạ.`, 0.9);
+        } else {
+          this.bookingDraft = null; // Reset nếu user hỏi vấn đề khác
+        }
+      }
+
+      // Các câu hỏi bị cấm
       if (/\b(cach|huong dan|lam sao|the nao)\b.*\b(dat|book|thanh toan|dang ky|dang nhap)\b/.test(n)) return null;
       if (/\b(cong thuc|cach lam|nguyen lieu|pha che|ton kho|gia von|doanh thu|don hang|nhan vien|lich ca|booking)\b/.test(n)) return null;
       if (/\b(dau xe|do xe|gui xe|bai xe|bai do|parking|xe may|o to|mat khau|tai khoan|dang nhap|dang ky)\b/.test(n)) return null;
@@ -918,19 +989,28 @@ const LocalBrain = {
       if (found.length && !found.generic && /\b(con (hang|khong|mon|ko)|het (chua|hang|roi|khong)|co (ban|khong|ko))\b/.test(n)) return this._stock(found);
       if (found.length && !found.generic && /\b(la gi|co gi|vi (the nao|ra sao|gi)|ngon (khong|ko)|nhu the nao|mo ta|nhu nao)\b/.test(n)) return this._info(found);
 
-      if (/\bo cam\b|\bsac (dien thoai|laptop|pin)\b/.test(n) && !/\b(yen tinh|view|nhom|ngoai troi|may chieu|\d+ nguoi)\b/.test(n)) {
-        return this._r('outlet', `Dạ quán có ổ cắm điện tại mọi bàn, anh/chị yên tâm sạc laptop hoặc điện thoại ạ.`, 0.85);
-      }
-
+      // =========================================================================
+      // ⚡ LUỒNG ĐẶT BÀN (BOOKING INTENT)
+      // =========================================================================
+      const isBookingIntent = /\b(dat ban|dat cho|book ban|book cho|giu ban|giu cho)\b/.test(n);
       const seatCue = /\b(cho (ngoi|nao|tot|dep|yen|trong)|con cho|ngoi (dau|o)|co (cho|ban)|ban nao|phong (hop|nhom)|khu (nao|vuc)|dat cho|tim cho|can cho|muon ngoi|cho (de |hoc|lam))\b/.test(n)
         || (/\b(cho|ban|phong)\b/.test(n) && /\b(nguoi|yen tinh|view|ngoai troi|cua so|may chieu)\b/.test(n));
-      if (seatCue || (found.length === 0 && /\b(o cam|ngoai troi|san thuong|chup anh)\b/.test(n) && !/\buong\b/.test(n))) {
+      
+      if (isBookingIntent || (seatCue || (found.length === 0 && /\b(o cam|ngoai troi|san thuong|chup anh)\b/.test(n) && !/\buong\b/.test(n)))) {
         const S = this.parseSeat(raw);
+        
+        // Nếu là lệnh đặt bàn -> Đi vào luồng hỏi đáp
+        if (isBookingIntent) {
+          return this._handleBookingFlow(S, raw);
+        }
+
+        // Nếu chỉ hỏi tình trạng chỗ thông thường
         if (S.signals === 0 && !/\bcon cho\b|\bcon ban\b|\bco cho\b/.test(n)) return null;
         if (S.signals === 0) return this._r('seat', this._seatOverview(), 0.8);
         if (S.outlet && !S.quiet && !S.view && !S.group && !S.outdoor && S.signals === 0) return null;
         return this._r('seat', this._seatReply(S, raw), 0.85);
       }
+
       if (/\bco o cam\b|\bo cam (khong|ko)\b|\bsac (dien thoai|laptop|pin)\b/.test(n)) {
         return this._r('outlet', `Dạ quán có ổ cắm điện tại mọi bàn, anh/chị yên tâm sạc laptop hoặc điện thoại ạ.`, 0.85);
       }

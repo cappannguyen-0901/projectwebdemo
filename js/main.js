@@ -144,11 +144,14 @@ function toggleChat() {
   if (!box) return;
   const willOpen = !box.classList.contains('open');
   box.classList.toggle('open');
+  
+  // ⚡ Lưu trạng thái mở/đóng vào localStorage
+  localStorage.setItem('cappan_chat_is_open', willOpen ? '1' : '0');
+
   if (willOpen) {
     setTimeout(() => {
       const input = document.getElementById('chatInput');
       if (input) input.focus();
-      // ⚡ Reset pill + về đáy khi mở chat
       hideNewMsgPill();
       const body = document.getElementById('chatBody');
       if (body) {
@@ -1183,6 +1186,12 @@ document.addEventListener('DOMContentLoaded', () => {
   bindChatScroll(document.getElementById('chatBody'));
   initVoiceInput();
 
+  // ⚡ KHÔI PHỤC TRẠNG THÁI KHUNG CHAT KHI CHUYỂN TRANG
+  const chatBox = document.getElementById('chatBox');
+  if (chatBox && localStorage.getItem('cappan_chat_is_open') === '1') {
+    chatBox.classList.add('open');
+  }
+
   if (typeof AIMetrics !== 'undefined' && AIMetrics.installFlushHooks) {
     AIMetrics.installFlushHooks();
   }
@@ -1229,30 +1238,6 @@ function initChatResizer() {
   const chatBox = document.getElementById('chatBox');
   if (!chatBox || document.getElementById('chatBoxResizer')) return;
 
-  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-
-  const applyResponsive = () => {
-    const isMobile = window.matchMedia('(max-width: 768px)').matches;
-    const resizer = document.getElementById('chatBoxResizer');
-
-    if (isMobile) {
-      chatBox.style.removeProperty('width');
-      chatBox.style.removeProperty('height');
-      if (resizer) resizer.style.display = 'none';
-      return;
-    }
-    if (resizer) resizer.style.display = '';
-
-    const savedW = parseInt(localStorage.getItem('cappan_chat_customer_w'), 10);
-    const savedH = parseInt(localStorage.getItem('cappan_chat_customer_h'), 10);
-    if (savedW && savedH) {
-      chatBox.style.setProperty('width',  clamp(savedW, 320, window.innerWidth - 40) + 'px', 'important');
-      chatBox.style.setProperty('height', clamp(savedH, 400, window.innerHeight - 100) + 'px', 'important');
-    }
-  };
-
-  applyResponsive();
-
   const resizer = document.createElement('div');
   resizer.id = 'chatBoxResizer';
   resizer.className = 'chat-box-resizer';
@@ -1260,8 +1245,8 @@ function initChatResizer() {
 
   let resizing = false, sx = 0, sy = 0, sw = 0, sh = 0;
 
-  const startAt = (clientX, clientY) => {
-    if (window.matchMedia('(max-width: 768px)').matches) return;
+  const start = (clientX, clientY) => {
+    if (window.innerWidth <= 768) return; // Bỏ qua trên mobile
     resizing = true;
     sx = clientX; sy = clientY;
     sw = chatBox.offsetWidth; sh = chatBox.offsetHeight;
@@ -1269,10 +1254,12 @@ function initChatResizer() {
     document.body.style.userSelect = 'none';
   };
 
-  const moveTo = (clientX, clientY) => {
+  const move = (clientX, clientY) => {
     if (!resizing) return;
-    const w = clamp(sw + (sx - clientX), 320, window.innerWidth - 40);
-    const h = clamp(sh + (sy - clientY), 400, window.innerHeight - 100);
+    let w = sw + (sx - clientX);
+    let h = sh + (sy - clientY);
+    w = Math.max(320, Math.min(w, window.innerWidth - 40));
+    h = Math.max(400, Math.min(h, window.innerHeight - 100));
     chatBox.style.setProperty('width',  w + 'px', 'important');
     chatBox.style.setProperty('height', h + 'px', 'important');
   };
@@ -1282,36 +1269,32 @@ function initChatResizer() {
     resizing = false;
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
-    if (!window.matchMedia('(max-width: 768px)').matches) {
-      localStorage.setItem('cappan_chat_customer_w', chatBox.offsetWidth);
-      localStorage.setItem('cappan_chat_customer_h', chatBox.offsetHeight);
-    }
+    // Lưu kích thước mới
+    localStorage.setItem('cappan_chat_customer_w', chatBox.offsetWidth);
+    localStorage.setItem('cappan_chat_customer_h', chatBox.offsetHeight);
   };
 
-  resizer.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    startAt(e.clientX, e.clientY);
-  });
-  document.addEventListener('mousemove', (e) => moveTo(e.clientX, e.clientY));
+  // Bắt sự kiện Chuột
+  resizer.addEventListener('mousedown', (e) => { e.preventDefault(); start(e.clientX, e.clientY); });
+  document.addEventListener('mousemove', (e) => move(e.clientX, e.clientY));
   document.addEventListener('mouseup', end);
 
+  // Bắt sự kiện Cảm ứng
   resizer.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    if (e.touches[0]) startAt(e.touches[0].clientX, e.touches[0].clientY);
+    if (e.touches[0]) start(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: false });
-  
   document.addEventListener('touchmove', (e) => {
-    if (resizing && e.touches[0]) moveTo(e.touches[0].clientX, e.touches[0].clientY);
+    if (resizing && e.touches[0]) move(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: true });
-  
   document.addEventListener('touchend', end);
-  document.addEventListener('touchcancel', end);
+}
 
-  let resizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(applyResponsive, 150);
-  });
+// Kích hoạt khi tải xong
+if (document.readyState === 'complete') {
+  initChatResizer();
+} else {
+  window.addEventListener('load', initChatResizer, { once: true });
 }
 /* ============================================================
    UPGRADE 9: Chat message copy button
