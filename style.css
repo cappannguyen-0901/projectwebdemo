@@ -3569,30 +3569,13 @@ body[data-page="home"] .demo-banner {
   }
 }
 /* ============================================================
-   CHATBOX LAYOUT & RESIZER (FINAL FIX)
+   CHATBOX RESIZER (BẢN FIX GITHUB)
 ============================================================ */
 .chat-box {
   position: fixed !important;
-  bottom: 110px !important;
-  right: 30px !important;
-  z-index: 9999 !important;
-  display: none !important; 
-  flex-direction: column !important;
-  width: 360px !important;
-  height: 480px !important;
-  max-height: calc(100vh - 150px) !important;
-  margin: 0 !important;
-  transform: none !important;
-  overflow: hidden !important; /* Bắt buộc để bo góc không bị lỗi */
-  border-radius: var(--radius-lg) !important;
+  overflow: hidden !important; /* Bắt buộc để thanh kéo không tràn */
 }
 
-/* Khi mở chat */
-.chat-box.open {
-  display: flex !important;
-}
-
-/* Thanh kéo giãn (Góc trên bên trái) */
 .chat-box-resizer {
   position: absolute !important;
   top: 0 !important;
@@ -3600,21 +3583,16 @@ body[data-page="home"] .demo-banner {
   width: 24px !important;
   height: 24px !important;
   cursor: nwse-resize !important;
-  z-index: 99999 !important; /* Luôn nổi lên trên header */
+  z-index: 99999 !important; /* Đảm bảo nằm trên cả Header */
+  pointer-events: auto !important; /* Bắt buộc nhận click chuột */
   background: linear-gradient(135deg, rgba(201, 162, 39, 0.9) 0%, transparent 60%) !important;
   border-top-left-radius: var(--radius-lg) !important;
 }
 
-/* Mobile: Tự động full màn hình, ẩn thanh kéo */
 @media (max-width: 768px) {
-  .chat-box {
-    bottom: 90px !important;
-    right: 20px !important;
-    left: 20px !important;
-    width: auto !important;
-    height: 70vh !important;
+  .chat-box-resizer { 
+    display: none !important; 
   }
-  .chat-box-resizer { display: none !important; }
 }
   /* ============================================================
    NÚT "↓ TIN MỚI" (SMART SCROLL PILL - BẢN FIX)

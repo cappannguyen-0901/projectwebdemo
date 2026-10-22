@@ -1231,12 +1231,11 @@ window.addFeedbackButtons  = addFeedbackButtons;
 window.openAuth = function() {
   window.location.href = 'login.html';
 };
-/* ============================================================
-   17. TÍNH NĂNG KÉO GIÃN KHUNG CHAT (CUSTOMER)
-============================================================ */
 function initChatResizer() {
   const chatBox = document.getElementById('chatBox');
-  if (!chatBox || document.getElementById('chatBoxResizer')) return;
+  if (!chatBox) return; // Nếu không có chatBox thì bỏ qua
+  
+  if (document.getElementById('chatBoxResizer')) return; // Tránh tạo trùng
 
   const resizer = document.createElement('div');
   resizer.id = 'chatBoxResizer';
@@ -1246,7 +1245,8 @@ function initChatResizer() {
   let resizing = false, sx = 0, sy = 0, sw = 0, sh = 0;
 
   const start = (clientX, clientY) => {
-    if (window.innerWidth <= 768) return; // Bỏ qua trên mobile
+    // Chặn trên mobile
+    if (window.innerWidth <= 768) return; 
     resizing = true;
     sx = clientX; sy = clientY;
     sw = chatBox.offsetWidth; sh = chatBox.offsetHeight;
@@ -1269,17 +1269,16 @@ function initChatResizer() {
     resizing = false;
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
-    // Lưu kích thước mới
     localStorage.setItem('cappan_chat_customer_w', chatBox.offsetWidth);
     localStorage.setItem('cappan_chat_customer_h', chatBox.offsetHeight);
   };
 
-  // Bắt sự kiện Chuột
+  // Chuột
   resizer.addEventListener('mousedown', (e) => { e.preventDefault(); start(e.clientX, e.clientY); });
   document.addEventListener('mousemove', (e) => move(e.clientX, e.clientY));
   document.addEventListener('mouseup', end);
 
-  // Bắt sự kiện Cảm ứng
+  // Cảm ứng
   resizer.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (e.touches[0]) start(e.touches[0].clientX, e.touches[0].clientY);
@@ -1288,9 +1287,17 @@ function initChatResizer() {
     if (resizing && e.touches[0]) move(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: true });
   document.addEventListener('touchend', end);
+
+  // Khôi phục kích thước đã lưu
+  const savedW = parseInt(localStorage.getItem('cappan_chat_customer_w'), 10);
+  const savedH = parseInt(localStorage.getItem('cappan_chat_customer_h'), 10);
+  if (savedW && savedH && window.innerWidth > 768) {
+    chatBox.style.setProperty('width',  savedW + 'px', 'important');
+    chatBox.style.setProperty('height', savedH + 'px', 'important');
+  }
 }
 
-// Kích hoạt khi tải xong
+// Gọi hàm khởi tạo
 if (document.readyState === 'complete') {
   initChatResizer();
 } else {
