@@ -8,7 +8,7 @@ const SEED_CATEGORIES = [
   { id: 'tea',      name: '🍵 Trà',           order: 2 },
   { id: 'smoothie', name: '🥤 Sinh tố',      order: 3 },
   { id: 'juice',    name: '🧃 Nước ép',      order: 4 },
-  { id: 'soda',     name: '🍹 Soda & Đá xay', order: 5 },
+  { id: 'soda',     name: '🍹 Soda',          order: 5 },
   { id: 'other',    name: '🥛 Khác',          order: 6 }
 ];
 
@@ -42,11 +42,13 @@ const SEED_MENU_ITEMS = [
   { id:'M302', name:'Nước Ép Táo', categoryId:'juice', price:48000, img:'https://images.unsplash.com/photo-1613478223719-2ab802602423?w=600', inStock:true },
   { id:'M303', name:'Nước Ép Dưa Hấu', categoryId:'juice', price:40000, img:'https://images.unsplash.com/photo-1613478223719-2ab802602423?w=600', inStock:true },
 
-  /* Soda & Đá xay */
+  /* Soda */
   { id:'M401', name:'Soda Chanh', categoryId:'soda', price:38000, img:'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=600', inStock:true },
   { id:'M402', name:'Soda Việt Quất', categoryId:'soda', price:42000, img:'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=600', inStock:true },
-  { id:'M403', name:'Đá Xay Cà Phê', categoryId:'soda', price:55000, img:'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=600', inStock:true },
-  { id:'M404', name:'Đá Xay Matcha', categoryId:'soda', price:58000, img:'https://images.unsplash.com/photo-1515823064-d6e0c04616a7?w=600', inStock:true },
+  
+  // ⚡ CHUYỂN ĐÁ XAY VÀO NHÓM OTHER
+  { id:'M403', name:'Đá Xay Cà Phê', categoryId:'other', price:55000, img:'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=600', inStock:true },
+  { id:'M404', name:'Đá Xay Matcha', categoryId:'other', price:58000, img:'https://images.unsplash.com/photo-1515823064-d6e0c04616a7?w=600', inStock:true },
 
   /* Khác */
   { id:'M501', name:'Sữa Chua Cà Phê', categoryId:'other', price:40000, img:'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=600', inStock:true },

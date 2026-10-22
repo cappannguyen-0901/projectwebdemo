@@ -3,12 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  (function() {
+    const theme = localStorage.getItem('cappan_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <title>Thống kê AI — CAPPAN Staff</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="chat-panel.css">
 <link rel="stylesheet" href="staff.css">
+<link rel="stylesheet" href="dark-mode.css">
 <script>
-/* Đặt sẵn độ rộng + trạng thái chat TRƯỚC khi trình duyệt vẽ lần đầu → không bị dựt khi đổi trang */
+  (function(){try{
+    var t = localStorage.getItem('cappan_theme') || 'light';
+    if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  }catch(e){}})();
+</script>
+<script>
 (function(){try{var d=document.documentElement,
 w=parseInt(localStorage.getItem('cappan_chat_panel_width'),10);
 if(w)d.style.setProperty('--chat-w',Math.max(280,Math.min(600,w))+'px');
@@ -31,7 +43,6 @@ d.classList.add('no-anim');}catch(e){}})();
 <div class="dashboard-layout" id="dashboardLayout">
   <div class="dashboard-main">
     <section class="section">
-
       <h2 class="section-title" style="text-align:left;">🤖 Thống kê trợ lý AI</h2>
       <p class="section-sub" style="text-align:left;">Mỗi lượt hỏi đều được ghi lại: ai trả lời (luật cứng, cache, mô hình AI hay dự phòng), nhanh bao nhiêu, tốn bao nhiêu token.</p>
 
@@ -46,7 +57,7 @@ d.classList.add('no-anim');}catch(e){}})();
 
       <div class="ai-grid">
         <div class="staff-panel">
-          <div class="panel-header"><h3>🧭 Ai trả lời?</h3></div>
+          <div class="panel-header"><h3>🧯 Ai trả lời?</h3></div>
           <div class="ai-donut-wrap">
             <div class="ai-donut" id="aiDonut"><div class="ai-donut-center"><b id="aiDonutTotal">0</b><small>lượt hỏi</small></div></div>
             <div class="ai-legend" id="aiLegend"></div>
@@ -75,7 +86,6 @@ d.classList.add('no-anim');}catch(e){}})();
         <div class="panel-header"><h3>🕘 Các lượt hỏi gần nhất</h3></div>
         <div class="ai-table-wrap" id="aiRecent"></div>
       </div>
-
     </section>
   </div>
 
@@ -112,11 +122,14 @@ d.classList.add('no-anim');}catch(e){}})();
 <div class="toast" id="toast">✓ Thành công!</div>
 
 <script src="js/data/schema.js"></script>
+<script src="js/ai/ai-input.js"></script>
+<script src="js/ai/ai-output.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
 <script src="js/data/kb.js"></script>
 <script src="js/data/promotions.js"></script>
 <script src="js/api/index.js"></script>
+<script src="js/realtime.js"></script> 
 <script src="js/staff-guard.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
 <script src="js/ai/brain.js"></script>
@@ -145,11 +158,10 @@ function render() {
   const s = AIMetrics.summary(list);
   const n = v => Number(v).toLocaleString('vi-VN');
 
-  /* ---- thẻ số liệu ---- */
   document.getElementById('aiCards').innerHTML = [
     ['💬', s.total, 'Tổng lượt hỏi'],
-    ['🆓', s.noLlmPct + '%', 'Không tốn token (KB + cache)'],
-    ['⚡', s.avgTtft + 'ms', 'Chữ đầu tiên (TB mọi nguồn)'],
+    ['🎯', s.noLlmPct + '%', 'Không tốn token (KB + cache)'],
+    ['⚡', s.avgTtft + 'ms', 'Chữ đầu tiên (TB mỗi nguồn)'],
     ['⏱', s.avgTtftBy.llm ? s.avgTtftBy.llm + 'ms' : '—', 'Chữ đầu tiên (chỉ khi gọi AI)'],
     ['🧮', n(s.tokIn + s.tokOut), 'Token ước tính'],
     ['🛟', s.legacyPct + '%', 'Rơi xuống dự phòng'],
@@ -160,7 +172,6 @@ function render() {
       <div class="stat-info"><div class="stat-value">${val}</div><div class="stat-label">${label}</div></div>
     </div>`).join('');
 
-  /* ---- biểu đồ tròn ---- */
   document.getElementById('aiDonutTotal').textContent = s.total;
   let acc = 0;
   const parts = Object.keys(SRC).map(k => {
@@ -175,14 +186,12 @@ function render() {
     <div><i style="background:${SRC[k].color}"></i>${SRC[k].label}
       <b>${s.bySrc[k]} · ${s.total ? Math.round(s.bySrc[k] / s.total * 100) : 0}%</b></div>`).join('');
 
-  /* ---- TTFT theo nguồn ---- */
   const maxT = Math.max(1, ...Object.values(s.avgTtftBy));
   document.getElementById('aiBars').innerHTML = Object.keys(SRC).map(k => `
     <div class="ai-bar-row"><span>${SRC[k].label}</span>
       <div class="ai-bar-track"><div class="ai-bar-fill" data-w="${s.bySrc[k] ? Math.max(3, s.avgTtftBy[k] / maxT * 100) : 0}" style="background:${SRC[k].color}"></div></div>
       <b>${s.bySrc[k] ? s.avgTtftBy[k] + 'ms' : '—'}</b></div>`).join('');
 
-  /* ---- công cụ / mô hình ---- */
   const barList = (arr, color) => {
     if (!arr.length) return '<p class="ai-empty">Chưa có dữ liệu.</p>';
     const max = arr[0].count;
@@ -194,7 +203,6 @@ function render() {
   document.getElementById('aiTools').innerHTML  = barList(s.tools, '#6F4E37');
   document.getElementById('aiModels').innerHTML = barList(s.models, '#C9A227');
 
-  /* ---- bảng lượt hỏi gần nhất ---- */
   const recent = list.slice(-12).reverse();
   document.getElementById('aiRecent').innerHTML = recent.length ? `
     <table class="staff-table">
@@ -210,7 +218,7 @@ function render() {
           <td>${(e.tools || []).map(esc).join(', ') || '—'}</td>
           <td>${e.fb === 'up' ? '👍' : e.fb === 'down' ? '👎' : '—'}</td>
         </tr>`).join('')}</tbody>
-    </table>` : '<p class="ai-empty">Chưa có lượt hỏi nào. Hãy chat với trợ lý hoặc bấm “Chạy 10 câu mẫu”.</p>';
+    </table>` : '<p class="ai-empty">Chưa có lượt hỏi nào. Hãy chat với trợ lý hoặc bấm "Chạy 10 câu mẫu".</p>';
 
   requestAnimationFrame(() => requestAnimationFrame(() =>
     document.querySelectorAll('.ai-bar-fill').forEach(el => { el.style.width = el.dataset.w + '%'; })));
@@ -250,5 +258,15 @@ async function runSamples() {
 </script>
 <script src="js/demo.js"></script>
 <script src="js/fx.js"></script>
+<script src="js/dark-mode.js"></script>
+<script src="js/staff-ai-debug.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const sec = document.querySelector('.dashboard-main .section');
+    if (sec && typeof AIDebugPanel !== 'undefined') {
+      sec.insertAdjacentHTML('beforeend', AIDebugPanel.render());
+    }
+  });
+</script>
 </body>
 </html>

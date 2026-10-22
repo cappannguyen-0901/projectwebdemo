@@ -541,3 +541,25 @@
 body[data-page^="staff-"] .toast {
   background: var(--brown);
 }
+/* ============================================================
+   FIX BIỂU ĐỒ CỘT (CHART-BARS)
+============================================================ */
+.chart-bars {
+  align-items: stretch !important; /* Ép các cột giãn đều theo chiều dọc */
+}
+
+.chart-col {
+  height: 100% !important;
+  justify-content: flex-end !important;
+}
+
+.chart-bar-wrap {
+  height: 100% !important;
+  min-height: 0 !important; /* Fix lỗi co rúm của flexbox */
+}
+
+.chart-bar {
+  height: var(--bar-height, 0%); /* Lấy chiều cao từ biến CSS do JS truyền vào */
+  min-height: 6px !important; /* Đảm bảo doanh thu = 0 vẫn có một vạch nhỏ */
+  transition: height 1s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}

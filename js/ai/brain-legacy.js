@@ -64,6 +64,7 @@ const AIBrainLegacy = {
       const contextReply = this._handleContext(text, lastTopic, user);
       if (contextReply) return contextReply;
     }
+if (this._strict && /doanh thu|doanh số|đánh dấu|hủy|huỷ|hoàn thành|hoàn tất|reset|phân ca|xếp ca|đổi giá|sửa giá|tra cứu khách|lịch sử khách|lịch sử của khách|đổi trạng thái|xóa|xóa đơn|xóa booking|tìm khách/.test(text)) return null;
 
     // ⚡ STAFF rules ưu tiên
     if (isStaff) {
@@ -72,7 +73,6 @@ const AIBrainLegacy = {
     }
 
     /* Chế độ chắc chắn: câu cần gọi tool (thống kê, thao tác ghi, tra khách) → để LLM xử lý, không đoán bằng từ khóa */
-    if (this._strict && /doanh thu|doanh số|đánh dấu|hủy|huỷ|hoàn thành|hoàn tất|reset|phân ca|xếp ca|đổi giá|sửa giá|tra cứu khách|lịch sử khách|lịch sử của khách/.test(text)) return null;
 
     return this._checkBookingHelp(text)
         || this._checkOrderHelp(text)
@@ -98,36 +98,42 @@ const AIBrainLegacy = {
         || this._fallback(text);
   },
 
-  /* ----------------------------------------------------------
-     CHẶN KHÁCH
+    /* ----------------------------------------------------------
+     STAFF QUERIES — trả lời nhanh cho nhân viên (fix P0-2)
   ---------------------------------------------------------- */
-  _checkBlockedForCustomer(text) {
-    const recipeKeys = [
-      'công thức', 'recipe', 'cách làm', 'cách pha', 'pha chế',
-      'nguyên liệu', 'tỉ lệ', 'định lượng', 'bí quyết', 'bí mật'
-    ];
-    const drinkKeywords = [
-      'cà phê', 'trà', 'sinh tố', 'smoothie', 'nước ép', 'soda',
-      'matcha', 'latte', 'espresso', 'cappuccino', 'bạc xỉu',
-      'mocha', 'frappe', 'đá xay', 'trà sữa', 'trà đào'
-    ];
-    if (recipeKeys.some(k => text.includes(k)) &&
-        drinkKeywords.some(k => text.includes(k))) {
-      return `Dạ em không có thông tin về công thức ạ, anh/chị vui lòng liên hệ quầy pha chế hoặc hotline ${this._kb('store.hotline', '0366 474 038')} để được hỗ trợ.`;
+    /* ⚡ Chặn khách hỏi dữ liệu nội bộ / công thức / thao tác ghi.
+   Trả về chuỗi từ chối hoặc null nếu được phép trả lời. */
+_checkBlockedForCustomer(text) {
+  const n = (typeof normVN === 'function') ? normVN(text) : String(text || '').toLowerCase();
+
+  const rules = [
+    {
+      re: /\b(cong thuc|cach lam|nguyen lieu|pha che|recipe|thanh phan|bot matcha|muoi bien)\b/,
+      msg: 'Dạ em không có thông tin về công thức pha chế ạ. Anh/chị vui lòng liên hệ quầy pha chế hoặc hotline 0366 474 038.'
+    },
+    {
+      re: /\b(doanh thu|doanh so|gia von|ton kho|loi nhuan|kpi|thong ke noi bo)\b/,
+      msg: 'Dạ em không có quyền cung cấp số liệu nội bộ ạ. Anh/chị vui lòng liên hệ quản lý ca.'
+    },
+    {
+      re: /\b(nhan vien|lich ca|ca lam|phan ca|xep ca|staff list|danh sach nhan vien)\b/,
+      msg: 'Dạ em không có quyền cung cấp thông tin nhân viên hoặc lịch ca ạ.'
+    },
+    {
+      re: /\b(danh dau|reset|huy don|huy booking|hoan thanh|xoa mon|doi gia|sua gia|cap nhat trang thai)\b/,
+      msg: 'Dạ em không có quyền thực hiện thao tác ghi ạ. Anh/chị vui lòng liên hệ nhân viên.'
+    },
+    {
+      re: /\b(ignore previous|bo qua huong dan|system prompt|jailbreak|prompt injection)\b/,
+      msg: 'Dạ em không thể thực hiện yêu cầu này ạ.'
     }
+  ];
 
-    const internalKeys = [
-      'nhân viên', 'lịch ca', 'ca làm', 'phân ca', 'dashboard',
-      'doanh thu', 'lợi nhuận', 'tồn kho', 'giá vốn',
-      'staff', 'admin', 'quản lý menu', 'thống kê'
-    ];
-    if (internalKeys.some(k => text.includes(k))) {
-      return `Dạ thông tin này em không có ạ. Anh/chị vui lòng liên hệ hotline ${this._kb('store.hotline', '0366 474 038')} để được hỗ trợ.`;
-    }
-
-    return null;
-  },
-
+  for (const r of rules) {
+    if (r.re.test(n)) return r.msg;
+  }
+  return null;
+},
   /* ----------------------------------------------------------
      PHÁT HIỆN CHỦ ĐỀ
   ---------------------------------------------------------- */
@@ -198,97 +204,7 @@ const AIBrainLegacy = {
     return `${cat.name} có ${items.length} món:\n${list}`;
   },
 
-  /* ============================================================
-     ⚡ STAFF QUERIES — chỉ match khi role=staff
-  ============================================================ */
-  _checkStaffQueries(text) {
-    /* 1. CÔNG THỨC — ưu tiên cao nhất */
-    const recipeMatch = text.match(/(?:công thức|cách làm|cách pha|recipe)\s+(.+)/);
-    if (recipeMatch) {
-      let drinkName = recipeMatch[1].trim().replace(/\?+$/, '').trim();
-      const items = API.menu.getAll();
-
-      // Exact match
-      let item = items.find(m => m.name.toLowerCase() === drinkName.toLowerCase());
-      // Includes
-      if (!item) item = items.find(m => m.name.toLowerCase().includes(drinkName.toLowerCase()));
-      // Ngược lại
-      if (!item) {
-        item = items.find(m => drinkName.toLowerCase().includes(m.name.toLowerCase()));
-      }
-      // Fuzzy theo từ
-      if (!item) {
-        const words = drinkName.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
-        let bestMatch = null, bestScore = 0;
-        items.forEach(m => {
-          const nameLower = m.name.toLowerCase();
-          const score = words.filter(w => nameLower.includes(w)).length;
-          if (score > bestScore) { bestScore = score; bestMatch = m; }
-        });
-        if (bestScore >= 2) item = bestMatch;
-      }
-
-      if (!item) {
-        return `Dạ em không tìm thấy món "${drinkName}". Anh/chị thử lại với tên khác nhé.`;
-      }
-
-      if (typeof SEED_RECIPES !== 'undefined' && SEED_RECIPES[item.id]) {
-        const r = SEED_RECIPES[item.id];
-        return `📖 Công thức ${item.name} (${r.size || 'chuẩn'}):\n\n` +
-               `🥄 Nguyên liệu:\n${r.ingredients.map(i => '• ' + i).join('\n')}\n\n` +
-               `👨‍🍳 Cách làm:\n${r.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}` +
-               (r.note ? `\n\n💡 Ghi chú: ${r.note}` : '');
-      }
-      return `Dạ món "${item.name}" chưa có dữ liệu công thức.`;
-    }
-
-    /* 2. CA LÀM VIỆC */
-    if (/ca\s*(sáng|chiều|tối)|ca làm|shift|các ca/.test(text)) {
-      const shifts = API.shifts.getAll();
-      const list = shifts.map(s => `• ${s.name}: ${s.start} – ${s.end}`).join('\n');
-      return `⏰ Quán có ${shifts.length} ca:\n${list}`;
-    }
-
-    /* 3. NHÂN VIÊN */
-    if (/danh sách nhân viên|nhân viên quán|list nhân viên|nhân viên gồm/.test(text)) {
-      const staff = API.staff.getAll();
-      const list = staff.map(s => `• ${s.name} (${s.role})`).join('\n');
-      return `📋 Quán có ${staff.length} nhân viên:\n${list}`;
-    }
-
-    /* 4. ĐƠN ĐANG XỬ LÝ */
-    if (/đơn đang xử lý|đơn chưa xong|đơn nào đang|order đang/.test(text)) {
-      const orders = API.orders.getAll().filter(o => o.step < 4);
-      if (orders.length === 0) return `✅ Hiện không có đơn nào đang xử lý.`;
-      const list = orders.map(o =>
-        `• #${o.id} — ${o.customerName || 'Khách'} — ${API.utils.formatVND(o.total)} (bước ${o.step + 1}/5)`
-      ).join('\n');
-      return `📦 Có ${orders.length} đơn đang xử lý:\n${list}`;
-    }
-
-    /* 5. BOOKING HÔM NAY */
-    if (/booking hôm nay|đặt chỗ hôm nay|booking nào/.test(text)) {
-      const today = API.utils.today();
-      const bookings = API.bookings.getAll()
-        .filter(b => b.date === today && b.status === 'confirmed');
-      if (bookings.length === 0) return `✅ Hôm nay chưa có booking nào.`;
-      const list = bookings.map(b => {
-        const u = API.users.getById(b.userId);
-        const floor = API.floors.getById(b.floorId);
-        return `• ${b.id} — ${u ? u.name : 'Khách'} — ${b.seatId} (${floor ? floor.name : b.floorId}) — ${b.time}`;
-      }).join('\n');
-      return `🪑 Hôm nay có ${bookings.length} booking:\n${list}`;
-    }
-
-    /* 6. CHỖ TRỐNG */
-    if (/còn bao nhiêu chỗ|chỗ trống|tình trạng chỗ/.test(text)) {
-      const available = API.seats.getAvailable();
-      const total = API.seats.getAll().length;
-      return `🪑 Còn ${available.length}/${total} chỗ trống trên toàn quán.`;
-    }
-
-    return null;
-  },
+  
 
   /* ============================================================
      1. CHÀO HỎI
@@ -377,16 +293,18 @@ const AIBrainLegacy = {
   /* ============================================================
      4. MENU
   ============================================================ */
-    _checkMenu(text) {
-    // ⚡ FIX: Nhường quyền cho AI xử lý nếu khách hỏi về giỏ hàng
+        _checkMenu(text) {
     if (/giỏ hàng|gio hang|cart/.test(text)) return null;
+    if (/\b(đầy đủ|toàn bộ|full|tất cả)\b/i.test(text)) return null;
 
-    // ⚡ Bỏ từ khóa 'có gì' để không bắt nhầm câu hỏi chung chung
+    // ⚡ FIX: Nếu có từ khóa chỉ nhóm món cụ thể -> nhường quyền cho AI gọi Tool
+    const specificCats = ['cà phê', 'ca phe', 'coffee', 'trà', 'tra', 'tea', 'sinh tố', 'sinh to', 'smoothie', 'nước ép', 'nuoc ep', 'juice', 'soda', 'đá xay', 'da xay', 'khác', 'khac', 'other'];
+    if (specificCats.some(k => text.includes(k))) return null;
+
     const keys = ['menu', 'thực đơn', 'đồ uống', 'uống gì', 'món gì'];
     if (!keys.some(k => text.includes(k))) return null;
 
     this._lastTopic = 'menu';
-    // ... (phần còn lại giữ nguyên)
     const cats = API.categories.getAll();
     const total = API.menu.getAll().length;
 
@@ -398,7 +316,6 @@ const AIBrainLegacy = {
     reply += '\nBạn muốn uống nhóm nào ạ?';
     return reply;
   },
-
   /* ============================================================
      5. GIÁ CẢ
   ============================================================ */
@@ -440,8 +357,10 @@ const AIBrainLegacy = {
   /* ============================================================
      7. ĐỊA CHỈ
   ============================================================ */
-  _checkAddress(text) {
-    return null; // ⚡ Nhường quyền sinh Thẻ cho LLM (gọi get_store_info)
+    _checkAddress(text) {
+    // ⚡ FIX: câu "địa chỉ giao hàng của tôi" không phải địa chỉ quán
+    if (/địa chỉ\s+(giao|nhận|của (tôi|mình|em))/i.test(text)) return null;
+    return null; // Nhường quyền sinh Thẻ cho LLM (gọi get_store_info)
   },
 
   /* ============================================================
@@ -542,7 +461,7 @@ const AIBrainLegacy = {
   /* ============================================================
      17. FAQ (từ KB)
   ============================================================ */
-  _checkFAQ(text) {
+    _checkFAQ(text) {
     if (typeof KB === 'undefined' || !Array.isArray(KB.faq)) return null;
 
     let bestMatch = null, bestScore = 0;
@@ -699,18 +618,15 @@ const LB_WORDS = {
 };
 
 const LocalBrain = {
-
   MIN_CONF: 0.7,
-  ctx: null,                    // ngữ cảnh gợi ý gần nhất (cho câu hỏi nối tiếp)
+  ctx: null,                    
   CTX_TTL: 15 * 60 * 1000,
 
-  /* ---------- văn bản ---------- */
   norm(s) {
     return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/đ/g, 'd').replace(/[^a-z0-9< ]+/g, ' ').replace(/\s+/g, ' ').trim();
   },
 
-  /* Token giữ cả dạng có dấu để tránh nhầm: "đâu" ≠ "dâu", "mười" ≠ "muối" */
   _tok(s) {
     return String(s || '').toLowerCase().replace(/[^\p{L}\p{N}<]+/gu, ' ').trim().split(' ').filter(Boolean)
       .map(raw => { const norm = this.norm(raw); return { raw, norm, plain: raw === norm }; });
@@ -733,7 +649,6 @@ const LocalBrain = {
   _vnd(n) { return API.utils.formatVND(n); },
   _list(arr) { return arr.length <= 1 ? arr.join('') : arr.slice(0, -1).join(', ') + ' và ' + arr[arr.length - 1]; },
 
-  /* ---------- món ---------- */
   GENERIC: new Set(['ca', 'phe', 'tra', 'sinh', 'to', 'nuoc', 'ep', 'soda', 'da', 'xay', 'nong', 'sua']),
 
   _tagsOf(m) {
@@ -759,7 +674,6 @@ const LocalBrain = {
     return q.norm.length >= 5 && t.norm.length >= 5 && this._lev1(q.norm, t.norm);
   },
 
-  /* Tìm các món được nhắc tới trong câu (có thể nhiều món: "A và B") */
   _findItems(raw) {
     let q = this._tok(raw);
     const all = this._items();
@@ -779,7 +693,6 @@ const LocalBrain = {
       const best = Math.max(...scored.map(s => s.overlap));
       const group = scored.filter(s => s.overlap === best);
       group.forEach(g => { out.push(g.it); if (g.strong > 0) onlyGeneric = false; });
-      /* bỏ các từ đã dùng để tìm món kế tiếp */
       q = q.filter(w => !group.some(g => g.it.toks.some(t => this._tokMatch(w, t))));
       if (out.length >= 6) break;
     }
@@ -787,17 +700,15 @@ const LocalBrain = {
     return out;
   },
 
-  /* ---------- hiểu khẩu vị ---------- */
   parsePrefs(raw) {
-    const rawPlain = !/[^\x00-\x7F]/.test(raw);                      // người dùng gõ không dấu hoàn toàn
+    const rawPlain = !/[^\x00-\x7F]/.test(raw);                      
     let t = this.norm(raw).replace(/sua chua/g, 'suachua');
     const P = { pos: new Set(), neg: new Set(), cats: [], temp: null, maxPrice: null, cheap: false,
                 popular: false, fresh: false, noCoffee: false, noCaf: false, dessert: false, desc: [], signals: 0 };
     const take = re => { if (re.test(t)) { t = t.replace(re, ' '); return true; } return false; };
     const sig = (label) => { P.signals++; if (label) P.desc.push(label); };
 
-    /* phủ định trước */
-    if (/đỡ\s+ngọt/.test(raw)) t = t.replace(/\bdo ngot\b/, 'it ngot');      // "đỡ ngọt" ≠ "đồ ngọt"
+    if (/đỡ\s+ngọt/.test(raw)) t = t.replace(/\bdo ngot\b/, 'it ngot');
     else t = t.replace(/\bdo ngot\b/g, 'dongot');
     if (/đỡ\s+béo/.test(raw)) t = t.replace(/\bdo beo\b/, 'it beo'); else t = t.replace(/\bdo beo\b/g, 'dobeo');
     if (take(/\b(khong|ko|it|bot|dung|han che)\s+(co\s+|qua\s+|bi\s+|that\s+)?ngot\b|\bngot\s+(it|thoi|vua)\b|\bkhong\s+duong\b/)) { P.neg.add('ngot'); sig('ít ngọt'); }
@@ -808,13 +719,11 @@ const LocalBrain = {
     if (take(/\b(khong|ko|bo|tranh|kieng|han che|dung)\s+(uong\s+)?(duoc\s+)?(ca phe|cafe|coffee)\b/)) { P.noCoffee = true; sig('không cà phê'); }
     if (take(/\b(cho (be|con)|tre em|con nit|thieu nhi|kids?)\b/)) { P.noCaf = true; P.pos.add('ngot'); sig('phù hợp trẻ nhỏ'); }
 
-    /* nhiệt độ */
     if (take(/\btroi (lanh|ret|mua)\b|\bam bung\b|\bcho am\b/)) { P.temp = 'hot'; sig('đồ nóng'); }
     else if (take(/\btroi (nong|oi|nang)\b|\bnong buc\b|\boi buc\b|\bnang nong\b/)) { P.temp = 'cold'; P.pos.add('giainhiet'); sig('giải nhiệt'); }
     else if (take(/\bnong\b/)) { P.temp = 'hot'; sig('đồ nóng'); }
     else if (/mát|lạnh|giải nhiệt|giải khát|đá lạnh|tươi mát/.test(raw) || take(/\b(lanh|da lanh|giai nhiet|giai khat|tuoi mat|co da)\b/) || (rawPlain && take(/\bmat\b/))) { P.temp = 'cold'; P.pos.add('giainhiet'); sig('mát lạnh'); }
 
-    /* hương vị */
     if (/ngậy/.test(raw) || take(/\bbeo\b|\bnhieu sua\b/)) { P.pos.add('beo'); sig('béo ngậy'); }
     if (take(/\bngot\b/)) { P.pos.add('ngot'); sig('ngọt'); }
     if (/đắng/.test(raw) || take(/\bvi dang\b|\bdam da\b|\bdam dac\b/)) { P.pos.add('dang'); sig('đậm vị'); }
@@ -823,15 +732,14 @@ const LocalBrain = {
     if (take(/\b(trai cay|hoa qua|vitamin|healthy|detox)\b/)) { P.pos.add('traicay'); sig('trái cây'); }
     if (take(/\btinh (tao|ngu|nguoi)\b|\bbuon ngu\b|\bthuc khuya\b|\bdeadline\b|\bon thi\b|\bhoc bai\b|\bcan (nang luong|tinh)\b|\bmet moi\b|\bdam hon\b|\bmanh hon\b/)) { P.pos.add('tinhtao'); sig('tỉnh táo'); }
 
-    /* nhóm món */
     if (/trà/.test(raw) || /\buong tra\b|\bmon tra\b|\bdo tra\b|\btra (gi|nao|ngon)\b/.test(t)) { P.cats.push('tea'); sig('trà'); }
     if (!P.noCoffee && take(/\b(ca phe|cafe|coffee)\b/)) { P.cats.push('coffee'); sig('cà phê'); }
     if (take(/\bsinh to\b/)) { P.cats.push('smoothie'); sig('sinh tố'); }
     if (take(/\bnuoc ep\b/)) { P.cats.push('juice'); sig('nước ép'); }
-    if (take(/\bsoda\b|\bda xay\b/)) { P.cats.push('soda'); sig('soda / đá xay'); }
+    if (take(/\bsoda\b/)) { P.cats.push('soda'); sig('soda'); }
+    if (take(/\bda xay\b/)) { P.cats.push('other'); sig('đá xay'); }
     if (take(/\b(banh|an vat|flan|trang mieng)\b/)) { P.dessert = true; sig('tráng miệng'); }
 
-    /* ngân sách / nổi bật */
     let mb = t.match(/\b(duoi|toi da|khong qua|max|tam|khoang|ngan sach)\s*(\d{1,3})(?:\s?(?:k|nghin|ngan|000))?\b/) || t.match(/<\s*(\d{1,3})(?:\s?(?:k|nghin|ngan|000))?/);
     if (mb) {
       const num = parseInt(mb[mb.length === 3 ? 2 : 1], 10);
@@ -902,7 +810,6 @@ const LocalBrain = {
     return `${head}\n${lines.join('\n')}\n\nAnh/chị có thể đặt ở mục "Đặt nước" ạ.`;
   },
 
-  /* ---------- ghế ---------- */
   FLOORS: { tret: 'F1', 'lau 1': 'F2', 'lau 2': 'F3', thuong: 'F4' },
   NUMW: { mot: 1, hai: 2, ba: 3, bon: 4, nam: 5, sau: 6, bay: 7, tam: 8, chin: 9, muoi: 10 },
 
@@ -981,19 +888,16 @@ const LocalBrain = {
     return `${head}\n${lines.join('\n')}${note}\n\nĐây là tình trạng hiện tại. Anh/chị vào mục "Đặt chỗ" để giữ bàn theo ngày giờ mong muốn nhé.`;
   },
 
-  /* ---------- trả lời chính ---------- */
   answer(input, opts = {}) {
     try {
       const raw = String(input || '').trim();
       if (!raw || raw.length > 300) return null;
       const n = this.norm(raw);
 
-      /* Không xử lý: cách đặt, công thức, dữ liệu nội bộ */
       if (/\b(cach|huong dan|lam sao|the nao)\b.*\b(dat|book|thanh toan|dang ky|dang nhap)\b/.test(n)) return null;
       if (/\b(cong thuc|cach lam|nguyen lieu|pha che|ton kho|gia von|doanh thu|don hang|nhan vien|lich ca|booking)\b/.test(n)) return null;
       if (/\b(dau xe|do xe|gui xe|bai xe|bai do|parking|xe may|o to|mat khau|tai khoan|dang nhap|dang ky)\b/.test(n)) return null;
 
-      /* An toàn: dị ứng / bệnh lý → chuyển cho nhân viên, KHÔNG khẳng định thành phần */
       if (/\b(di ung|allergy|allergic|tieu duong|dai thao duong|mang thai|co thai|huyet ap|benh)\b/.test(n)) {
         return this._r('allergy', `Dạ về dị ứng hoặc tình trạng sức khỏe, em chưa có thông tin thành phần đầy đủ để khẳng định món nào an toàn ạ. Anh/chị vui lòng báo trực tiếp với nhân viên tại quầy hoặc gọi hotline ${KB.store.hotline} để được kiểm tra kỹ nhé.`, 0.95);
       }
@@ -1001,31 +905,23 @@ const LocalBrain = {
       const fu = this.followUp(raw);
       if (fu) return fu;
 
-      /* Rẻ nhất / đắt nhất */
       if (/\b(re|dat) nhat\b|\bgia (thap|cao) nhat\b/.test(n)) return this._extreme(raw, n);
 
       const found = this._findItems(raw);
 
-      /* So sánh 2 món */
       if (found.length >= 2 && found.length <= 3 && !found.generic && /\b(so sanh|khac (gi|nhau)|hay la|hay|vs|nen chon|va|voi)\b/.test(n)) {
         return this._compare(found);
       }
 
-      /* Tra giá */
       if (found.length && /\b(gia|bao nhieu|nhieu tien|bao tien|may k|nghin|gia sao|gia ca)\b/.test(n)) return this._price(found, n, raw);
 
-      /* Còn hàng không */
-      if (found.length && /\b(con (hang|khong|mon|ko)|het (chua|hang|roi|khong)|co (ban|khong|ko))\b/.test(n)) return this._stock(found);
+      if (found.length && !found.generic && /\b(con (hang|khong|mon|ko)|het (chua|hang|roi|khong)|co (ban|khong|ko))\b/.test(n)) return this._stock(found);
+      if (found.length && !found.generic && /\b(la gi|co gi|vi (the nao|ra sao|gi)|ngon (khong|ko)|nhu the nao|mo ta|nhu nao)\b/.test(n)) return this._info(found);
 
-      /* Món là gì */
-      if (found.length && /\b(la gi|co gi|vi (the nao|ra sao|gi)|ngon (khong|ko)|nhu the nao|mo ta|nhu nao)\b/.test(n)) return this._info(found);
-
-      /* Ổ cắm */
       if (/\bo cam\b|\bsac (dien thoai|laptop|pin)\b/.test(n) && !/\b(yen tinh|view|nhom|ngoai troi|may chieu|\d+ nguoi)\b/.test(n)) {
         return this._r('outlet', `Dạ quán có ổ cắm điện tại mọi bàn, anh/chị yên tâm sạc laptop hoặc điện thoại ạ.`, 0.85);
       }
 
-      /* Chỗ ngồi */
       const seatCue = /\b(cho (ngoi|nao|tot|dep|yen|trong)|con cho|ngoi (dau|o)|co (cho|ban)|ban nao|phong (hop|nhom)|khu (nao|vuc)|dat cho|tim cho|can cho|muon ngoi|cho (de |hoc|lam))\b/.test(n)
         || (/\b(cho|ban|phong)\b/.test(n) && /\b(nguoi|yen tinh|view|ngoai troi|cua so|may chieu)\b/.test(n));
       if (seatCue || (found.length === 0 && /\b(o cam|ngoai troi|san thuong|chup anh)\b/.test(n) && !/\buong\b/.test(n))) {
@@ -1039,7 +935,6 @@ const LocalBrain = {
         return this._r('outlet', `Dạ quán có ổ cắm điện tại mọi bàn, anh/chị yên tâm sạc laptop hoặc điện thoại ạ.`, 0.85);
       }
 
-      /* Gợi ý món */
       const P = this.parsePrefs(raw);
       const generic = /\b(goi y|nen uong|uong gi|mon nao ngon|mon ngon|nen goi|nen chon)\b/.test(n)
         || (/\b(tu van|de xuat|chon giup|chon cho)\b/.test(n) && /\b(uong|mon|nuoc|do uong|thuc uong|ly)\b/.test(n));
@@ -1073,7 +968,6 @@ const LocalBrain = {
   hasContext() { return !!(this.ctx && Date.now() - this.ctx.ts < this.CTX_TTL); },
   reset() { this.ctx = null; },
 
-  /* ---------- các loại câu hỏi ---------- */
   _extreme(raw, n) {
     const cheap = /\bre nhat\b|\bthap nhat\b/.test(n);
     const P = this.parsePrefs(raw);
@@ -1134,7 +1028,6 @@ const LocalBrain = {
     return `Dạ hiện còn ${avail.length} chỗ trống:\n${lines.join('\n')}\n\nAnh/chị cho em biết cần yên tĩnh, họp nhóm hay có view, em gợi ý bàn cụ thể nhé.`;
   },
 
-  /* ---------- câu hỏi nối tiếp ---------- */
   followUp(raw) {
     if (!this.hasContext()) return null;
     const n = this.norm(raw);

@@ -21,10 +21,17 @@ function renderStaffNav(activePage) {
     `<li><a href="${it.href}" class="${it.id === activePage ? 'active' : ''}">${it.label}</a></li>`
   ).join('');
 
+  // ⚡ Cập nhật: Thêm nút Dark Mode vào ngay sau khu vực user
   nav.innerHTML = `
     <ul class="nav-list">${listHtml}</ul>
     <div class="user-area" id="userArea"></div>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleDarkMode()" title="Chuyển chế độ Sáng/Tối">🌙</button>
   `;
 
   if (typeof updateUserArea === 'function') updateUserArea();
+  
+  // ⚡ Đồng bộ icon Sáng/Tối ngay khi render menu
+  if (typeof updateThemeIcon === 'function') {
+        updateThemeIcon(document.documentElement.getAttribute('data-theme') === 'dark');
+  }
 }

@@ -261,29 +261,41 @@
     if (typeof orig !== 'function') return;
     window.showToast = function (msg) {
       const r = orig.apply(this, arguments);
-      if (/(Đặt bàn .*thành công|Đặt hàng thành công|đã giao thành công)/i.test(String(msg))) confetti();
+      if (/(Đặt bàn[\s\S]*?thành công|Đặt hàng thành công|đã giao thành công)/i.test(String(msg))) confetti();
       return r;
     };
   }
+/* ---------- KHỞI ĐỘNG ---------- */
+function boot() {
+  initScroll();
+  initHome();
+  initTilt();
+  initRipple();
+  hookToast();
+  scanReveal();
+  scanStats();
 
-  /* ---------- KHỞI ĐỘNG ---------- */
-  function boot() {
-    initScroll();
-    initHome();
-    initTilt();
-    initRipple();
-    hookToast();
-    scanReveal();
-    scanStats();
+  let queued = false;
+  new MutationObserver((mutations) => {
+    const relevant = mutations.some(m => {
+      const t = m.target;
+      return !(t.closest && t.closest('#chatBody, .chat-panel'));
+    });
+    
+    if (!relevant || queued) return;
+    queued = true;
+    requestAnimationFrame(() => { 
+      queued = false; 
+      scanReveal(); 
+      scanStats(); 
+    });
+  }).observe(document.body, { childList: true, subtree: true });
+} // <-- Đóng hàm boot
 
-    let queued = false;
-    new MutationObserver(() => {
-      if (queued) return;
-      queued = true;
-      requestAnimationFrame(() => { queued = false; scanReveal(); scanStats(); });
-    }).observe(document.body, { childList: true, subtree: true });
-  }
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
-})();
+})(); // <-- ĐỂ Ý CHỖ NÀY: Dấu đóng của hàm ẩn danh bọc toàn bộ file (nếu có)

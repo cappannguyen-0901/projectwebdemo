@@ -174,5 +174,34 @@ const KB = {
 
     // Khi khách hỏi "món mới"
     newDrinks: 'Món mới: Cà Phê Muối (M006) - vị mặn nhẹ độc đáo.'
-  }
+  },
+    /* ============================================================
+     5. COMBO — Gói ưu đãi 2-3 món
+  ============================================================ */
+  combos: [
+    {
+      id: 'COMBO01',
+      name: 'Combo Sáng Tỉnh Táo',
+      itemIds: ['M001', 'M503'],
+      items: ['Cà Phê Sữa Đá', 'Bánh Flan'],
+      originalPrice: 60000,
+      comboPrice: 52000
+    },
+    {
+      id: 'COMBO02',
+      name: 'Combo Trà Chiều',
+      itemIds: ['M101', 'M401'],
+      items: ['Trà Đào Cam Sả', 'Soda Chanh'],
+      originalPrice: 83000,
+      comboPrice: 72000
+    },
+    {
+      id: 'COMBO03',
+      name: 'Combo Nhóm Học Tập',
+      itemIds: ['M102', 'M201', 'M403'],
+      items: ['Trà Xanh Matcha', 'Sinh Tố Bơ', 'Đá Xay Cà Phê'],
+      originalPrice: 155000,
+      comboPrice: 135000
+    }
+  ]
 };

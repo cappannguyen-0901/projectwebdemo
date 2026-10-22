@@ -69,8 +69,18 @@ const API = {
     getById(id) { return SEED_CATEGORIES.find(c => c.id === id) || null; }
   },
 
-  /* ---------- MENU ---------- */
+    /* ---------- MENU ---------- */
   menu: {
+    // ⚡ FIX 4.3: cache in-memory với epoch counter
+    _cache: null,
+    _epoch: 0,
+    _epochAtBuild: -1,
+
+    _invalidate() {
+      this._cache = null;
+      this._epochAtBuild = -1;
+    },
+
     _getStateMap() {
       try { return JSON.parse(localStorage.getItem('cappan_menu_state') || '{}'); }
       catch { return {}; }
@@ -87,8 +97,6 @@ const API = {
     _removed()   { const v = this._read('cappan_menu_removed', []);   return Array.isArray(v) ? v : []; },
     _overrides() { const v = this._read('cappan_menu_overrides', {}); return (v && typeof v === 'object') ? v : {}; },
 
-    /* Giữ SEED_MENU_ITEMS (biến toàn cục) khớp với dữ liệu thật,
-       để các trang đọc trực tiếp SEED_MENU_ITEMS vẫn thấy thay đổi */
     _syncSeed() {
       if (typeof SEED_MENU_ITEMS === 'undefined') return;
       const all = this.getAll();
@@ -96,17 +104,28 @@ const API = {
       all.forEach(m => SEED_MENU_ITEMS.push(m));
     },
 
+    /* ⚡ Cache hit nếu epoch chưa đổi kể từ lần build trước */
     getAll() {
+      if (this._cache && this._epochAtBuild === this._epoch) {
+        return this._cache;
+      }
+
       const stateMap = this._getStateMap();
       const removed = this._removed();
       const overrides = this._overrides();
-      return [..._MENU_BASE, ...this._custom()]
+      const custom = this._custom();
+
+      const result = [..._MENU_BASE, ...custom]
         .filter(m => !removed.includes(m.id))
         .map(m => {
           const merged = { ...m, ...(overrides[m.id] || {}) };
           merged.inStock = stateMap[m.id] !== undefined ? stateMap[m.id] : merged.inStock;
           return merged;
         });
+
+      this._cache = result;
+      this._epochAtBuild = this._epoch;
+      return result;
     },
 
     getById(id) { return this.getAll().find(m => m.id === id) || null; },
@@ -121,11 +140,20 @@ const API = {
     },
 
     markOutOfStock(id) {
-      const map = this._getStateMap(); map[id] = false; this._setStateMap(map);
+      const map = this._getStateMap();
+      map[id] = false;
+      this._setStateMap(map);
+      this._epoch++;                    // ⚡ bump epoch
+      this._invalidate();                // ⚡ xoá cache
       return this.getById(id);
     },
+
     markInStock(id) {
-      const map = this._getStateMap(); map[id] = true; this._setStateMap(map);
+      const map = this._getStateMap();
+      map[id] = true;
+      this._setStateMap(map);
+      this._epoch++;
+      this._invalidate();
       return this.getById(id);
     },
 
@@ -145,11 +173,12 @@ const API = {
       const custom = this._custom();
       custom.push(newItem);
       localStorage.setItem('cappan_menu_custom', JSON.stringify(custom));
+      this._epoch++;
+      this._invalidate();
       this._syncSeed();
       return newItem;
     },
 
-    /* Sửa thông tin món (giá, tên, mô tả...) — lưu bền vững */
     update(id, patch) {
       const exists = this.getById(id);
       if (!exists) return null;
@@ -165,6 +194,8 @@ const API = {
         ov[id] = { ...(ov[id] || {}), ...safe };
         localStorage.setItem('cappan_menu_overrides', JSON.stringify(ov));
       }
+      this._epoch++;
+      this._invalidate();
       this._syncSeed();
       return this.getById(id);
     },
@@ -181,9 +212,14 @@ const API = {
         if (!removed.includes(id)) removed.push(id);
         localStorage.setItem('cappan_menu_removed', JSON.stringify(removed));
       }
-      const map = this._getStateMap(); delete map[id]; this._setStateMap(map);
-      const ov = this._overrides(); delete ov[id];
+      const map = this._getStateMap();
+      delete map[id];
+      this._setStateMap(map);
+      const ov = this._overrides();
+      delete ov[id];
       localStorage.setItem('cappan_menu_overrides', JSON.stringify(ov));
+      this._epoch++;
+      this._invalidate();
       this._syncSeed();
       return true;
     }
@@ -482,27 +518,32 @@ const API = {
     },
 
     create(data) {
-      const list = this.getAll();
-      const bk = {
-        id: 'BK' + Math.floor(1000 + Math.random() * 9000),
-        userId: data.userId,
-        seatId: data.seatId,
-        floorId: data.floorId,
-        date: data.date,
-        time: data.time,
-        guests: data.guests || 2,
-        note: data.note || '',
-        status: 'confirmed',
-        createdAt: new Date().toISOString()
-      };
-      list.push(bk);
-      localStorage.setItem(STORAGE_KEYS.bookings, JSON.stringify(list));
+  // ⚡ P1-3: Validate seat trước khi tạo booking (chặn double-booking)
+  const seat = API.seats.getById(data.seatId);
+  if (!seat) { console.warn('[bookings.create] Seat không tồn tại:', data.seatId); return null; }
+  if (seat.status !== 'available') { console.warn('[bookings.create] Seat đã được đặt:', data.seatId); return null; }
 
-      API.seats.book(data.seatId);
-      API.seats.syncFromBookings();
+  const list = this.getAll();
+  const bk = {
+    id: 'BK' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    userId: data.userId,
+    seatId: data.seatId,
+    floorId: data.floorId,
+    date: data.date,
+    time: data.time,
+    guests: data.guests || 2,
+    note: data.note || '',
+    status: 'confirmed',
+    createdAt: new Date().toISOString()
+  };
+  list.push(bk);
+  localStorage.setItem(STORAGE_KEYS.bookings, JSON.stringify(list));
 
-      return bk;
-    },
+  API.seats.book(data.seatId);
+  API.seats.syncFromBookings();
+
+  return bk;
+},
 
     cancel(id) {
       const list = this.getAll();
@@ -589,7 +630,7 @@ const API = {
     create(data) {
       const list = this.getAll();
       const o = {
-        id: 'OD' + Math.floor(1000 + Math.random() * 9000),
+        id: 'OD' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
         userId: data.userId,
         items: data.items,
         total: data.total,
@@ -750,48 +791,58 @@ const API = {
     }
   },
 
-  /* ---------- STAFF ---------- */
+      /* ---------- STAFF ---------- */
   staff: {
-    _getStateKey() {
-      return 'cappan_staff_list';
-    },
-
-    _getCustomStaff() {
-      try {
-        return JSON.parse(localStorage.getItem(this._getStateKey()) || '[]');
-      } catch { return []; }
-    },
-
-    _setCustomStaff(list) {
-      localStorage.setItem(this._getStateKey(), JSON.stringify(list));
-    },
-
+    _getStateKey() { return 'cappan_staff_list'; },
+    _getCustomStaff() { try { return JSON.parse(localStorage.getItem(this._getStateKey()) || '[]'); } catch { return []; } },
+    _setCustomStaff(list) { localStorage.setItem(this._getStateKey(), JSON.stringify(list)); },
+    
     getAll() {
-      const custom = this._getCustomStaff();
+      let custom = this._getCustomStaff();
+      const staffUsers = API.users.getAll().filter(u => u.role === 'staff');
+      let changed = false;
+
+      // Đồng bộ user role staff vào list (Không dùng đệ quy gọi lại getAll)
+      staffUsers.forEach(u => {
+        if (!custom.find(s => s.userId === u.id) && !SEED_STAFF.find(s => s.phone === u.phone)) {
+          const allExisting = [...SEED_STAFF, ...custom];
+          const maxId = allExisting.reduce((max, s) => {
+            const num = parseInt((s.id || '').replace('S', ''), 10);
+            return isNaN(num) ? max : Math.max(max, num);
+          }, 0);
+          
+          custom.push({
+            id: 'S' + String(maxId + 1).padStart(3, '0'),
+            userId: u.id,
+            name: u.name || 'Nhân viên mới',
+            role: 'Nhân viên',
+            phone: u.phone || '',
+            avatar: (u.name || 'N').trim().charAt(0).toUpperCase(),
+            joinedAt: new Date().toISOString(),
+            isNew: true
+          });
+          changed = true;
+        }
+      });
+
+      if (changed) this._setCustomStaff(custom);
       return [...SEED_STAFF, ...custom];
     },
-
-    getById(id) {
-      return this.getAll().find(s => s.id === id) || null;
-    },
-
+    
+    getById(id) { return this.getAll().find(s => s.id === id) || null; },
+    
     addFromUser(user) {
       if (!user || user.role !== 'staff') return null;
-
       const custom = this._getCustomStaff();
+      if (custom.find(s => s.userId === user.id) || SEED_STAFF.find(s => s.phone === user.phone)) return null;
 
-      if (custom.find(s => s.userId === user.id) || SEED_STAFF.find(s => s.userId === user.id)) {
-        return null;
-      }
-
-      const allExisting = this.getAll();
+      // Không dùng this.getAll() ở đây để tránh đệ quy
+      const allExisting = [...SEED_STAFF, ...custom];
       const maxId = allExisting.reduce((max, s) => {
         const num = parseInt((s.id || '').replace('S', ''), 10);
         return isNaN(num) ? max : Math.max(max, num);
       }, 0);
       const newId = 'S' + String(maxId + 1).padStart(3, '0');
-
-      const avatar = (user.name || 'N').trim().charAt(0).toUpperCase();
 
       const newStaff = {
         id: newId,
@@ -799,25 +850,23 @@ const API = {
         name: user.name || 'Nhân viên mới',
         role: 'Nhân viên',
         phone: user.phone || '',
-        avatar: avatar,
+        avatar: (user.name || 'N').trim().charAt(0).toUpperCase(),
         joinedAt: new Date().toISOString(),
         isNew: true
       };
-
+      
       custom.push(newStaff);
       this._setCustomStaff(custom);
       return newStaff;
     },
-
-    removeCustom(staffId) {
-      const custom = this._getCustomStaff().filter(s => s.id !== staffId);
-      this._setCustomStaff(custom);
-      return true;
+    
+    removeCustom(staffId) { 
+      const custom = this._getCustomStaff().filter(s => s.id !== staffId); 
+      this._setCustomStaff(custom); 
+      return true; 
     },
-
-    resetCustom() {
-      localStorage.removeItem(this._getStateKey());
-    }
+    
+    resetCustom() { localStorage.removeItem(this._getStateKey()); }
   },
 
   /* ---------- SHIFTS (ĐÃ DỌN DẸP TRÙNG LẶP) ---------- */
@@ -845,16 +894,23 @@ const API = {
     },
 
     addStaffToShift(date, shiftId, staffId) {
-      const schedule = this.getSchedule();
-      if (!schedule[date]) schedule[date] = {};
-      if (!schedule[date][shiftId]) schedule[date][shiftId] = [];
+  // ⚡ P2-6: Chặn xếp 2+ ca/ngày cho cùng 1 nhân viên
+  const busyShift = this.isStaffBusy(date, staffId);
+  if (busyShift && busyShift !== shiftId) {
+    console.warn(`[shifts] ${staffId} đã có ca ${busyShift} ngày ${date}`);
+    return false;
+  }
 
-      if (schedule[date][shiftId].includes(staffId)) return false;
+  const schedule = this.getSchedule();
+  if (!schedule[date]) schedule[date] = {};
+  if (!schedule[date][shiftId]) schedule[date][shiftId] = [];
 
-      schedule[date][shiftId].push(staffId);
-      this.setSchedule(schedule);
-      return true;
-    },
+  if (schedule[date][shiftId].includes(staffId)) return false;
+
+  schedule[date][shiftId].push(staffId);
+  this.setSchedule(schedule);
+  return true;
+},
 
     /* Chỉ giữ lại DUY NHẤT 1 hàm isStaffBusy sạch sẽ ở đây */
     isStaffBusy(date, staffId) {
@@ -885,15 +941,21 @@ const API = {
 
   /* ---------- STATS ---------- */
   stats: {
-    revenueInRange(fromTs, toTs) {
-      const orders = API.orders.getAll().filter(o => {
+        revenueInRange(fromTs, toTs) {
+      const all = API.orders.getAll().filter(o => {
         const t = new Date(o.createdAt).getTime();
         return t >= fromTs && t <= toTs && o.status !== 'cancelled';
       });
+
+      // ⚡ FIX: Chỉ tính doanh thu từ đơn đã hoàn tất (step >= 4)
+      const completed = all.filter(o => o.step >= 4);
+
       return {
-        total: orders.reduce((s, o) => s + o.total, 0),
-        count: orders.length,
-        orders
+        total: completed.reduce((s, o) => s + o.total, 0),
+        count: all.length,
+        completedCount: completed.length,
+        pendingCount: all.length - completed.length, // ⚡ Bổ sung dòng này
+        orders: all
       };
     },
 
@@ -989,8 +1051,72 @@ const API = {
     }
   }
 };
+/* ============================================================
+   UPGRADE 11: Schema versioning + migration
+============================================================ */
+(function migrateSchema() {
+  const SCHEMA_VERSION = 2;
+  const KEY = 'cappan_schema_version';
+  const current = parseInt(localStorage.getItem(KEY) || '0', 10);
 
+  if (current === SCHEMA_VERSION) return;
+
+  console.info(`[schema] Migrating from v${current} → v${SCHEMA_VERSION}`);
+
+  try {
+    // v1 → v2: đảm bảo orders có field subtotal/shipping/discount
+    if (current < 2) {
+      const orders = JSON.parse(localStorage.getItem(STORAGE_KEYS.orders) || '[]');
+      let patched = 0;
+      orders.forEach(o => {
+        if (o.subtotal === undefined) { o.subtotal = o.total; patched++; }
+        if (o.shipping === undefined) { o.shipping = 0; patched++; }
+        if (o.discount === undefined) { o.discount = 0; patched++; }
+      });
+      if (patched > 0) {
+        localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(orders));
+        console.info(`[schema] Patched ${patched} fields in orders`);
+      }
+    }
+    localStorage.setItem(KEY, String(SCHEMA_VERSION));
+    console.info('[schema] Migration complete');
+  } catch (e) {
+    console.error('[schema] Migration failed:', e);
+  }
+})();
+/* Seed demo users khi load */
 /* Seed demo users khi load */
 API.users.seedDemo();
 API.menu._syncSeed();
 API.promotions._sync();
+
+/* ⚡ FIX 4.3b: đồng bộ cache menu giữa các tab cùng trình duyệt
+   - storage event KHÔNG fire trên tab gây ra thay đổi → tab gốc đã tự
+     invalidate qua mutation method (markOutOfStock/add/update/remove)
+   - storage event fire TRÊN tab khác → phải invalidate cache + thông báo UI
+   - e.key === null xảy ra khi localStorage.clear() → vẫn phải invalidate
+*/
+window.addEventListener('storage', (e) => {
+  // e.key === null → localStorage.clear() (xoá toàn bộ)
+  // e.key bắt đầu cappan_menu_ → 1 trong 4 key menu bị thay đổi
+  const isMenuChange = (e.key === null) ||
+                       (e.key && e.key.startsWith('cappan_menu_'));
+  // e.storageArea check: storage event cũng fire cho sessionStorage
+  //   → sessionStorage của app không dùng prefix cappan_menu_ nên an toàn,
+  //     nhưng check rõ ràng để tránh bug tương lai
+  const isLocalStorage = !e.storageArea || e.storageArea === localStorage;
+
+  if (isMenuChange && isLocalStorage) {
+    API.menu._invalidate();
+    // _epoch++ không cần vì _invalidate đã set _cache = null → chắc chắn miss.
+    // Giữ để phòng thủ nếu sau này _invalidate đổi implementation:
+    API.menu._epoch++;
+
+    // ⚡ Optional: dispatch để page tự re-render (xem mục D)
+    try {
+      window.dispatchEvent(new CustomEvent('cappan:menu-changed', {
+        detail: { key: e.key, newValue: e.newValue }
+      }));
+    } catch (err) { /* CustomEvent không hỗ trợ trên browser cũ */ }
+  }
+});

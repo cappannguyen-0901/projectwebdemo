@@ -233,23 +233,36 @@ const DemoData = {
     return p;
   },
 
-  _done(msg) {
+      _done(msg) {
     if (typeof showToast === 'function') showToast(msg);
-    setTimeout(() => location.reload(), 700);
+    setTimeout(() => {
+      try {
+        if (typeof refreshAll === 'function') {
+          refreshAll(); // Dành cho trang Staff
+        } else {
+          location.reload(); // Dành cho trang Customer (ép tải lại)
+        }
+      } catch (e) {
+        console.warn('[demo] refresh failed, fallback reload:', e);
+        location.reload();
+      }
+    }, 300);
   },
 
   toggle(force) {
     const p = this._build();
+    if (!p) return;
     const open = typeof force === 'boolean' ? force : !p.classList.contains('open');
     p.classList.toggle('open', open);
   },
 
   init() {
     document.addEventListener('keydown', e => {
-      if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) { e.preventDefault(); this.toggle(); }
-      if (e.key === 'Escape' && this._panel) this.toggle(false);
+      if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) { e.preventDefault(); DemoData.toggle(); }
+      if (e.ctrlKey && e.shiftKey && (e.key === 'M' || e.key === 'm')) { e.preventDefault(); DemoData.toggle(); }
+      if (e.key === 'Escape' && DemoData._panel) DemoData.toggle(false);
     });
-    /* Thông báo minh bạch: đây là bản demo, dữ liệu chỉ nằm trong trình duyệt */
+    
     try {
       if (!sessionStorage.getItem('cappan_demo_banner_off')) {
         const bn = document.createElement('div');
@@ -262,13 +275,14 @@ const DemoData = {
         document.body.appendChild(bn);
       }
     } catch (e) {}
+    
     const isStaff = (document.body.dataset.page || '').startsWith('staff-');
     if (isStaff) {
       const fab = document.createElement('button');
       fab.className = 'demo-fab';
       fab.title = 'Chế độ trình diễn (Ctrl+Shift+D)';
       fab.innerHTML = '<span>🎬</span>';
-      fab.onclick = () => this.toggle();
+      fab.onclick = () => DemoData.toggle();
       document.body.appendChild(fab);
     }
   }

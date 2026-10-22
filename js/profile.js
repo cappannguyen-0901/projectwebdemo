@@ -160,8 +160,13 @@ const Profile = {
     const points = Math.floor(orders.reduce((s, o) => s + o.total, 0) / 10000);
 
     // Khuyến mãi lấy từ dữ liệu staff thiết lập — chỉ hiện mã còn hiệu lực hôm nay
-    const promos = API.promotions.getActive();
-    const fmtDate = d => d.split('-').reverse().join('/');
+    // ⚡ P1-7: Chỉ hiện mã mà user CÓ THỂ DÙNG ĐƯỢC ngay (loại WELCOME10 nếu user đã có đơn)
+const fmtDate = d => d.split('-').reverse().join('/');
+const promos = API.promotions.getActive().filter(p => {
+  const testAmount = Math.max(p.minOrder || 0, 1);
+  const r = API.promotions.evaluate(p.code, testAmount, 15000, user.id);
+  return r.ok;
+});
 
     el.innerHTML = `
       <div class="voucher-header">
@@ -231,25 +236,28 @@ window.cancelBooking = function(bookingId) {
   Profile.renderBookings(user);
 };
 
-window.reorder = function(orderId) {
+window.reorder = function (orderId) {
   const order = API.orders.getById(orderId);
   if (!order) return;
   if (!confirm(`Thêm lại ${order.items.length} món vào giỏ?`)) return;
+
+  // ⚡ FIX H2: KHÔNG ghi đè qty — chỉ cần add, API.cart.add đã cộng dồn đúng.
+  // Nếu item chưa có trong giỏ → add qty 1; nếu có → cộng thêm đúng qty đặt lại.
   order.items.forEach(it => {
-    API.cart.add({
-      itemId: it.itemId,
-      name: it.name,
-      price: it.price,
-      img: it.img,
-      size: it.size || 'M',
-      toppings: it.toppings || []
-    });
-    const cart = API.cart.get();
-    const found = cart.find(c => c.itemId === it.itemId && c.size === (it.size || 'M'));
-    if (found && it.qty > 1) found.qty = it.qty;
-    API.cart.set(cart);
+    const addTimes = Math.max(1, Number(it.qty) || 1);
+    for (let k = 0; k < addTimes; k++) {
+      API.cart.add({
+        itemId: it.itemId,
+        name: it.name,
+        price: it.price,
+        img: it.img,
+        size: it.size || 'M',
+        toppings: it.toppings || []
+      });
+    }
   });
+
   updateUserArea();
-  showToast('✓ Đã thêm vào giỏ!');
+  showToast(`✓ Đã thêm ${order.items.length} món vào giỏ!`);
   setTimeout(() => { window.location.href = 'cart.html'; }, 800);
 };

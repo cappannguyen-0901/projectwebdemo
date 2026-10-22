@@ -95,16 +95,28 @@ const ChatPanel = {
       body.innerHTML = '';
       let rendered = 0;
       history.forEach(item => {
-        if (item.role === 'user') {
-          addChatMsg(item.content, 'user');
-          rendered++;
-        } else if (item.role === 'assistant' && item.content) {
-          addChatMsg(item.content, 'bot');
-          rendered++;
-        }
-      });
+      if (item.role === 'user') {
+    addChatMsg(item.content, 'user');
+    rendered++;
+  } else if (item.role === 'assistant' && item.content) {
+    // ⚡ Khôi phục thẻ Generative UI đúng cách
+    if (typeof UICards !== 'undefined' && UICards.has(item.content)) {
+      UICards.appendTo(item.content);
+    } else {
+      addChatMsg(item.content, 'bot');
+    }
+    rendered++;
+  }
+});
       setTimeout(() => { this._muteBadge = false; }, 0);
-      return rendered > 0;
+            // Nếu không render được message nào nhưng history có dữ liệu (user/assistant), coi như đã restore
+            // ⚡ Bổ sung điều kiện check tool_calls
+      const hasRealContent = history.some(item =>
+        item.role === 'user' ||
+        (item.role === 'assistant' && item.content) ||
+        (item.role === 'assistant' && item.tool_calls && item.tool_calls.length > 0)
+      );
+      return rendered > 0 || hasRealContent;
     } catch (e) {
       this._muteBadge = false;
       console.error('[ChatPanel] Lỗi khôi phục history:', e);
@@ -219,25 +231,30 @@ const ChatPanel = {
 
   /* ---------- COLLAPSE / EXPAND (chỉ dùng class, không dùng inline style) ---------- */
   collapse(panel, floatBtn) {
-    panel.classList.add('collapsed');
-    floatBtn?.classList.add('show');
-    this.setState('collapsed');
-    localStorage.setItem(this.STORAGE_COLLAPSED, '1');
-  },
+  panel.classList.add('collapsed');
+  floatBtn?.classList.add('show');
+  this.setState('collapsed');
+  localStorage.setItem(this.STORAGE_COLLAPSED, '1');
+  if (typeof hideNewMsgPill === 'function') hideNewMsgPill();  // ⚡ ẩn pill
+},
 
   expand(panel, floatBtn) {
-    panel.classList.remove('collapsed');
-    floatBtn?.classList.remove('show');
-    this.setState('open');
-    this.clearBadge();
-    localStorage.setItem(this.STORAGE_COLLAPSED, '0');
+  panel.classList.remove('collapsed');
+  floatBtn?.classList.remove('show');
+  this.setState('open');
+  this.clearBadge();
+  localStorage.setItem(this.STORAGE_COLLAPSED, '0');
 
-    setTimeout(() => {
-      const body = document.getElementById('chatBody');
-      if (body) body.scrollTop = body.scrollHeight;
-      this.focusInput();
-    }, 250);
-  },
+  setTimeout(() => {
+    const body = document.getElementById('chatBody');
+    if (body) {
+      body._stick = true;                  // ⚡ reset stick
+      body.scrollTop = body.scrollHeight;
+      if (typeof hideNewMsgPill === 'function') hideNewMsgPill();  // ⚡ reset pill
+    }
+    this.focusInput();
+  }, 250);
+},
 
   restoreCollapsed(panel) {
     if (localStorage.getItem(this.STORAGE_COLLAPSED) !== '1') { this.setState('open'); return; }
@@ -248,66 +265,66 @@ const ChatPanel = {
 
   /* ---------- BADGE: đếm tin mới khi đang thu gọn ---------- */
   initBadge(panel) {
-    const floatBtn = document.getElementById('chatFloatBtn');
-    const body = document.getElementById('chatBody');
-    if (!floatBtn || !body) return;
+  const floatBtn = document.getElementById('chatFloatBtn');
+  const body = document.getElementById('chatBody');
+  if (!floatBtn || !body) return;
 
-    let badge = floatBtn.querySelector('.chat-float-badge');
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.className = 'chat-float-badge';
-      floatBtn.appendChild(badge);
-    }
+  let badge = floatBtn.querySelector('.chat-float-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'chat-float-badge';
+    floatBtn.appendChild(badge);
+  }
 
-    new MutationObserver((mutations) => {
-      if (this._muteBadge || !panel.classList.contains('collapsed')) return;
-      mutations.forEach(m => m.addedNodes.forEach(n => {
-        if (n.nodeType === 1 && n.classList?.contains('msg') && n.classList.contains('bot')) {
-          this._unread++;
-        }
-      }));
+  new MutationObserver((mutations) => {
+    if (this._muteBadge || !panel.classList.contains('collapsed')) return;
+
+    let added = 0;
+    mutations.forEach(m => m.addedNodes.forEach(n => {
+      if (n.nodeType !== 1) return;
+      if (!n.classList?.contains('msg') || !n.classList.contains('bot')) return;
+      if (n.id === 'typingIndicator') return;              // ⚡ bỏ qua typing
+      if (n.classList.contains('typing-bubble')) return;   // ⚡ bỏ qua typing bubble
+      if (n.querySelector('.typing-bubble')) return;
+      added++;
+    }));
+
+    if (added > 0) {
+      this._unread += added;
       this.renderBadge();
-    }).observe(body, { childList: true });
-  },
-
-  renderBadge() {
-    const badge = document.querySelector('#chatFloatBtn .chat-float-badge');
-    if (!badge) return;
-    badge.textContent = this._unread > 9 ? '9+' : String(this._unread);
-    badge.classList.toggle('show', this._unread > 0);
-  },
-
-  clearBadge() {
-    this._unread = 0;
-    this.renderBadge();
-  },
+    }
+  }).observe(body, { childList: true });
+},
 
   /* ---------- CLEAR ---------- */
   clearChat() {
-    if (!confirm('Xóa toàn bộ lịch sử trò chuyện?')) return;
-
-    try {
-      if (typeof AIBrain !== 'undefined') {
-        const sid = AIBrain._getSessionId();
-        AIBrain._clearHistory(sid);
-        sessionStorage.removeItem('cappan_greeted_' + sid);
-      }
-    } catch (e) {
-      console.error('[ChatPanel] Lỗi xóa history:', e);
+  if (!confirm('Xóa toàn bộ lịch sử trò chuyện?')) return;
+  try {
+    if (typeof AIBrain !== 'undefined') {
+      const sid = AIBrain._getSessionId();
+      AIBrain._clearHistory(sid);
+      sessionStorage.removeItem('cappan_greeted_' + sid);
     }
+  } catch (e) { console.error('[ChatPanel] Lỗi xóa history:', e); }
 
-    const body = document.getElementById('chatBody');
-    if (body) {
-      this._muteBadge = true;
-      body.innerHTML = `
-        <div class="msg bot">
-          <div class="bubble">Đã xóa lịch sử. Anh/chị cần hỗ trợ gì ạ?</div>
-        </div>
-      `;
-      setTimeout(() => { this._muteBadge = false; }, 0);
-    }
-    this.addQuickReplies();
-  },
+  const body = document.getElementById('chatBody');
+  if (body) {
+    this._muteBadge = true;
+    body.innerHTML = `
+      <div class="msg bot">
+        <div class="bubble">Đã xóa lịch sử. Anh/chị cần hỗ trợ gì ạ?</div>
+      </div>
+    `;
+    // ⚡ FIX: reset pill + scroll state
+    if (typeof hideNewMsgPill === 'function') hideNewMsgPill();
+    body._stick = true;
+    body.scrollTop = 0;
+    setTimeout(() => { this._muteBadge = false; }, 0);
+  }
+  this.clearBadge();  
+  this.addQuickReplies();
+
+},
 
   /* ---------- GREET STAFF ---------- */
   greetStaffIfFirstVisit(callback) {

@@ -4,12 +4,18 @@ import fs from 'fs'; import vm from 'vm'; import path from 'path';
 const ROOT = process.env.SITE || path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const mem = () => { const m = {}; return { getItem: k => m[k] ?? null, setItem: (k, v) => { m[k] = String(v); }, removeItem: k => { delete m[k]; }, key: i => Object.keys(m)[i], get length() { return Object.keys(m).length; } }; };
 const ctx = { console: { log() {}, warn() {}, error() {} }, sessionStorage: mem(), localStorage: mem(), setTimeout, clearTimeout, Date, JSON, Promise, Math, Object, Array, String, Number, parseInt, parseFloat, RegExp, Set, Map, performance,
-  window: {}, document: { getElementById: () => null, addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], documentElement: { classList: { add() {}, remove() {} }, dataset: {} } } };
-vm.createContext(ctx);
+  window: {
+    addEventListener() {},
+    removeEventListener() {},
+    location: { href: '', replace() {} },
+    matchMedia() { return { matches: false, addEventListener() {} }; },
+    dispatchEvent() { return true; }
+  },
+  document: { getElementById: () => null, addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], documentElement: { classList: { add() {}, remove() {} }, dataset: {} } } };vm.createContext(ctx);
 const r = p => fs.readFileSync(path.join(ROOT, 'js', p), 'utf8');
-vm.runInContext(['data/schema.js', 'data/seed.js', 'data/recipes.js', 'data/kb.js', 'data/promotions.js', 'api/index.js', 'auth.js', 'main.js', 'ai/brain-legacy.js', 'ai/brain.js']
-  .map(r).join('\n;\n') + ';this.K=KBFast;this.A=API;this.L=LocalBrain;this.G=AIBrainLegacy;this.B=AIBrain;this.X=AIToolExecutor;this.MIN=AI_LOCAL_MIN_CONF;', ctx);
-const { K, A, L, G, B, X, MIN } = ctx;
+vm.runInContext(['data/schema.js', 'data/seed.js', 'data/recipes.js', 'data/kb.js', 'data/promotions.js', 'api/index.js', 'auth.js', 'main.js', 'ai/ai-input.js', 'ai/ai-output.js', 'ai/brain-legacy.js', 'ai/brain.js']
+  .map(r).join('\n;\n') + ';this.K=KBFast;this.A=API;this.L=LocalBrain;this.G=AIBrainLegacy;this.B=AIBrain;this.X=AIToolExecutor;this.MIN=AI_LOCAL_MIN_CONF;this.AIInput=AIInput;this.AIOutput=AIOutput;', ctx);
+const { K, A, L, G, B, X, MIN, AIInput, AIOutput } = ctx;
 const customer = A.users.getAll().find(u => u.role === 'customer');
 const staff = A.users.getAll().find(u => u.role === 'staff');
 
@@ -71,7 +77,6 @@ function tier(q) {
   if (g) return { tier: 'rule', text: g };
   return { tier: 'llm', text: '' };
 }
-// [câu hỏi, vai trò, các tầng chấp nhận, từ khóa PHẢI có, từ khóa KHÔNG được có]
 const golden = [
   ['wifi là gì', 'c', ['kb'], ['CAPPAN_Free'], []],
   ['mấy giờ đóng cửa', 'c', ['kb'], ['22:30'], []],
@@ -103,6 +108,53 @@ for (const [q, role, tiers, must, mustNot] of golden) {
   if (good) gOk++; else gBad.push(`"${q}" → tầng ${t.tier}: ${t.text.slice(0, 80).replace(/\n/g, ' / ')}`);
 }
 ok(`Golden set đạt ≥ 90% (${gOk}/${golden.length})`, gOk / golden.length >= 0.9, gBad.join(' | '));
+
+/* ===== 9. AI INPUT LAYER ===== */
+[ ['Wifi quán là gì?', 'wifi quan la gi'],
+  ['ĐẶT BÀN 5 NGƯỜI', 'dat ban 5 nguoi'],
+  ['ko biết', 'khong biet']
+].forEach(([inp, exp]) => {
+  ok(`normalize "${inp}"`, AIInput.normalize(inp).norm === exp);
+});
+
+[ ['wifi là gì', 'kb_static', 'customer'],
+  ['có app không', 'kb_faq', 'customer'],
+  ['còn chỗ yên tĩnh', 'seat_query', 'customer'],
+  ['menu có gì', 'drink_query', 'customer'],
+  ['doanh thu hôm nay', 'data_query', 'staff'],
+  ['chào bạn', 'greeting', 'customer'],
+  ['cảm ơn', 'thanks', 'customer'],
+  ['hủy', 'cancel', 'customer']
+].forEach(([inp, exp, role]) => {
+  const p = AIInput.process(inp, role);
+  ok(`intent "${inp}" → ${exp}`, p.intent === exp, `got: ${p.intent}`);
+});
+
+const e = AIInput.process('đặt bàn A5 cho 4 người lúc 19:30', 'customer').entities;
+ok('entity seatId', e.seatIds?.[0] === 'A5');
+ok('entity guests', e.guests === 4);
+ok('entity time', e.time === '19:30');
+ok('block too_long', !AIInput.process('a'.repeat(2000), 'customer').valid);
+
+/* ===== 10. AI OUTPUT LAYER ===== */
+const o1 = AIOutput.build('text', { message: 'Test', source: 'kb' });
+ok('output text basic', o1.type === 'text' && o1.message === 'Test');
+
+const o2 = AIOutput.build('text', { cards: '[UI_MENU]{"items":[]}[/UI_MENU]', source: 'llm' });
+ok('output auto intro', o2.message.length > 0, o2.message);
+
+const o3 = AIOutput.build('text', { message: 'x', cards: '[UI_MENU]{bad json}[/UI_MENU]', source: 'llm' });
+ok('output strip bad card', o3.cards === '');
+
+const o4 = AIOutput.build('text', { message: 'a'.repeat(2000), source: 'llm' });
+ok('output truncate', o4.message.length <= 800, o4.message.length);
+
+/* ===== 11. LocalBrain fix bug "cà phê có gì" ===== */
+A.users.setCurrent(customer);
+const r1 = L.answer('cà phê có gì');
+ok('LocalBrain "cà phê có gì" không trả 1 món lẻ',
+   r1 && !/Cà Phê Sữa Đá – 35\.000đ\. Cà phê truyền thống/.test(r1.text),
+   r1 && r1.text.slice(0, 80));
 
 console.log(`\nHỒI QUY: ${pass} đạt, ${fail} lỗi` + (fail ? '  ❌' : '  ✅'));
 console.log(`GOLDEN SET: ${gOk}/${golden.length} đạt (${Math.round(gOk / golden.length * 100)}%)  ·  phân bố tầng: kb=${tierCount.kb}, rule=${tierCount.rule}, cần LLM=${tierCount.llm}`);

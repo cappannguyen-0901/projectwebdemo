@@ -1,0 +1,342 @@
+/* ============================================================
+   CAPPAN LUXURY DARK MODE (FINAL ULTIMATE FIX)
+   Xử lý triệt để lỗi tương phản, trắng trên trắng ở Staff.
+============================================================ */
+
+[data-theme="dark"] {
+  --bg-primary: #12100E;       
+  --bg-card: #1C1917;          
+  --bg-secondary: #292524;     
+  --bg-footer: #0A0908;        
+  
+  --text-primary: #F5F5F0;     
+  --text-secondary: #A8A29E;   
+  
+  --border-color: #3E3430;     
+  --accent-color: #E8B931;     
+  
+  --light: var(--bg-primary);
+  --white: var(--bg-card);
+  --dark-brown: var(--text-primary);
+  --brown: var(--accent-color);
+  --cream: var(--bg-secondary);
+  --gray: var(--text-secondary);
+  --gray-light: var(--border-color);
+  
+  --shadow-sm: 0 4px 12px rgba(0,0,0,0.5);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.6);
+  --shadow-lg: 0 16px 40px rgba(0,0,0,0.8);
+  
+  color-scheme: dark; 
+}
+
+body, header, footer, section, div, input, button, a, .ui-card, .chat-body, .modal-box {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* ============================================================
+   1. HEADER & NAVIGATION & BUTTONS
+============================================================ */
+[data-theme="dark"] body { background: var(--bg-primary) !important; color: var(--text-primary); }
+[data-theme="dark"] .app-header {
+  background: rgba(18, 16, 14, 0.95) !important;
+  border-bottom: 1px solid var(--border-color);
+}
+[data-theme="dark"] .nav-list a { color: var(--text-secondary); }
+[data-theme="dark"] .nav-list a:hover { color: var(--text-primary); }
+[data-theme="dark"] .nav-list a.active { color: var(--accent-color); }
+
+/* Fix nút Đăng ký bị chìm */
+[data-theme="dark"] .btn-register {
+  color: var(--text-primary) !important;
+  border-color: var(--text-secondary) !important;
+}
+[data-theme="dark"] .btn-register:hover {
+  background: var(--text-primary) !important;
+  color: var(--bg-primary) !important;
+}
+
+/* ============================================================
+   2. HERO SECTION & TICKER
+============================================================ */
+[data-theme="dark"] .hero-desc { color: #E2E8F0 !important; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+[data-theme="dark"] .hero .btn-outline {
+  color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  background: rgba(0, 0, 0, 0.4) !important; /* Thêm nền tối để nổi bật trên ảnh */
+}
+[data-theme="dark"] .hero .btn-outline:hover {
+  background: var(--accent-color) !important;
+  color: var(--bg-primary) !important;
+}
+[data-theme="dark"] .fx-ticker { background: var(--bg-card) !important; border-block: 1px solid var(--border-color) !important; }
+[data-theme="dark"] .fx-ticker span { color: var(--accent-color) !important; }
+
+/* Khối Highlight (AI, Không gian...) */
+[data-theme="dark"] .highlight-card {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--accent-color) !important;
+  box-shadow: 0 0 15px rgba(232, 185, 49, 0.1) !important;
+}
+[data-theme="dark"] .highlight-card h4 { color: var(--accent-color) !important; }
+[data-theme="dark"] .highlight-card p { color: var(--text-secondary) !important; }
+
+/* ============================================================
+   3. FOOTER FIX
+============================================================ */
+[data-theme="dark"] .app-footer { background: var(--bg-footer) !important; border-top: 1px solid var(--border-color) !important; }
+[data-theme="dark"] .app-footer .footer-brand { color: var(--text-primary) !important; }
+[data-theme="dark"] .app-footer .footer-brand span { color: var(--accent-color) !important; }
+[data-theme="dark"] .app-footer .footer-links a { color: var(--text-secondary) !important; opacity: 1 !important; }
+[data-theme="dark"] .app-footer .footer-links a:hover { color: var(--accent-color) !important; }
+
+/* ============================================================
+   4. STAFF ORDERS & DASHBOARD (FIX LỖI TRẮNG TRÊN TRẮNG)
+============================================================ */
+[data-theme="dark"] .order-card {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+}
+[data-theme="dark"] .order-card-header strong { color: var(--accent-color) !important; }
+[data-theme="dark"] .order-card-header small { color: var(--text-secondary) !important; }
+[data-theme="dark"] .order-customer { color: var(--text-primary) !important; }
+[data-theme="dark"] .order-address { color: var(--text-secondary) !important; }
+
+/* Khung chứa các món */
+[data-theme="dark"] .order-card-items {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+}
+[data-theme="dark"] .order-card-items li {
+  color: var(--text-primary) !important;
+  border-bottom: 1px dashed var(--border-color) !important;
+}
+[data-theme="dark"] .order-card-total {
+  border-top: 2px solid var(--accent-color) !important;
+  color: var(--text-primary) !important;
+}
+[data-theme="dark"] .order-card-total strong { color: #4ADE80 !important; /* Xanh lá sáng cho tổng tiền */ }
+
+/* Các nút thao tác */
+[data-theme="dark"] .order-card-actions { border-top: 1px dashed var(--border-color) !important; }
+[data-theme="dark"] .btn-mini-action {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  border-color: var(--text-secondary) !important;
+}
+[data-theme="dark"] .btn-mini-action:hover {
+  background: var(--text-primary) !important;
+  color: var(--bg-primary) !important;
+}
+[data-theme="dark"] .btn-mini-reset {
+  background: var(--bg-secondary) !important;
+  color: var(--accent-color) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Fix bảng thống kê */
+[data-theme="dark"] .staff-panel { background: var(--bg-card) !important; border: 1px solid var(--border-color) !important; }
+[data-theme="dark"] .staff-table th { background: var(--bg-secondary) !important; color: var(--accent-color) !important; }
+[data-theme="dark"] .staff-table td { border-bottom-color: var(--border-color) !important; color: var(--text-primary) !important; }
+[data-theme="dark"] .staff-tab { color: var(--text-secondary) !important; }
+[data-theme="dark"] .staff-tab.active { color: var(--accent-color) !important; border-bottom-color: var(--accent-color) !important; }
+
+/* ============================================================
+   5. CHAT UI & GENERATIVE UI
+============================================================ */
+[data-theme="dark"] .chat-box, [data-theme="dark"] .chat-panel { background: var(--bg-card) !important; border-color: var(--border-color) !important; }
+[data-theme="dark"] .chat-body { background: var(--bg-primary) !important; }
+[data-theme="dark"] .msg.bot .bubble {
+  background: var(--bg-card) !important; color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important; border-left: 4px solid var(--accent-color) !important;
+}
+[data-theme="dark"] .msg.user .bubble {
+  background: var(--accent-color) !important; color: var(--bg-primary) !important; font-weight: 600;
+}
+
+/* Nút gợi ý (Quick Replies) trong khung chat */
+[data-theme="dark"] .quick-reply-btn {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+}
+[data-theme="dark"] .quick-reply-btn:hover {
+  background: var(--accent-color) !important;
+  color: var(--bg-primary) !important;
+}
+
+/* Thẻ Chat UI Card */
+[data-theme="dark"] .ui-card { border-top: 3px solid var(--accent-color) !important; }
+[data-theme="dark"] .ui-chip { background: var(--bg-secondary) !important; border: 1px solid #444 !important; color: var(--text-primary) !important; }
+[data-theme="dark"] .ui-info, [data-theme="dark"] .ui-order { background: var(--bg-secondary) !important; border-color: var(--border-color) !important; color: var(--text-primary); }
+[data-theme="dark"] .ui-card h4 { color: var(--accent-color) !important; }
+
+/* ============================================================
+   6. INPUTS & THEME TOGGLE
+============================================================ */
+[data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea {
+  background: var(--bg-primary) !important; color: var(--text-primary) !important; border: 1px solid var(--border-color) !important;
+}
+[data-theme="dark"] input:focus { border-color: var(--accent-color) !important; }
+[data-theme="dark"] .theme-toggle {
+  border: 1px solid var(--accent-color); color: var(--accent-color); background: rgba(232, 185, 49, 0.1);
+}
+[data-theme="dark"] .theme-toggle:hover {
+  background: var(--accent-color); color: var(--bg-primary);
+}
+/* ============================================================
+   FIX LỖI CHÌM CHỮ & LỆCH BỐ CỤC TRÊN TRANG CHỦ (DARK MODE)
+============================================================ */
+
+/* 1. Fix khu vực "Vì Sao Chọn CAPPAN?" (Section-dark) */
+[data-theme="dark"] .section-dark {
+  background: radial-gradient(900px 400px at 85% 0%, rgba(232, 185, 49, 0.1), transparent 60%), 
+              #14110F !important; /* Đổi nền tối hơn chút để tách biệt */
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+[data-theme="dark"] .section-dark .section-title,
+[data-theme="dark"] .section-dark .section-sub {
+  color: var(--text-primary) !important; /* Ép chữ thành màu trắng sáng */
+}
+[data-theme="dark"] .section-dark .highlight-card {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+/* 2. Fix nút "Khám phá" bị lệch sang phải */
+[data-theme="dark"] .fx-scroll-cue {
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  color: var(--text-primary) !important;
+}
+[data-theme="dark"] .fx-scroll-cue .fx-mouse {
+  border-color: var(--text-primary) !important;
+}
+[data-theme="dark"] .fx-scroll-cue .fx-mouse i {
+  background: var(--accent-color) !important;
+}
+[data-theme="dark"] .fx-scroll-cue small {
+  color: var(--text-primary) !important;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8); /* Thêm bóng để dễ đọc trên ảnh nền */
+}
+
+/* 3. Tinh chỉnh Hero Section để chữ và nút không bị lẫn vào ảnh */
+[data-theme="dark"] .hero::after {
+  background: linear-gradient(180deg, transparent, var(--bg-primary)) !important;
+}
+[data-theme="dark"] .hero-title {
+  text-shadow: 0 10px 30px rgba(0,0,0,0.8); /* Bóng đổ đậm hơn cho tiêu đề CAPPAN */
+}
+[data-theme="dark"] .hero-desc {
+  color: #E2E8F0 !important;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.9);
+}
+
+/* 4. Đảm bảo nút "Xem thực đơn" (Outline) nổi bật */
+[data-theme="dark"] .hero .btn-outline {
+  background: rgba(0, 0, 0, 0.6) !important; /* Nền đen mờ */
+  backdrop-filter: blur(4px);
+  border: 2px solid var(--accent-color) !important;
+  color: var(--accent-color) !important;
+}
+[data-theme="dark"] .hero .btn-outline:hover {
+  background: var(--accent-color) !important;
+  color: var(--bg-primary) !important;
+}
+/* ============================================================
+   KHÔI PHỤC VỊ TRÍ VÀ GIAO DIỆN CHATBOX
+============================================================ */
+
+/* 1. Ép lại vị trí cố định cho khung chat */
+[data-theme="dark"] .chat-box {
+  position: fixed !important;
+  bottom: 110px !important;
+  right: 30px !important;
+  top: auto !important;
+  left: auto !important;
+  z-index: 300 !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Fix cho màn hình điện thoại */
+@media (max-width: 768px) {
+  [data-theme="dark"] .chat-box {
+    bottom: 90px !important;
+    right: 20px !important;
+    left: 20px !important;
+    width: auto !important;
+    height: 70vh !important;
+  }
+}
+
+/* 2. Sửa lại phần Header của Chatbox (bị lệch nút X và nút thùng rác) */
+[data-theme="dark"] .chat-header {
+  background: var(--bg-secondary) !important;
+  border-bottom: 2px solid var(--accent-color) !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 15px 20px !important;
+}
+
+[data-theme="dark"] .chat-header-actions {
+  display: flex !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+/* 3. Sửa lại khung nhập tin nhắn và các nút */
+[data-theme="dark"] .chat-input {
+  background: var(--bg-card) !important;
+  border-top: 1px solid var(--border-color) !important;
+  padding: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+[data-theme="dark"] .chat-input input {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  flex: 1 !important;
+  margin: 0 !important;
+}
+
+[data-theme="dark"] .chat-input button {
+  background: var(--accent-color) !important;
+  color: var(--bg-primary) !important;
+  border: none !important;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer;
+}
+
+/* 4. Fix lại bong bóng chat của Bot */
+[data-theme="dark"] .msg.bot .bubble {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  border-left: 4px solid var(--accent-color) !important;
+  padding: 10px 14px !important;
+  border-radius: 14px !important;
+  border-bottom-left-radius: 4px !important;
+}   
+/* Thêm vào dark-mode.css */
+[data-theme="dark"] .ui-card {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+}
+[data-theme="dark"] .ui-info,
+[data-theme="dark"] .ui-promo {
+  background: var(--bg-card) !important;
+}

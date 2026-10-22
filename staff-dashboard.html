@@ -3,10 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  (function() {
+    const theme = localStorage.getItem('cappan_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <title>Tổng quan — CAPPAN Staff</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="chat-panel.css">
 <link rel="stylesheet" href="staff.css">
+<link rel="stylesheet" href="dark-mode.css">
+<script>
+  (function(){try{
+    var t = localStorage.getItem('cappan_theme') || 'light';
+    if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  }catch(e){}})();
+</script>
 <script>
 /* Đặt sẵn độ rộng + trạng thái chat TRƯỚC khi trình duyệt vẽ lần đầu → không bị dựt khi đổi trang */
 (function(){try{var d=document.documentElement,
@@ -126,11 +139,14 @@ d.classList.add('no-anim');}catch(e){}})();
 
 <!-- ============ SCRIPTS ============ -->
 <script src="js/data/schema.js"></script>
+<script src="js/ai/ai-input.js"></script>
+<script src="js/ai/ai-output.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
 <script src="js/data/kb.js"></script>
 <script src="js/data/promotions.js"></script>
 <script src="js/api/index.js"></script>
+<script src="js/realtime.js"></script> 
 <script src="js/staff-guard.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
 <script src="js/ai/brain.js"></script>
@@ -391,8 +407,11 @@ function completeBooking(id) {
   refreshAll();
   showToast('✓ Đã hoàn thành booking');
 }
+Realtime.on('booking:changed', refreshAll);
+Realtime.on('order:changed', refreshAll);
 </script>
 <script src="js/demo.js"></script>
 <script src="js/fx.js"></script>
+<script src="js/dark-mode.js"></script>
 </body>
 </html>

@@ -3,9 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  (function() {
+    const theme = localStorage.getItem('cappan_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <title>Theo dõi đơn – CAPPAN</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="dark-mode.css">
+<script>
+  (function(){try{
+    var t = localStorage.getItem('cappan_theme') || 'light';
+    if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  }catch(e){}})();
+</script>
 </head>
 <body data-page="tracking">
 
@@ -25,6 +38,7 @@
       <li><a href="contact.html">Liên hệ</a></li>
     </ul>
     <div class="user-area" id="userArea"></div>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleDarkMode()" title="Chuyển chế độ Sáng/Tối">🌙</button>
   </nav>
 </header>
 
@@ -66,19 +80,19 @@
 <button class="chat-btn" onclick="toggleChat()">🤖</button>
 <div class="chat-box" id="chatBox">
   <div class="chat-header">
-    <span>🤖 Trợ lý CAPPAN</span>
-    <div class="chat-header-actions">
-      <button onclick="clearAICache()" title="Xóa cache AI">🧹</button>
-      <button onclick="clearChatHistory()" title="Xóa lịch sử">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        </svg>
-      </button>
-      <button onclick="toggleChat()" title="Đóng">✕</button>
-    </div>
+  <span>🤖 Trợ lý CAPPAN</span>
+  <div class="chat-header-actions">
+    <button onclick="clearAICache()" title="Xóa cache AI" aria-label="Xóa cache AI">🧹</button>
+    <button onclick="clearChatHistory()" title="Xóa lịch sử" aria-label="Xóa lịch sử chat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </svg>
+    </button>
+    <button onclick="toggleChat()" title="Đóng" aria-label="Đóng cửa sổ chat">✕</button>
   </div>
-  <div class="chat-body" id="chatBody">
+</div>
+  <div class="chat-body" id="chatBody" role="log" aria-live="polite" aria-label="Lịch sử trò chuyện với trợ lý">
     <div class="msg bot"><div class="bubble">Bạn cần hỏi gì về đơn hàng không? 📦</div></div>
   </div>
   <div class="chat-input">
@@ -91,6 +105,9 @@
 <div class="toast" id="toast">✓ Thành công!</div>
 
 <script src="js/data/schema.js"></script>
+<script src="js/ai/ai-input.js"></script>
+<script src="js/ai/ai-output.js"></script>
+<script src="js/data/shipper.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
 <script src="js/data/kb.js"></script>             
@@ -201,7 +218,13 @@ function renderOrderCard(order) {
           <div class="row"><span>🛵 Shipper</span><span>Nguyễn Văn B</span></div>
           <div class="row"><span>📞 Số điện thoại</span><span>0912 345 678</span></div>
           <div class="row"><span>📍 Vị trí hiện tại</span><span>${SHIPPER_LOCATIONS[order.step]}</span></div>
-          <div class="row"><span>⏱️ Dự kiến giao</span><span>${getETA(order.step)}</span></div>
+          <div class="row">
+          <span>⏱️ Dự kiến giao</span>
+          <span id="eta-${order.id}">
+            <strong>${getETA(order.step)}</strong>
+            <small id="countdown-${order.id}" style="color:var(--gray);margin-left:6px;"></small>
+          </span>
+        </div>
         </div>
       ` : (isCancelled ? `
         <div class="order-done-msg" style="background:#fdecea;color:#b71c1c;">❌ Đơn hàng này đã bị hủy.</div>
@@ -247,15 +270,48 @@ function startOrderSimulation() {
 
     let anyAdvanced = false;
     activeOrders.forEach(o => {
-      const newStep = o.step + 1;
-      API.orders.updateStep(o.id, newStep);
-      anyAdvanced = true;
-      if (newStep >= 4) showToast(`🎉 Đơn #${o.id} đã giao thành công!`);
-    });
+  const newStep = o.step + 1;
+  API.orders.updateStep(o.id, newStep);
+  anyAdvanced = true;
+
+  // ⚡ Toast mỗi bước, không chỉ bước cuối
+  const stepMessages = [
+    'Đã xác nhận',
+    'Đang pha chế',
+    'Shipper đã lấy hàng',
+    'Đang giao đến bạn',
+    'Đã giao thành công 🎉'
+  ];
+  if (newStep >= 4) {
+    showToast(`🎉 Đơn #${o.id} đã giao thành công!`);
+  } else {
+    showToast(`📦 Đơn #${o.id}: ${stepMessages[newStep] || 'Đang xử lý'}`, '#1565c0');
+  }
+});
 
     if (anyAdvanced) renderTracking();
   }, 5000);
 }
+// ⚡ UPGRADE 13: countdown timer mỗi giây
+function updateCountdowns() {
+  const user = API.users.getCurrent();
+  if (!user) return;
+  API.orders.getByUser(user.id).forEach(o => {
+    const el = document.getElementById('countdown-' + o.id);
+    if (!el) return;
+    if (o.status === 'cancelled' || o.step >= 4) { el.textContent = ''; return; }
+    const minutesLeft = (5 - o.step) * 5;
+    const startTime = new Date(o.createdAt).getTime();
+    const elapsed = (Date.now() - startTime) / 60000;
+    const remaining = Math.max(0, Math.round(minutesLeft - (elapsed % 5)));
+    el.textContent = remaining > 0 ? `(còn ${remaining} phút)` : '(sắp đến)';
+  });
+}
+
+// Trong startOrderSimulation, thêm interval
+if (window._countdownTimer) clearInterval(window._countdownTimer);
+window._countdownTimer = setInterval(updateCountdowns, 1000);
+updateCountdowns(); // chạy ngay lần đầu
 
 document.addEventListener('DOMContentLoaded', () => {
   if (Auth.isStaff()) return;
@@ -264,5 +320,6 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <script src="js/demo.js"></script>
 <script src="js/fx.js"></script>
+<script src="js/dark-mode.js"></script>
 </body>
 </html>

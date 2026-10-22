@@ -3,9 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  (function() {
+    const theme = localStorage.getItem('cappan_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <title>Thực đơn – CAPPAN</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="dark-mode.css">
+<script>
+  (function(){try{
+    var t = localStorage.getItem('cappan_theme') || 'light';
+    if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  }catch(e){}})();
+</script>
 </head>
 <body data-page="menu">
 
@@ -25,6 +38,7 @@
       <li><a href="contact.html">Liên hệ</a></li>
     </ul>
     <div class="user-area" id="userArea"></div>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleDarkMode()" title="Chuyển chế độ Sáng/Tối">🌙</button>
   </nav>
 </header>
 
@@ -60,19 +74,19 @@
 <button class="chat-btn" onclick="toggleChat()">🤖</button>
 <div class="chat-box" id="chatBox">
   <div class="chat-header">
-    <span>🤖 Trợ lý CAPPAN</span>
-    <div class="chat-header-actions">
-      <button onclick="clearAICache()" title="Xóa cache AI">🧹</button>
-      <button onclick="clearChatHistory()" title="Xóa lịch sử">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        </svg>
-      </button>
-      <button onclick="toggleChat()" title="Đóng">✕</button>
-    </div>
+  <span>🤖 Trợ lý CAPPAN</span>
+  <div class="chat-header-actions">
+    <button onclick="clearAICache()" title="Xóa cache AI" aria-label="Xóa cache AI">🧹</button>
+    <button onclick="clearChatHistory()" title="Xóa lịch sử" aria-label="Xóa lịch sử chat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </svg>
+    </button>
+    <button onclick="toggleChat()" title="Đóng" aria-label="Đóng cửa sổ chat">✕</button>
   </div>
-  <div class="chat-body" id="chatBody">
+</div>
+  <div class="chat-body" id="chatBody" role="log" aria-live="polite" aria-label="Lịch sử trò chuyện với trợ lý">
     <div class="msg bot"><div class="bubble">Bạn muốn uống gì hôm nay? ☕</div></div>
   </div>
   <div class="chat-input">
@@ -85,6 +99,8 @@
 <div class="toast" id="toast">✓ Thành công!</div>
 
 <script src="js/data/schema.js"></script>
+<script src="js/ai/ai-input.js"></script>
+<script src="js/ai/ai-output.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
 <script src="js/data/kb.js"></script>              
@@ -163,44 +179,25 @@ function renderGrid() {
   }).join('');
 }
 
-function quickOrder(itemId) {
-  const user = API.users.getCurrent();
 
-  if (user && user.role === 'staff') {
-    showToast('⛔ Nhân viên không thể đặt món!', '#c62828');
-    return;
-  }
-
-  const item = API.menu.getById(itemId);
-  if (!item) return;
-  if (!Auth.isLoggedIn()) {
-    showToast('🔒 Vui lòng đăng nhập để đặt món!', '#c62828');
-    setTimeout(() => { window.location.href = 'login.html'; }, 1000);
-    return;
-  }
-  API.cart.add({
-    itemId: item.id,
-    name: item.name,
-    price: item.price,
-    img: item.img,
-    size: 'M',
-    toppings: []
-  });
-  if (typeof updateUserArea === 'function') updateUserArea();
-  showToast(`✓ Đã thêm ${item.name} vào giỏ!`);
-}
 
 document.addEventListener('DOMContentLoaded', () => {
   renderTabs();
   renderGrid();
 
   document.getElementById('menuSearch').addEventListener('input', e => {
-    searchKeyword = e.target.value.toLowerCase().trim();
-    renderGrid();
-  });
+  searchKeyword = e.target.value.toLowerCase().trim();
+  // ⚡ P2-1: Khi search, reset về tab "Tất cả" để không filter chéo
+  if (searchKeyword && activeCat !== 'all') {
+    activeCat = 'all';
+    renderTabs();
+  }
+  renderGrid();
+});
 });
 </script>
 <script src="js/demo.js"></script>
 <script src="js/fx.js"></script>
+<script src="js/dark-mode.js"></script>
 </body>
 </html>

@@ -3,9 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  (function() {
+    const theme = localStorage.getItem('cappan_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <title>Giỏ hàng – CAPPAN</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="dark-mode.css">
+<script>
+  (function(){try{
+    var t = localStorage.getItem('cappan_theme') || 'light';
+    if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  }catch(e){}})();
+</script>
 </head>
 <body data-page="cart">
 
@@ -26,6 +39,7 @@
       <li><a href="contact.html">Liên hệ</a></li>
     </ul>
     <div class="user-area" id="userArea"></div>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleDarkMode()" title="Chuyển chế độ Sáng/Tối">🌙</button>
   </nav>
 </header>
 
@@ -121,19 +135,19 @@
 <button class="chat-btn" onclick="toggleChat()">🤖</button>
 <div class="chat-box" id="chatBox">
   <div class="chat-header">
-    <span>🤖 Trợ lý CAPPAN</span>
-    <div class="chat-header-actions">
-      <button onclick="clearAICache()" title="Xóa cache AI">🧹</button>
-      <button onclick="clearChatHistory()" title="Xóa lịch sử">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        </svg>
-      </button>
-      <button onclick="toggleChat()" title="Đóng">✕</button>
-    </div>
+  <span>🤖 Trợ lý CAPPAN</span>
+  <div class="chat-header-actions">
+    <button onclick="clearAICache()" title="Xóa cache AI" aria-label="Xóa cache AI">🧹</button>
+    <button onclick="clearChatHistory()" title="Xóa lịch sử" aria-label="Xóa lịch sử chat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </svg>
+    </button>
+    <button onclick="toggleChat()" title="Đóng" aria-label="Đóng cửa sổ chat">✕</button>
   </div>
-  <div class="chat-body" id="chatBody">
+</div>
+  <div class="chat-body" id="chatBody" role="log" aria-live="polite" aria-label="Lịch sử trò chuyện với trợ lý">
     <div class="msg bot"><div class="bubble">Bạn cần hỗ trợ không? 🛒</div></div>
   </div>
   <div class="chat-input">
@@ -146,11 +160,14 @@
 <div class="toast" id="toast">✓ Thành công!</div>
 
 <script src="js/data/schema.js"></script>
+<script src="js/ai/ai-input.js"></script>
+<script src="js/ai/ai-output.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
 <script src="js/data/kb.js"></script>              
 <script src="js/data/promotions.js"></script>      
 <script src="js/api/index.js"></script>
+<script src="js/realtime.js"></script> 
 <script src="js/staff-guard.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
 <script src="js/ai/brain.js"></script>
@@ -159,7 +176,15 @@
 
 <script>
 const SHIPPING_FEE = 15000;
-let appliedPromo = null;
+
+// ⚡ P2-2: Persist promo qua sessionStorage — không mất khi navigate qua lại
+let appliedPromo = sessionStorage.getItem('cappan_applied_promo') || null;
+
+function setAppliedPromo(code) {
+  appliedPromo = code || null;
+  if (code) sessionStorage.setItem('cappan_applied_promo', code);
+  else sessionStorage.removeItem('cappan_applied_promo');
+}
 
 /* Tính giảm giá hiện tại (kiểm tra lại mỗi lần vẽ: đổi số lượng có thể làm mã hết đủ điều kiện) */
 function currentDiscount(subtotal) {
@@ -167,11 +192,11 @@ function currentDiscount(subtotal) {
   const user = API.users.getCurrent();
   const r = API.promotions.evaluate(appliedPromo, subtotal, SHIPPING_FEE, user && user.id);
   if (!r.ok) {
-    const msg = document.getElementById('promoMsg');
-    if (msg) { msg.textContent = '⚠ ' + r.error + ' — đã bỏ mã ' + appliedPromo; msg.className = 'promo-msg err'; }
-    appliedPromo = null;
-    return { discount: 0 };
-  }
+  const msg = document.getElementById('promoMsg');
+  if (msg) { msg.textContent = '⚠ ' + r.error + ' — đã bỏ mã ' + appliedPromo; msg.className = 'promo-msg err'; }
+  setAppliedPromo(null);
+  return { discount: 0 };
+}
   return { discount: r.discount, code: appliedPromo };
 }
 
@@ -179,20 +204,33 @@ function applyPromo() {
   const input = document.getElementById('coPromo');
   const msg = document.getElementById('promoMsg');
   const code = input.value.trim().toUpperCase();
-  if (!code) { appliedPromo = null; msg.textContent = ''; msg.className = 'promo-msg'; renderCartPage(); return; }
+
+  if (!code) {
+    setAppliedPromo(null);
+    msg.textContent = '';
+    msg.className = 'promo-msg';
+    renderCartPage();
+    return;
+  }
+
   const cart = API.cart.get();
   const sub = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const user = API.users.getCurrent();
   const r = API.promotions.evaluate(code, sub, SHIPPING_FEE, user && user.id);
+
   if (!r.ok) {
-    appliedPromo = null;
-    msg.textContent = '⚠ ' + r.error; msg.className = 'promo-msg err';
+    setAppliedPromo(null);
+    msg.textContent = '⚠ ' + r.error;
+    msg.className = 'promo-msg err';
   } else {
-    appliedPromo = code;
-    msg.textContent = '✓ Đã áp dụng ' + code + ': giảm ' + API.utils.formatVND(r.discount); msg.className = 'promo-msg ok';
+    setAppliedPromo(code);
+    msg.textContent = '✓ Đã áp dụng ' + code + ': giảm ' + API.utils.formatVND(r.discount);
+    msg.className = 'promo-msg ok';
   }
+
   renderCartPage();
 }
+
 
 function renderCartPage() {
   const cart = API.cart.get();
@@ -205,7 +243,6 @@ function renderCartPage() {
     content.hidden = true;
     return;
   }
-
   empty.hidden = true;
   content.hidden = false;
 
@@ -240,10 +277,12 @@ function renderCartPage() {
   document.getElementById('sumPromoCode').textContent = dc.code ? '(' + dc.code + ')' : '';
   document.getElementById('sumTotal').textContent = API.utils.formatVND(subtotal + SHIPPING_FEE - dc.discount);
   const hint = document.getElementById('promoHint');
-  if (hint) {
-    const codes = API.promotions.getActive().map(p => p.code);
-    hint.textContent = codes.length ? 'Mã đang áp dụng: ' + codes.join(', ') : '';
-  }
+if (hint) {
+  const codes = API.promotions.getActive().map(p => p.code);
+  hint.textContent = codes.length
+    ? 'Mã hiện có: ' + codes.join(', ') + (appliedPromo ? ' · Đang chọn: ' + appliedPromo : '')
+    : '';
+}
 
   const user = API.users.getCurrent();
   if (user) {
@@ -281,7 +320,7 @@ function removeItem(itemId, size) {
 function clearCart() {
   if (!confirm('Xoá TẤT CẢ món trong giỏ?')) return;
   API.cart.clear();
-  appliedPromo = null;
+  setAppliedPromo(null);
   renderCartPage();
   updateUserArea();
   showToast('Đã xoá toàn bộ giỏ hàng');
@@ -310,14 +349,18 @@ function checkout() {
     return;
   }
 
-  const user = API.users.getCurrent();
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
-
   const dc = currentDiscount(subtotal);
+  const finalTotal = subtotal + SHIPPING_FEE - dc.discount;
+  const totalQty = cart.reduce((s, i) => s + i.qty, 0);
+
+  if (!confirm(`Xác nhận đặt ${totalQty} món?\nTổng: ${API.utils.formatVND(finalTotal)}`)) return;
+
+  const user = API.users.getCurrent();
   const order = API.orders.create({
     userId: user.id,
     items: cart,
-    total: subtotal + SHIPPING_FEE - dc.discount,
+    total: finalTotal,
     discount: dc.discount,
     promoCode: dc.code || '',
     subtotal: subtotal,
@@ -328,6 +371,10 @@ function checkout() {
 
   API.users.update(user.id, { address });
   API.cart.clear();
+
+  // ⚡ FIX: clear mã promo khỏi sessionStorage — tránh leak sang đơn sau
+  setAppliedPromo(null);
+
   updateUserArea();
 
   showToast(`✓ Đặt hàng thành công! Mã: ${order.id}`);
@@ -341,5 +388,6 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <script src="js/demo.js"></script>
 <script src="js/fx.js"></script>
+<script src="js/dark-mode.js"></script>
 </body>
 </html>

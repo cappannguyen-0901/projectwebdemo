@@ -3,10 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  (function() {
+    const theme = localStorage.getItem('cappan_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <title>Thống kê — CAPPAN Staff</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="chat-panel.css">
 <link rel="stylesheet" href="staff.css">
+<link rel="stylesheet" href="dark-mode.css">
+<script>
+  (function(){try{
+    var t = localStorage.getItem('cappan_theme') || 'light';
+    if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  }catch(e){}})();
+</script>
 <script>
 /* Đặt sẵn độ rộng + trạng thái chat TRƯỚC khi trình duyệt vẽ lần đầu → không bị dựt khi đổi trang */
 (function(){try{var d=document.documentElement,
@@ -113,11 +126,14 @@ d.classList.add('no-anim');}catch(e){}})();
 <div class="toast" id="toast">✓ Thành công!</div>
 
 <script src="js/data/schema.js"></script>
+<script src="js/ai/ai-input.js"></script>
+<script src="js/ai/ai-output.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
 <script src="js/data/kb.js"></script>
 <script src="js/data/promotions.js"></script>
 <script src="js/api/index.js"></script>
+<script src="js/realtime.js"></script> 
 <script src="js/staff-guard.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
 <script src="js/ai/brain.js"></script>
@@ -142,15 +158,18 @@ function renderAll() {
   document.getElementById('revWeek').textContent = API.utils.formatVND(week.total);
   document.getElementById('revMonth').textContent = API.utils.formatVND(month.total);
 
-  // Chart 7 ngày
+    // Chart 7 ngày
   const days = API.stats.last7Days();
   const max = Math.max(...days.map(d => d.revenue), 1);
+  
   document.getElementById('chartBars').innerHTML = days.map(d => {
-    const pct = Math.round((d.revenue / max) * 100);
+    // Tính % (tối thiểu 2% để vẫn thấy cột nếu doanh thu quá nhỏ)
+    const pct = Math.max(2, Math.round((d.revenue / max) * 100));
+    
     return `
       <div class="chart-col">
         <div class="chart-bar-wrap">
-          <div class="chart-bar" style="height:${pct}%">
+          <div class="chart-bar" style="--bar-height: ${pct}%;">
             <span class="chart-tooltip">${API.utils.formatVND(d.revenue)}</span>
           </div>
         </div>
@@ -159,6 +178,15 @@ function renderAll() {
       </div>
     `;
   }).join('');
+
+  // Kích hoạt animation mọc cột từ dưới lên sau khi render
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      document.querySelectorAll('.chart-bar').forEach(el => {
+        el.style.height = el.style.getPropertyValue('--bar-height');
+      });
+    }, 50);
+  });
 
   // Top items
   const top = API.stats.topItems(5);
@@ -214,5 +242,6 @@ function renderAll() {
 </script>
 <script src="js/demo.js"></script>
 <script src="js/fx.js"></script>
+<script src="js/dark-mode.js"></script>
 </body>
 </html>

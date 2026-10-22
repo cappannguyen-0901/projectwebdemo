@@ -26,8 +26,9 @@
     }
 
     // ⚡ Chặn NHÂN VIÊN vào trang khách (trừ menu.html — chỉ xem)
-    const customerPages = ['index.html', 'menu.html', 'booking.html', 'order.html',
-                           'cart.html', 'tracking.html', 'profile.html'];
+    // ⚡ P2-4: Bỏ 'menu.html' khỏi danh sách — cho staff xem menu read-only
+const customerPages = ['index.html', 'booking.html', 'order.html',
+                       'cart.html', 'tracking.html', 'profile.html'];
     if (user && user.role === 'staff' && customerPages.includes(path)) {
       try {
         const t = document.getElementById('toast');

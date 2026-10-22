@@ -67,18 +67,20 @@ const Auth = {
 
   /* ---------- ĐĂNG XUẤT ---------- */
   logout() {
-    const user = API.users.getCurrent();
-    API.users.setCurrent(null);
+  const user = API.users.getCurrent();
+  API.users.setCurrent(null);
 
-    if (user) {
-      const sid = `${user.role}_${user.id}`;
-      try {
-        sessionStorage.removeItem('cappan_history_' + sid);
-        sessionStorage.removeItem('cappan_greeted_' + sid);
-      } catch (e) {}
-    }
-    return true;
-  },
+  if (user) {
+    const sid = `${user.role}_${user.id}`;
+    try {
+      sessionStorage.removeItem('cappan_history_' + sid);
+      sessionStorage.removeItem('cappan_greeted_' + sid);
+    } catch (e) {}
+  }
+  // ⚡ Clear promo leak giữa users
+  try { sessionStorage.removeItem('cappan_applied_promo'); } catch (e) {}
+  return true;
+},
 
   /* ---------- GUARD ---------- */
   requireLogin() {

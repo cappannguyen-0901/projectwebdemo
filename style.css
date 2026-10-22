@@ -1227,6 +1227,7 @@ button { font-family: inherit; }
   text-decoration: none;
 }
 .link-back:hover { color: var(--gold); }
+
 /* ============================================================
    12. TRACKING
 ============================================================ */
@@ -1522,6 +1523,7 @@ button { font-family: inherit; }
   padding: 12px;
   border-top: 1px solid #eee;
   background: var(--white);
+  align-items: center;              /* ⚡ đảm bảo mic thẳng hàng */
 }
 .chat-input input {
   flex: 1;
@@ -1531,6 +1533,7 @@ button { font-family: inherit; }
   outline: none;
   font-size: 0.95rem;
   font-family: inherit;
+  min-width: 0;
 }
 .chat-input input:focus { border-color: var(--brown); }
 .chat-input button {
@@ -1544,11 +1547,48 @@ button { font-family: inherit; }
   cursor: pointer;
   font-size: 1.1rem;
   transition: var(--transition);
+  flex-shrink: 0;
 }
 .chat-input button:hover {
   background: var(--gold);
   color: var(--darker);
 }
+
+/* ⚡ FIX #2 — Voice Input (.chat-mic được tạo bởi main.js → initVoiceInput) */
+.chat-mic {
+  background: transparent;
+  border: 1px solid var(--gray-light);
+  color: var(--brown);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  margin-left: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  font-family: inherit;
+}
+.chat-mic:hover {
+  background: var(--cream);
+  border-color: var(--brown);
+  transform: scale(1.05);
+}
+.chat-mic.on {
+  background: #c62828;
+  color: #fff;
+  border-color: #c62828;
+  animation: micPulse 1s infinite;
+}
+@keyframes micPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(198, 40, 40, 0.55); }
+  50%      { box-shadow: 0 0 0 8px rgba(198, 40, 40, 0); }
+}
+/* ⚡ END FIX #2 */
 
 .quick-replies {
   display: flex;
@@ -1929,6 +1969,9 @@ button { font-family: inherit; }
 }
 .order-status.success { background: #d4edda; color: #155724; }
 .order-status.pending { background: #fff3cd; color: #856404; }
+/* ⚡ FIX #3 — Trạng thái đơn ĐÃ HỦY (profile.js renderOrders dùng class này) */
+.order-status.cancelled { background: #f8d7da; color: #721c24; }
+/* ⚡ END FIX #3 */
 
 .order-items {
   display: flex;
@@ -2624,7 +2667,7 @@ button { font-family: inherit; }
 }
 
 /* ============================================================
-   21. RESPONSIVE (FIX: gộp tất cả media queries)
+   21. RESPONSIVE
 ============================================================ */
 
 /* Tablet */
@@ -2812,6 +2855,7 @@ button { font-family: inherit; }
   .contact-cards { grid-template-columns: 1fr; }
   .profile-tab { padding: 10px 10px; font-size: 0.78rem; }
 }
+
 /* Confirm action buttons */
 .msg.bot .confirm-actions button {
   font-family: inherit;
@@ -2824,6 +2868,7 @@ button { font-family: inherit; }
 .msg.bot .confirm-actions button:active {
   transform: translateY(0);
 }
+
 /* ============================================================
    MÓN HẾT HÀNG — LÀM MỜ
 ============================================================ */
@@ -2833,7 +2878,6 @@ button { font-family: inherit; }
   pointer-events: none;
   filter: grayscale(0.6);
 }
-
 .menu-card.out-of-stock::after {
   content: 'HẾT HÀNG';
   position: absolute;
@@ -2881,29 +2925,7 @@ button { font-family: inherit; }
   color: #e65100;
   font-style: italic;
 }
-/* Nhấp nháy nhẹ khi có tin nhắn mới */
-.chat-toggle.has-unread {
-  animation: pulse 1.5s infinite;
-}
 
-@keyframes pulse {
-  0%, 100% {
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
-  }
-  50% {
-    box-shadow: 0 4px 20px rgba(139, 111, 71, 0.6);
-  }
-}
-
-/* Nảy nhẹ khi hover */
-.chat-toggle:hover {
-  animation: bounce 0.5s;
-}
-
-@keyframes bounce {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.15); }
-}
 /* ============================================================
    NÚT HEADER CHATBOX
 ============================================================ */
@@ -2915,12 +2937,10 @@ button { font-family: inherit; }
   background: #5D4037;
   color: white;
 }
-
 .chat-header-actions {
   display: flex;
   gap: 6px;
 }
-
 .chat-header-actions button {
   background: transparent;
   border: none;
@@ -2936,14 +2956,13 @@ button { font-family: inherit; }
   transition: background 0.15s;
   font-family: inherit;
 }
-
 .chat-header-actions button:hover {
   background: rgba(255, 255, 255, 0.15);
 }
-
 .chat-header-actions button:active {
   transform: scale(0.95);
 }
+
 /* ============================================================
    STREAMING CURSOR — khối 2px, không đẩy layout
 ============================================================ */
@@ -2956,38 +2975,30 @@ button { font-family: inherit; }
   vertical-align: text-bottom;
   font-size: 0;
   line-height: 0;
-  position: relative;        /* ⚡ không đẩy text khác */
-  top: 2px;                  /* ⚡ căn chỉnh đẹp hơn */
+  position: relative;
+  top: 2px;
   animation: cursorBlink 1s steps(1) infinite;
-  will-change: opacity;      /* ⚡ báo trước cho browser */
+  will-change: opacity;
 }
-
 @keyframes cursorBlink {
   0%, 50%   { opacity: 1; }
   51%, 100% { opacity: 0; }
 }
-
-/* ⚡ Bubble ổn định layout khi stream */
 .bubble {
   word-break: break-word;
   overflow-wrap: anywhere;
 }
-
-/* ⚡ Span chứa text stream — không xuống dòng bất ngờ */
 .stream-text {
   display: inline;
   white-space: pre-wrap;
 }
-
-/* Bubble đang stream — tránh bị giật khi text dài */
 .bubble:has(.streaming-cursor) {
   transition: none;
 }
-
-/* Nếu bubble có tool_calls (không có text) → ẩn thay vì để rỗng */
 .bubble.has-tools {
   display: none;
 }
+
 /* ============================================================
    PROFILE — VOUCHER TAB
 ============================================================ */
@@ -3002,7 +3013,6 @@ button { font-family: inherit; }
   margin-bottom: 24px;
   flex-wrap: wrap;
 }
-
 .points-box {
   display: flex;
   flex-direction: column;
@@ -3013,7 +3023,6 @@ button { font-family: inherit; }
   backdrop-filter: blur(10px);
   min-width: 120px;
 }
-
 .points-value {
   font-size: 2.4rem;
   font-weight: 900;
@@ -3021,7 +3030,6 @@ button { font-family: inherit; }
   font-family: 'Georgia', serif;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25);
 }
-
 .points-label {
   font-size: 0.78rem;
   opacity: 0.95;
@@ -3029,20 +3037,17 @@ button { font-family: inherit; }
   font-weight: 600;
   letter-spacing: 0.5px;
 }
-
 .points-hint {
   flex: 1;
   font-size: 0.92rem;
   opacity: 0.95;
   min-width: 200px;
 }
-
 .voucher-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 16px;
 }
-
 .voucher-card {
   background: linear-gradient(135deg, #ffffff 0%, #fdf9f3 100%);
   border: 2px dashed var(--gold);
@@ -3051,24 +3056,20 @@ button { font-family: inherit; }
   position: relative;
   transition: all 0.2s ease;
 }
-
 .voucher-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 6px 20px rgba(201, 162, 39, 0.25);
   border-style: solid;
 }
-
 .voucher-card.disabled {
   opacity: 0.5;
   filter: grayscale(0.6);
   cursor: not-allowed;
 }
-
 .voucher-card.disabled:hover {
   transform: none;
   box-shadow: none;
 }
-
 .voucher-code {
   font-family: 'Courier New', monospace;
   font-size: 1.3rem;
@@ -3081,14 +3082,12 @@ button { font-family: inherit; }
   border-radius: var(--radius-sm);
   display: inline-block;
 }
-
 .voucher-desc {
   color: var(--dark-brown);
   font-size: 0.92rem;
   margin-bottom: 10px;
   font-weight: 600;
 }
-
 .voucher-points {
   font-size: 0.78rem;
   color: var(--gray);
@@ -3098,7 +3097,6 @@ button { font-family: inherit; }
   padding-top: 8px;
   border-top: 1px dashed var(--gray-light);
 }
-
 @media (max-width: 600px) {
   .voucher-header {
     flex-direction: column;
@@ -3108,19 +3106,14 @@ button { font-family: inherit; }
     width: 100%;
   }
 }
-/* Nút emoji trong chat header */
-.chat-header-actions button:has(> :not(svg)),
-.chat-panel-btn {
-  font-size: 16px;
-  line-height: 1;
-}
+
 /* ============================================================
    FIX NÚT HEADER CHATBOX & ICON EMOJI
 ============================================================ */
 .chat-header-actions button,
 .chat-panel-actions .chat-panel-btn {
-  background: transparent !important; /* Ép không có nền */
-  border: none !important;            /* Ép không có viền */
+  background: transparent !important;
+  border: none !important;
   color: white;
   cursor: pointer;
   width: 28px;
@@ -3135,37 +3128,30 @@ button { font-family: inherit; }
   line-height: 1;
   -webkit-appearance: none;
   appearance: none;
-  box-shadow: none !important;        /* Chặn mọi đổ bóng native */
+  box-shadow: none !important;
 }
-
 .chat-header-actions button:hover,
 .chat-panel-actions .chat-panel-btn:hover {
   background: rgba(255, 255, 255, 0.15) !important;
 }
-
 .chat-header-actions button:active,
 .chat-panel-actions .chat-panel-btn:active {
   transform: scale(0.95);
 }
-
-/* Căn chỉnh SVG bên trong nút */
 .chat-header-actions button svg,
 .chat-panel-btn svg {
   display: block;
   pointer-events: none;
 }
-
-/* ⚡ FIX RIÊNG CHO EMOJI 🧹 (Xóa cache) */
 button.emoji-btn {
-  font-size: 14px !important; /* Nhỏ hơn SVG một chút cho cân đối */
+  font-size: 14px !important;
   background: transparent !important;
   border: none !important;
 }
-/* ============================================================
-   HIỆU ỨNG TRỰC QUAN (HOVER/ACTIVE) CHO CÁC NÚT TRÊN CHAT PANEL
-============================================================ */
 
-/* 1. Nút icon cái chổi (Xóa lịch sử / Clear Chat) */
+/* ============================================================
+   HIỆU ỨNG TRỰC QUAN CHO CÁC NÚT TRÊN CHAT PANEL
+============================================================ */
 #btnClearChat,
 button[title*="Xóa"],
 .chat-action-btn.clear {
@@ -3182,48 +3168,39 @@ button[title*="Xóa"],
   opacity: 0.75;
   outline: none;
 }
-
 #btnClearChat:hover,
 button[title*="Xóa"]:hover,
 .chat-action-btn.clear:hover {
   opacity: 1;
-  background-color: rgba(220, 53, 69, 0.15) !important; /* Hiệu ứng nền đỏ cảnh báo */
+  background-color: rgba(220, 53, 69, 0.15) !important;
   color: #dc3545 !important;
-  transform: scale(1.15) rotate(-12deg); /* Xoay nhẹ cái chổi + phóng to */
+  transform: scale(1.15) rotate(-12deg);
 }
-
 #btnClearChat:active,
 button[title*="Xóa"]:active,
 .chat-action-btn.clear:active {
   transform: scale(0.92);
 }
-
 #btnCollapseChat:hover {
   background-color: rgba(0, 0, 0, 0.08) !important;
   transform: scale(1.1);
 }
-
-/* 3. Nút Gửi tin nhắn (Send Button) */
 #btnSendChat,
 .chat-send-btn {
   cursor: pointer !important;
   transition: all 0.2s ease;
   outline: none;
 }
-
 #btnSendChat:hover,
 .chat-send-btn:hover {
   opacity: 0.9;
   transform: translateY(-1px) scale(1.03);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
-
 #btnSendChat:active,
 .chat-send-btn:active {
   transform: translateY(0) scale(0.96);
 }
-
-/* 4. Các nút gợi ý nhanh (Quick Reply Buttons) */
 .quick-reply-btn,
 .quick-replies button,
 #chatBody .quick-btn {
@@ -3236,7 +3213,6 @@ button[title*="Xóa"]:active,
   font-size: 0.88rem;
   user-select: none;
 }
-
 .quick-reply-btn:hover,
 .quick-replies button:hover,
 #chatBody .quick-btn:hover {
@@ -3246,14 +3222,11 @@ button[title*="Xóa"]:active,
   transform: translateY(-2px);
   box-shadow: 0 3px 8px rgba(0, 123, 255, 0.15);
 }
-
 .quick-reply-btn:active,
 .quick-replies button:active,
 #chatBody .quick-btn:active {
   transform: translateY(0) scale(0.96);
 }
-
-/* 5. Nút Xác nhận / Hủy thao tác AI (Action Confirmation Cards) */
 .ai-confirm-btn,
 .btn-confirm-action,
 .btn-cancel-action {
@@ -3262,81 +3235,20 @@ button[title*="Xóa"]:active,
   font-weight: 500;
   border-radius: 6px;
 }
-
 .btn-confirm-action:hover {
   background-color: #28a745 !important;
   color: #fff !important;
   transform: translateY(-1px);
   box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
 }
-
 .btn-cancel-action:hover {
   background-color: #6c757d !important;
   color: #fff !important;
   transform: translateY(-1px);
 }
-/* Container chứa các nút trên header chat */
-.chat-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* Kiểu dáng chung cho các nút trên header chat */
-#btnCollapseChat,
-#btnClearChat {
-  background: transparent !important;
-  border: none !important;
-  color: var(--cream, #ffffff) !important;
-  cursor: pointer !important;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  font-size: 1rem;
-  padding: 0;
-}
-
-#btnCollapseChat:hover,
-#btnClearChat:hover {
-  background: rgba(255, 255, 255, 0.15) !important;
-  transform: scale(1.1);
-}
-
-#btnCollapseChat:active,
-#btnClearChat:active {
-  transform: scale(0.92);
-}
-
-/* Căn chỉnh lại nhóm nút trên header cho đều đẹp */
-.chat-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.chat-header-actions button {
-  background: transparent !important;
-  border: none !important;
-  color: white !important;
-  cursor: pointer;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s ease;
-}
-
-.chat-header-actions button:hover {
-  background: rgba(255, 255, 255, 0.15) !important;
-}
 
 /* ============================================================
    NÚT CHAT NỔI — DÙNG CHUNG CHO STAFF (#chatFloatBtn) VÀ CUSTOMER (.chat-btn)
-   Kiểu: nền nâu gradient + viền vàng, icon lớn. Sửa ở đây là đồng bộ mọi trang.
 ============================================================ */
 .chat-btn,
 #chatFloatBtn {
@@ -3351,21 +3263,19 @@ button[title*="Xóa"]:active,
   background: linear-gradient(135deg, var(--brown) 0%, var(--dark-brown) 100%) !important;
   border: 2px solid var(--gold);
   color: var(--cream);
-  font-size: 2.3rem;            /* icon 🤖 lớn */
+  font-size: 2.3rem;
   line-height: 1;
   cursor: pointer;
   box-shadow: 0 6px 20px rgba(111, 78, 55, 0.35);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
 }
-
 #chatFloatBtn {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 #chatFloatBtn > span { font-size: inherit; line-height: 1; }
-
 .chat-btn img,
 .chat-btn svg,
 #chatFloatBtn img,
@@ -3374,7 +3284,6 @@ button[title*="Xóa"]:active,
   height: 40px;
   object-fit: contain;
 }
-
 .chat-btn:hover,
 #chatFloatBtn:hover {
   background: linear-gradient(135deg, var(--gold) 0%, var(--brown) 100%) !important;
@@ -3384,7 +3293,6 @@ button[title*="Xóa"]:active,
 }
 .chat-btn:active,
 #chatFloatBtn:active { transform: scale(0.95); }
-
 @media (max-width: 600px) {
   .chat-btn,
   #chatFloatBtn {
@@ -3397,8 +3305,9 @@ button[title*="Xóa"]:active,
   .chat-btn img, .chat-btn svg,
   #chatFloatBtn img, #chatFloatBtn svg { width: 32px; height: 32px; }
 }
+
 /* ============================================================
-   DEMO BANNER + AI FEEDBACK + PROMO INPUT (Bản final fix giao diện)
+   DEMO BANNER + AI FEEDBACK + PROMO INPUT
 ============================================================ */
 .demo-banner {
   background: #fff3cd;
@@ -3406,20 +3315,16 @@ button[title*="Xóa"]:active,
   border: 1px solid #ffc107;
   padding: 10px 16px;
   border-radius: 8px;
-  margin: 86px 20px 0 20px; /* ⚡ FIX: Đẩy xuống dưới thanh menu (cao 72px) + 14px khoảng trắng */
+  margin: 86px 20px 0 20px;
   font-size: 0.85rem;
   text-align: center;
   position: relative;
   z-index: 5;
   box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
 }
-
-/* Riêng trang chủ có ảnh Hero (không padding-top) -> đẩy banner xuống thấp hơn chút */
 body[data-page="home"] .demo-banner {
   margin-top: 86px;
 }
-
-/* Trên điện thoại (menu nhỏ hơn) */
 @media (max-width: 768px) {
   .demo-banner {
     margin: 74px 12px 0 12px;
@@ -3430,7 +3335,6 @@ body[data-page="home"] .demo-banner {
     margin-top: 74px;
   }
 }
-
 .ai-feedback {
   display: flex;
   gap: 4px;
@@ -3455,20 +3359,17 @@ body[data-page="home"] .demo-banner {
 }
 .fb-btn:hover { background: #f0f0f0; transform: scale(1.1); }
 .fb-down:hover { background: #fdecea; border-color: #c62828; }
-
-/* Promo hint */
 #promoMsg { display: block; margin-top: 4px; min-height: 18px; }
+
 /* ============================================================
-   GENERATIVE UI CARDS (gộp từ 2 khối trùng lặp trước đây)
+   GENERATIVE UI CARDS
 ============================================================ */
-/* Bong bóng chứa thẻ: bỏ nền kem + padding, cho thẻ rộng hơn */
 .msg.bot .bubble:has(.ui-card) {
   background: transparent;
   padding: 0;
   width: 92%;
   max-width: 92%;
 }
-
 .ui-card {
   background: #fff;
   border: 1px solid #f0e6d2;
@@ -3486,7 +3387,6 @@ body[data-page="home"] .demo-banner {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
-
 .ui-card h4 {
   color: #5D4037;
   margin: 0 0 10px;
@@ -3494,8 +3394,6 @@ body[data-page="home"] .demo-banner {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-/* Nút */
 .ui-card .btn,
 .ui-card .btn-outline {
   display: inline-block;
@@ -3519,20 +3417,15 @@ body[data-page="home"] .demo-banner {
   background: transparent;
 }
 .ui-card .btn-outline:hover { background: #fff8e6; }
-
 .ui-btn-block { display: block !important; width: 100%; padding: 8px 12px; font-size: 13px; margin-top: 10px; box-sizing: border-box; }
 .ui-btn-half  { flex: 1; padding: 8px; font-size: 13px; box-sizing: border-box; }
 .ui-btn-sm    { padding: 5px 10px; font-size: 12px; flex-shrink: 0; }
-
-/* Bố cục */
 .ui-row  { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .ui-gap  { gap: 8px; }
 .ui-grow { flex: 1; min-width: 0; }
 .ui-sub  { font-size: 11px; color: #666; }
 .ui-mb   { margin-bottom: 12px; }
 .ui-more { text-align: center; margin-top: 4px; }
-
-/* Chỗ trống */
 .ui-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .ui-chip {
   background: #fff3e0;
@@ -3544,8 +3437,6 @@ body[data-page="home"] .demo-banner {
   color: #5D4037;
 }
 .ui-chip-muted { background: #f6f6f6; border-color: #eee; color: #666; font-weight: 500; }
-
-/* Khuyến mãi */
 .ui-promo {
   display: flex;
   align-items: center;
@@ -3557,16 +3448,12 @@ body[data-page="home"] .demo-banner {
   margin-bottom: 8px;
 }
 .ui-promo-code { font-weight: bold; color: #2E7D32; font-size: 14px; }
-
-/* Đơn hàng */
 .ui-order { border: 1px solid #eee; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
 .ui-order .ui-row { color: #3E2723; margin-bottom: 4px; }
 .ui-price { color: #2E7D32; font-weight: bold; }
 .ui-progress { background: #f0f0f0; height: 4px; border-radius: 2px; margin-top: 8px; overflow: hidden; }
 .ui-progress > div { background: #C9A227; height: 100%; border-radius: 2px; transition: width .4s; }
 .ui-step { font-size: 11px; color: #C9A227; margin-top: 4px; text-align: right; }
-
-/* Menu */
 .ui-menu-row { margin-bottom: 12px; }
 .ui-card .menu-item-name {
   font-weight: bold;
@@ -3581,13 +3468,9 @@ body[data-page="home"] .demo-banner {
   background: #C9A227; color: #fff; font-size: 10px; font-weight: 600;
   padding: 1px 6px; border-radius: 10px; vertical-align: middle;
 }
-
-/* Thông tin quán */
 .ui-info { background: #fdf9f3; padding: 10px; border-radius: 8px; font-size: 13px; text-align: left; margin-bottom: 12px; }
 .ui-info p { margin: 0 0 6px; }
 .ui-info p:last-child { margin-bottom: 0; }
-
-/* ---------- Thẻ mở rộng: KPI, danh mục, danh sách, nút chip ---------- */
 .ui-mt { margin-top: 6px; }
 .ui-red { color: #c62828 !important; }
 .ui-dim { opacity: .6; }
@@ -3605,3 +3488,280 @@ body[data-page="home"] .demo-banner {
 .ui-chip-btn { cursor: pointer; font-family: inherit; transition: all .2s; }
 .ui-chip-btn:hover { background: #C9A227; color: #fff; border-color: #C9A227; }
 .ui-chip-warn { background: #fdecea; border-color: #f5c6c2; color: #c62828; }
+/* ============================================================
+   CHAT NEW MSG PILL (Nút "↓ Tin mới" khi cuộn lên)
+============================================================ */
+.chat-new-pill {
+  position: absolute;
+  bottom: 75px; /* Nằm trên thanh nhập liệu */
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--gold);
+  color: var(--darker);
+  border: none;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+}
+
+
+
+/* Phải đảm bảo thẻ cha có position relative để nút bám vào */
+.chat-box, .chat-panel {
+  position: relative; 
+}
+/* ⚡ P2-8: CSS cho UI_COMPARE renderer (dead code phòng thủ) */
+.ui-cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.ui-cmp-col {
+  padding: 12px;
+  background: #fdf9f3;
+  border-radius: 8px;
+  border: 1.5px solid #f0e6d2;
+  text-align: center;
+}
+.ui-cmp-win { border-color: #C9A227; background: #fff8e6; box-shadow: 0 2px 8px rgba(201,162,39,0.2); }
+.ui-cmp-col .menu-item-name { font-size: 13px; font-weight: 700; color: #3E2723; margin-bottom: 4px; }
+.ui-cmp-col .menu-item-price { color: #2E7D32; font-size: 14px; font-weight: 800; margin-bottom: 6px; }
+.ui-cmp-col .ui-sub { font-size: 11px; color: #666; margin-bottom: 8px; }
+.ui-cmp-col .btn { margin-top: 6px; }
+[data-theme="dark"] .ui-cmp-col { background: var(--bg-secondary); border-color: var(--border-color); }
+[data-theme="dark"] .ui-cmp-win { background: #3a2e1e; border-color: var(--accent-color); }
+[data-theme="dark"] .ui-cmp-col .menu-item-name { color: var(--text-primary); }
+/* ============================================================
+   NÚT CHUYỂN ĐỔI SÁNG/TỐI (LIGHT MODE BASE)
+============================================================ */
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-size: 1.2rem;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.theme-toggle:hover {
+  background: rgba(201, 162, 39, 0.15);
+  transform: scale(1.1) rotate(15deg);
+}
+
+/* Fix cho giao diện Mobile (khi menu xổ dọc) */
+@media (max-width: 768px) {
+  .theme-toggle {
+    margin-top: 10px;
+    border-radius: var(--radius-full);
+    width: 100%;
+    height: 42px;
+  }
+}
+/* ============================================================
+   FIX LỖI LAYOUT CHATBOX (TỔNG LỰC)
+============================================================ */
+.chat-box {
+  position: fixed !important;
+  bottom: 110px !important;
+  right: 30px !important;
+  top: unset !important;    /* Xóa mọi thuộc tính top gây lỗi chui lên header */
+  left: unset !important;   /* Xóa mọi thuộc tính left gây lỗi lệch sang trái */
+  z-index: 9999 !important; /* Đảm bảo luôn nổi lên trên cùng */
+  display: none !important; 
+  flex-direction: column !important;
+  width: 360px !important;
+  height: 480px !important;
+  max-height: calc(100vh - 150px) !important;
+  margin: 0 !important;
+  transform: none !important; /* Xóa mọi hiệu ứng biến đổi gây lệch */
+}
+
+/* Khi mở chat (có class .open) thì mới hiển thị dạng flex */
+.chat-box.open {
+  display: flex !important;
+}
+
+/* Fix cho điện thoại */
+@media (max-width: 768px) {
+  .chat-box {
+    bottom: 90px !important;
+    right: 20px !important;
+    left: 20px !important;
+    width: auto !important;
+    height: 70vh !important;
+  }
+}
+/* ============================================================
+   TAY NẮM KÉO GIÃN KHUNG CHAT KHÁCH HÀNG
+============================================================ */
+.chat-box {
+  overflow: hidden; /* Bắt buộc để tay nắm không bị tràn ra ngoài */
+  min-width: 320px;
+  min-height: 400px;
+  /* Các thuộc tính khác giữ nguyên */
+}
+
+.chat-box-resizer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize; /* Icon mũi tên chéo */
+  z-index: 10000;
+  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%);
+  border-top-left-radius: var(--radius-lg);
+  transition: background 0.2s;
+}
+
+.chat-box-resizer:hover {
+  background: linear-gradient(135deg, var(--gold) 0%, transparent 60%);
+}
+
+/* Ẩn tay nắm trên điện thoại (vì mobile đã tự động full width) */
+@media (max-width: 768px) {
+  .chat-box-resizer { display: none; }
+  .chat-box { 
+    width: auto !important; 
+    height: 70vh !important; 
+  }
+}
+  /* ============================================================
+   NÚT "↓ TIN MỚI" (SMART SCROLL PILL - BẢN FIX)
+============================================================ */
+.chat-new-pill {
+  position: absolute;
+  bottom: 90px; /* Nằm ngay trên thanh nhập liệu */
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--gold, #C9A227);
+  color: var(--darker, #2A1A14);
+  border: none;
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 9999 !important; /* ⚡ Ép nổi lên trên cùng */
+}
+
+.chat-new-pill.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.chat-new-pill:hover {
+  background: var(--gold-light, #E0BE4A);
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+}
+/* ============================================================
+   FINAL OVERRIDE — PILL "↓ TIN MỚI" + SMART SCROLL
+   Đặt CUỐI style.css — đè mọi rule trùng phía trên.
+============================================================ */
+
+.chat-new-pill {
+  position: absolute !important;
+  bottom: 90px !important;
+  left: 50% !important;
+  transform: translateX(-50%) translateY(20px) !important;
+  background: var(--gold, #C9A227) !important;
+  color: var(--darker, #2A1A14) !important;
+  border: none !important;
+  padding: 8px 18px !important;
+  border-radius: 20px !important;
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 15px rgba(0,0,0,.4) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity .25s ease, transform .3s cubic-bezier(.4, 0, .2, 1), background .15s !important;
+  z-index: 100 !important;
+  white-space: nowrap !important;
+  max-width: calc(100% - 24px) !important;
+  font-family: inherit !important;
+  will-change: transform, opacity !important;
+}
+
+.chat-new-pill.show {
+  opacity: 1 !important;
+  transform: translateX(-50%) translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+.chat-new-pill:hover {
+  background: var(--gold-light, #E0BE4A) !important;
+  transform: translateX(-50%) translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(0,0,0,.5) !important;
+}
+
+.chat-new-pill:active {
+  transform: translateX(-50%) translateY(0) scale(.97) !important;
+}
+
+/* Ẩn pill khi panel staff bị thu gọn */
+.chat-panel.collapsed ~ .chat-new-pill,
+.chat-panel.collapsed .chat-new-pill { display: none !important; }
+.chat-new-pill {
+  position: absolute !important;
+  bottom: 90px !important; /* Đẩy cao lên trên thanh nhập liệu */
+  left: 50% !important;
+  transform: translateX(-50%) translateY(20px) !important;
+  background: var(--gold, #C9A227) !important;
+  color: var(--darker, #2A1A14) !important;
+  border: none !important;
+  padding: 6px 16px !important;
+  border-radius: 20px !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 15px rgba(0,0,0,.4) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity .25s ease, transform .3s cubic-bezier(.4, 0, .2, 1) !important;
+  z-index: 9999 !important;
+  white-space: nowrap !important;
+}
+.chat-new-pill.show {
+  opacity: 1 !important;
+  transform: translateX(-50%) translateY(0) !important;
+  pointer-events: auto !important;
+}
+.chat-new-pill:hover {
+  background: var(--gold-light, #E0BE4A) !important;
+  transform: translateX(-50%) translateY(-2px) !important;
+}
+.quick-time-btn {
+  padding: 6px 12px;
+  border: 1.5px solid var(--gray-light);
+  background: #fff;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.quick-time-btn:hover {
+  border-color: var(--gold);
+  background: var(--cream);
+  transform: translateY(-1px);
+}
+.quick-time-btn:active { transform: scale(0.96); }
+[data-theme="dark"] .quick-time-btn { background: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-color); }
