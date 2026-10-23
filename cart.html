@@ -238,6 +238,11 @@ function renderCartPage() {
   const content = document.getElementById('cartContent');
   if (!empty || !content) return;
 
+  // ⚡ CHỐNG NHÁY: Nếu số lượng món và tổng tiền không đổi, không vẽ lại
+  const signature = JSON.stringify(cart.map(i => `${i.itemId}_${i.size}_${i.qty}`));
+  if (content.dataset.signature === signature) return;
+  content.dataset.signature = signature;
+
   if (cart.length === 0) {
     empty.hidden = false;
     content.hidden = true;

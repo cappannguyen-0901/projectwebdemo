@@ -401,14 +401,7 @@ function renderBookings() {
   `;
 }
 
-function completeBooking(id) {
-  if (!confirm('Đánh dấu booking này hoàn thành?')) return;
-  API.bookings.complete(id);
-  refreshAll();
-  showToast('✓ Đã hoàn thành booking');
-}
-Realtime.on('booking:changed', refreshAll);
-Realtime.on('order:changed', refreshAll);
+
 </script>
 <script src="js/demo.js"></script>
 <script src="js/fx.js"></script>

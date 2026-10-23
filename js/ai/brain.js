@@ -1234,7 +1234,7 @@ const AIMetrics = {
     if (this._timer) return;
     this._timer = setTimeout(() => { this._timer = null; this._flush(); }, this.FLUSH_MS);
   },
-  _flush() {
+      _flush() {
     if (this._timer) { clearTimeout(this._timer); this._timer = null; }
     if (this._pending.length === 0) return;
     const pending = this._pending;
@@ -1244,34 +1244,44 @@ const AIMetrics = {
       pending.forEach(e => a.push(e));
       if (a.length > this.MAX) a.splice(0, a.length - this.MAX);
       localStorage.setItem(this.KEY, JSON.stringify(a));
+      
+      // ⚡ PHÁT TÍN HIỆU REALTIME KHI LƯU XONG
+      if (window.Realtime && typeof window.Realtime.emit === 'function') {
+        window.Realtime.emit('data:changed', { source: 'AIMetrics' });
+      }
+      
     } catch (e) {
       console.warn('[AIMetrics] flush thất bại:', e);
       this._pending = pending.concat(this._pending);
     }
   },
   _writeRaw(list) { try { localStorage.setItem(this.KEY, JSON.stringify(list)); } catch (e) {} },
-  logFeedback(question, answer, vote) {
-  const q = String(question || '').slice(0, 90);
-
-  // ⚡ Tìm entry khớp câu hỏi trong buffer chưa flush (gần cuối trước)
-  for (let i = this._pending.length - 1; i >= 0; i--) {
-    if (this._pending[i].q === q) {
-      this._pending[i].feedback = vote;
-      this._flush();
-      return;
+    logFeedback(question, answer, vote) {
+    const q = String(question || '').slice(0, 90);
+    
+    // Tìm entry tương ứng
+    for (let i = this._pending.length - 1; i >= 0; i--) {
+      if (this._pending[i].q === q) {
+        this._pending[i].feedback = vote;
+        this._flush();
+        return;
+      }
     }
-  }
-
-  // ⚡ Fallback: tìm trong list đã lưu
-  const list = this.getAll();
-  for (let i = list.length - 1; i >= 0; i--) {
-    if (list[i].q === q) {
-      list[i].feedback = vote;
-      this._writeRaw(list);
-      return;
+    
+    const list = this.getAll();
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i].q === q) {
+        list[i].feedback = vote;
+        this._writeRaw(list);
+        
+        // ⚡ PHÁT TÍN HIỆU REALTIME
+        if (window.Realtime && typeof window.Realtime.emit === 'function') {
+          window.Realtime.emit('data:changed', { source: 'feedback' });
+        }
+        return;
+      }
     }
-  }
-},
+  },
   clear() {
     if (this._timer) { clearTimeout(this._timer); this._timer = null; }
     this._pending = [];
@@ -1284,10 +1294,20 @@ const AIMetrics = {
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') this._flush(); });
     window.addEventListener('pagehide', () => this._flush());
   },
-  summary(list) {
+   summary(list) {
     list = list || this.getAll();
     const SRC = ['kb', 'rule', 'cache', 'llm', 'legacy'];
-    const out = { total: list.length, bySrc: { kb: 0, rule: 0, cache: 0, llm: 0, legacy: 0 }, avgMs: { kb: 0, rule: 0, cache: 0, llm: 0, legacy: 0 }, avgTtftBy: { kb: 0, rule: 0, cache: 0, llm: 0, legacy: 0 }, avgTtft: 0, p95Llm: 0, noLlmPct: 0, legacyPct: 0, tokIn: 0, tokOut: 0, llmCalls: 0, retries: 0, feedbackUp: 0, feedbackDown: 0, tools: [], models: [], intents: [] };
+    // ⚡ SỬA TÊN BIẾN TẠI ĐÂY (Đổi feedbackUp -> fbUp, feedbackDown -> fbDown)
+    const out = { 
+      total: list.length, 
+      bySrc: { kb: 0, rule: 0, cache: 0, llm: 0, legacy: 0 }, 
+      avgMs: { kb: 0, rule: 0, cache: 0, llm: 0, legacy: 0 }, 
+      avgTtftBy: { kb: 0, rule: 0, cache: 0, llm: 0, legacy: 0 }, 
+      avgTtft: 0, p95Llm: 0, noLlmPct: 0, legacyPct: 0, 
+      tokIn: 0, tokOut: 0, llmCalls: 0, retries: 0, 
+      fbUp: 0, fbDown: 0, // ⚡ Đã đổi tên ở đây
+      tools: [], models: [], intents: [] 
+    };
     const msSum = { kb: 0, rule: 0, cache: 0, llm: 0, legacy: 0 };
     const ttSum = { kb: 0, rule: 0, cache: 0, llm: 0, legacy: 0 }, ttN = { kb: 0, rule: 0, cache: 0, llm: 0, legacy: 0 };
     const toolMap = {}, modelMap = {}, intentMap = {};
@@ -1306,8 +1326,8 @@ const AIMetrics = {
       (e.tools || []).forEach(t => { toolMap[t] = (toolMap[t] || 0) + 1; });
       if (e.model) modelMap[e.model] = (modelMap[e.model] || 0) + 1;
       if (e.intent) intentMap[e.intent] = (intentMap[e.intent] || 0) + 1;
-      if (e.feedback === 'up') out.feedbackUp++;
-      if (e.feedback === 'down') out.feedbackDown++;
+            if (e.feedback === 'up') out.fbUp++;   // ⚡ Đổi thành fbUp
+      if (e.feedback === 'down') out.fbDown++; // ⚡ Đổi thành fbDown
     });
     SRC.forEach(s => { out.avgMs[s] = out.bySrc[s] ? Math.round(msSum[s] / out.bySrc[s]) : 0; out.avgTtftBy[s] = ttN[s] ? Math.round(ttSum[s] / ttN[s]) : 0; });
     out.avgTtft = ttftN ? Math.round(ttftSum / ttftN) : 0;

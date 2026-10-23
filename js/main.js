@@ -48,6 +48,13 @@ function updateUserArea() {
     catch (e) { cartCount = 0; }
   }
 
+  // ⚡ CHỐNG NHÁY: Tạo một "chữ ký" (signature) cho trạng thái hiện tại
+  const signature = `${user ? user.id : 'guest'}_${cartCount}`;
+  
+  // Nếu trạng thái không đổi so với lần vẽ trước, bỏ qua không vẽ lại
+  if (el.dataset.signature === signature) return;
+  el.dataset.signature = signature;
+
   const cartBtn = !isStaff ? `
     <a href="cart.html" class="cart-icon" title="Giỏ hàng">
       🛒${cartCount > 0 ? `<span class="cart-badge">${cartCount}</span>` : ''}
@@ -746,15 +753,20 @@ const UICards = {
         </div>`;
     },
 
-    CATALOG(d) {
+        CATALOG(d) {
       return `
         <div class="ui-card">
           <h4>📖 Menu CAPPAN (${esc(d.totalItems)} món)</h4>
           ${(d.categories || []).map(c => `
-            <div class="ui-cat"><span>${esc(c.name)}</span><span class="ui-sub">${esc(c.count)} món</span></div>
-            ${(c.items || []).map(m => this.menuRow(m)).join('')}
+            <div class="ui-cat" style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #f0e6d2; padding-bottom: 6px; margin-top: 12px;">
+              <div><span style="font-weight:700; color:#5D4037;">${esc(c.name)}</span> <span class="ui-sub">(${esc(c.count)} món)</span></div>
+              <a href="order.html?cat=${esc(c.id)}" class="btn ui-btn-sm" style="text-decoration:none; padding: 4px 12px; font-size: 12px; border-radius: 6px;">Xem nhóm →</a>
+            </div>
+            <div style="margin-top: 8px;">
+              ${(c.items || []).map(m => this.menuRow(m)).join('')}
+            </div>
           `).join('')}
-          <a href="menu.html" class="btn ui-btn-block">Xem toàn bộ Menu</a>
+          <a href="menu.html" class="btn-outline ui-btn-block">Xem toàn bộ Menu</a>
         </div>`;
     },
 
@@ -1401,3 +1413,78 @@ window.exportChatHistory = function() {
     showToast('⚠ Export thất bại', '#c62828');
   }
 };
+/* ============================================================
+   GLOBAL REALTIME SYNC LISTENER (BẢN FULL 100% + FOCUS WAKEUP)
+============================================================ */
+window.addEventListener('cappan:sync', () => {
+  updatePageUI();
+});
+
+// ⚡ CHỐNG NGỦ ĐÔNG: Khi bạn chuyển sang tab này, nó tự động cập nhật ngay
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    updatePageUI();
+  }
+});
+window.addEventListener('focus', () => {
+  updatePageUI();
+});
+
+function updatePageUI() {
+  const page = document.body.dataset.page;
+  console.log(`[Realtime Sync] Đã đồng bộ trang: ${page}`);
+  
+  const call = (fnName) => {
+    try {
+      if (typeof window[fnName] === 'function') window[fnName]();
+    } catch (err) {}
+  };
+
+  try {
+    if (page === 'booking') {
+      call('renderSeatMap');
+      call('renderFloorSwitch');
+      call('renderFloorSummary');
+    }
+    else if (page === 'order') {
+      call('renderOrderGrid');
+      call('renderCartMini');
+    }
+    else if (page === 'cart') {
+      call('renderCartPage');
+    }
+    else if (page === 'profile') {
+      if (typeof Profile !== 'undefined' && Profile.render) Profile.render();
+    }
+    else if (page === 'staff-dashboard') {
+      call('refreshAll');
+    }
+    else if (page === 'staff-orders') {
+      call('renderOrders');
+    }
+    else if (page === 'staff-bookings') {
+      call('renderBookings');
+    }
+    else if (page === 'staff-menu') {
+      call('renderMenu');
+    }
+    else if (page === 'staff-promotions') {
+      call('renderPromos');
+    }
+    else if (page === 'staff-schedule') {
+      call('renderSchedule');
+      call('renderPickerSide');
+    }
+    else if (page === 'staff-stats') {
+      call('renderAll');
+    }
+    else if (page === 'staff-ai') {
+      // ⚡ GỌI HÀM RENDER CỦA TRANG AI
+      if (typeof render === 'function') render();
+    }
+    
+    call('updateUserArea');
+  } catch (err) {
+    console.warn('[Realtime Sync] Render error:', err);
+  }
+}

@@ -247,12 +247,18 @@ const AIBrainLegacy = {
     return `Dạ còn ${filtered.length} chỗ ở khu vực ${zoneName}:\n${list}\n\nBạn vào mục "Đặt chỗ" để chọn nhé!`;
   },
 
-  _replyMenuByCategory(catId) {
+    _replyMenuByCategory(catId) {
     const cat = API.categories.getById(catId);
     if (!cat) return null;
     const items = API.menu.getByCategory(catId);
-    const list = items.map(m => `• ${m.name} – ${API.utils.formatVND(m.price)}`).join('\n');
-    return `${cat.name} có ${items.length} món:\n${list}`;
+    
+    // ⚡ Trả về thẻ UI_MENU (Tự động có nút "+ Thêm" cho từng món)
+    const data = {
+      title: `${cat.name} (${items.length} món)`,
+      total: items.length,
+      items: items.map(m => ({ id: m.id, name: m.name, price: m.price, inStock: m.inStock, badge: m.badge }))
+    };
+    return `[UI_MENU]${JSON.stringify(data)}[/UI_MENU]`;
   },
 
   _checkGreeting(text, user) {
@@ -331,7 +337,7 @@ const AIBrainLegacy = {
     return reply + '\nBạn muốn ngồi khu vực nào? (yên tĩnh / cửa sổ / nhóm / ngoài trời)';
   },
 
-  _checkMenu(text) {
+    _checkMenu(text) {
     if (/giỏ hàng|gio hang|cart/.test(text)) return null;
     if (/\b(đầy đủ|toàn bộ|full|tất cả)\b/i.test(text)) return null;
 
@@ -343,20 +349,31 @@ const AIBrainLegacy = {
 
     this._lastTopic = 'menu';
     const cats = API.categories.getAll();
-    const total = API.menu.getAll().length;
-
-    let reply = `Dạ CAPPAN có ${total} món chia làm ${cats.length} nhóm:\n`;
-    cats.forEach(c => {
-      const count = API.menu.getByCategory(c.id).length;
-      reply += `• ${c.name} (${count} món)\n`;
-    });
-    reply += '\nBạn muốn uống nhóm nào ạ?';
-    return reply;
+    const items = API.menu.getAll();
+    
+    // ⚡ Trả về thẻ UI_CATALOG
+    const data = {
+      totalItems: items.length,
+      categories: cats.map(c => {
+        const catItems = items.filter(m => m.categoryId === c.id);
+        return {
+          id: c.id,
+          name: c.name,
+          count: catItems.length,
+          items: catItems.slice(0, 2).map(m => ({ id: m.id, name: m.name, price: m.price, inStock: m.inStock, badge: m.badge }))
+        };
+      }).filter(c => c.count > 0)
+    };
+    return `[UI_CATALOG]${JSON.stringify(data)}[/UI_CATALOG]`;
   },
 
-  _checkPrice(text) {
+    _checkPrice(text) {
+    // ⚡ Dùng normVN để bỏ dấu, chặn mọi thể loại "mã giảm giá"
+    const n = (typeof normVN === 'function') ? normVN(text) : String(text || '').toLowerCase();
+    if (/\b(ma giam|khuyen mai|voucher|coupon|ma km|giam gia|sale)\b/.test(n)) return null;
+
     const keys = ['giá', 'bao nhiêu', 'mắc không', 'đắt không'];
-    if (!keys.some(k => text.includes(k))) return null;
+    if (!keys.some(k => n.includes(k) || text.includes(k))) return null;
 
     const items = API.menu.getAll();
     const min = Math.min(...items.map(i => i.price));
@@ -369,7 +386,6 @@ const AIBrainLegacy = {
 
     return `Dạ đồ uống CAPPAN dao động từ ${API.utils.formatVND(min)} đến ${API.utils.formatVND(max)}. Bạn muốn hỏi giá món nào cụ thể không?`;
   },
-
   _checkHours(text) {
     const keys = ['giờ', 'mở cửa', 'đóng cửa', 'mấy giờ'];
     if (!keys.some(k => text.includes(k))) return null;
@@ -478,8 +494,26 @@ const AIBrainLegacy = {
     return null;
   },
 
-  _checkPromotions(text) {
-    return null;
+    _checkPromotions(text) {
+    const n = (typeof normVN === 'function') ? normVN(text) : String(text || '').toLowerCase();
+    
+    // ⚡ Nhận diện mọi biến thể có dấu hoặc không dấu
+    if (!/\b(ma giam|khuyen mai|voucher|coupon|ma km|giam gia|sale)\b/.test(n)) return null;
+
+    const today = API.utils.today();
+    const active = API.promotions.getActive(today);
+    if (active.length === 0) return 'Dạ hiện tại quán chưa có chương trình khuyến mãi nào ạ.';
+
+    // Tạo dữ liệu để vẽ Thẻ UI_PROMO
+    const data = active.map(p => ({
+      code: p.code,
+      description: p.description || p.name,
+      discount: p.discount,
+      minOrder: p.minOrder,
+      validTo: p.endDate
+    }));
+
+    return `[UI_PROMO]${JSON.stringify(data)}[/UI_PROMO]`;
   },
 
   _checkMyAccount(text, user) {
@@ -799,6 +833,10 @@ const LocalBrain = {
     else if (/\b(ngay mai|toi mai|sang mai|chieu mai)\b/.test(n)) S.date = 'Ngày mai';
     else if (/\b(ngay mot|toi mot)\b/.test(n)) S.date = 'Ngày mốt';
     else if (/\b(thu 2|thu 3|thu 4|thu 5|thu 6|thu 7|chu nhat)\b/.test(n)) S.date = raw.match(/\b(thu 2|thu 3|thu 4|thu 5|thu 6|thu 7|chu nhat)\b/)[0];
+    if (/\b(sang|sáng)\b/.test(n)) S.timeOfDay = 'sáng';
+    else if (/\b(trua|trưa)\b/.test(n)) S.timeOfDay = 'trưa';
+    else if (/\b(chieu|chiều)\b/.test(n)) S.timeOfDay = 'chiều';
+    else if (/\b(toi|tối)\b/.test(n)) S.timeOfDay = 'tối';
 
     // ⚡ 2. Nhận diện Giờ (19:30, 19h, 7 gio toi, 19 30)
     const timeMatch = n.match(/\b(\d{1,2})\s*(?::|h|gio)\s*(\d{2})?\b/) || n.match(/\b(\d{1,2})\s+(\d{2})\b/);
@@ -890,6 +928,7 @@ const LocalBrain = {
     if (S.date) this.bookingDraft.date = S.date;
     if (S.time) this.bookingDraft.time = S.time;
     if (S.floor) this.bookingDraft.floor = S.floor;
+    if (S.timeOfDay) this.bookingDraft.timeOfDay = S.timeOfDay;
     
     const d = this.bookingDraft;
 
@@ -904,8 +943,14 @@ const LocalBrain = {
     }
 
     // 3. Thiếu Giờ (Trường hợp phổ biến nhất)
-    if (!d.time) {
-      return this._r('booking', `Dạ đặt bàn ${d.size} người vào ${d.date.toLowerCase()}. Anh/chị dự định đến lúc mấy giờ ạ? (VD: 19:30, 8h tối...)`, 0.95);
+        if (!d.time) {
+      // ⚡ Gợi ý giờ thông minh dựa trên buổi khách đã chọn
+      let timeHint = "(VD: 19:30, 8h tối...)"; // Mặc định là tối
+      if (d.timeOfDay === 'sáng') timeHint = "(VD: 08:00, 9h sáng...)";
+      else if (d.timeOfDay === 'trưa') timeHint = "(VD: 11:30, 12h trưa...)";
+      else if (d.timeOfDay === 'chiều') timeHint = "(VD: 14:00, 3h chiều...)";
+      
+      return this._r('booking', `Dạ đặt bàn ${d.size} người vào ${d.date.toLowerCase()}. Anh/chị dự định đến lúc mấy giờ ạ? ${timeHint}`, 0.95);
     }
 
     // 4. Đã đủ thông tin -> Chốt đơn

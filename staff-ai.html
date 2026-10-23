@@ -158,14 +158,17 @@ function render() {
   const s = AIMetrics.summary(list);
   const n = v => Number(v).toLocaleString('vi-VN');
 
-  document.getElementById('aiCards').innerHTML = [
+    document.getElementById('aiCards').innerHTML = [
     ['💬', s.total, 'Tổng lượt hỏi'],
-    ['🎯', s.noLlmPct + '%', 'Không tốn token (KB + cache)'],
-    ['⚡', s.avgTtft + 'ms', 'Chữ đầu tiên (TB mỗi nguồn)'],
-    ['⏱', s.avgTtftBy.llm ? s.avgTtftBy.llm + 'ms' : '—', 'Chữ đầu tiên (chỉ khi gọi AI)'],
+    ['🎯', s.noLlmPct + '%', 'Không tốn token'],
+    ['⚡', s.avgTtft + 'ms', 'TTFT (Trung bình)'],
+    ['⏱', s.avgTtftBy.llm ? s.avgTtftBy.llm + 'ms' : '—', 'TTFT (Gọi AI)'],
     ['🧮', n(s.tokIn + s.tokOut), 'Token ước tính'],
-    ['🛟', s.legacyPct + '%', 'Rơi xuống dự phòng'],
-    ['👍', (s.fbUp + s.fbDown) ? Math.round(s.fbUp / (s.fbUp + s.fbDown) * 100) + '%' : '—', 'Hài lòng (' + (s.fbUp + s.fbDown) + ' phản hồi)']
+    ['🛟', s.legacyPct + '%', 'Dự phòng'],
+    // ⚡ TÁCH RIÊNG LIKE VÀ DISLIKE
+    ['👍', s.fbUp, 'Hài lòng'],
+    ['👎', s.fbDown, 'Không hài lòng'],
+    ['📊', (s.fbUp + s.fbDown) ? Math.round(s.fbUp / (s.fbUp + s.fbDown) * 100) + '%' : '—', 'Tỷ lệ hài lòng']
   ].map(([icon, val, label]) => `
     <div class="stat-card">
       <div class="stat-icon">${icon}</div>
@@ -234,7 +237,15 @@ function exportCSV()  { download('cappan-ai-metrics.csv', AIMetrics.toCSV(), 'te
 function exportJSON() { download('cappan-ai-metrics.json', JSON.stringify(AIMetrics.getAll(), null, 2), 'application/json'); }
 function clearMetrics() {
   if (!confirm('Xóa toàn bộ số liệu AI đã ghi?')) return;
-  AIMetrics.clear(); render(); showToast('✓ Đã xóa số liệu AI');
+  AIMetrics.clear(); 
+  
+  // ⚡ Phát tín hiệu để các tab khác cũng xóa
+  if (window.Realtime && typeof window.Realtime.emit === 'function') {
+    window.Realtime.emit('data:changed', { source: 'AIMetrics' });
+  }
+  
+  render(); 
+  showToast('✓ Đã xóa số liệu AI');
 }
 
 const SAMPLES = [

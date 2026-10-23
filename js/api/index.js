@@ -17,13 +17,38 @@ const API = {
     },
     getById(id) { return this.getAll().find(u => u.id === id) || null; },
     getByPhone(p) { return this.getAll().find(u => u.phone === p) || null; },
-    getCurrent() {
-      try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.currentUser) || 'null'); }
-      catch { return null; }
+        getCurrent() {
+      try {
+        // ⚡ SỬA LỖI ĐA TAB: Dùng sessionStorage thay vì localStorage
+        const raw = sessionStorage.getItem(STORAGE_KEYS.currentUser) || localStorage.getItem(STORAGE_KEYS.currentUser);
+        return JSON.parse(raw || 'null'); 
+      } catch { return null; }
     },
+    
     setCurrent(u) {
-      if (u) localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(u));
-      else localStorage.removeItem(STORAGE_KEYS.currentUser);
+      if (u) {
+        // Lưu vào sessionStorage để mỗi tab có một phiên riêng
+        sessionStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(u));
+        localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(u)); // Fallback
+      } else {
+        sessionStorage.removeItem(STORAGE_KEYS.currentUser);
+        localStorage.removeItem(STORAGE_KEYS.currentUser);
+      }
+    },    getCurrent() {
+      try {
+        // ⚡ CHỈ ĐỌC TỪ SESSION STORAGE. Mỗi tab có một session riêng.
+        const raw = sessionStorage.getItem(STORAGE_KEYS.currentUser);
+        return JSON.parse(raw || 'null'); 
+      } catch { return null; }
+    },
+    
+    setCurrent(u) {
+      if (u) {
+        // ⚡ CHỈ LƯU VÀO SESSION STORAGE. Không can thiệp vào localStorage chung.
+        sessionStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(u));
+      } else {
+        sessionStorage.removeItem(STORAGE_KEYS.currentUser);
+      }
     },
     create(data) {
       const list = this.getAll();

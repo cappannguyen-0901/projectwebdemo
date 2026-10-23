@@ -184,6 +184,7 @@ let selectedSeatId = null;
 
 function renderFloorSwitch() {
   const el = document.getElementById('floorSwitch');
+  if (!el) return;
   el.innerHTML = API.floors.getAll().map(f => {
     const booked = API.seats.getByFloor(f.id).filter(s => s.status === 'booked').length;
     const total = API.seats.getByFloor(f.id).length;
@@ -199,6 +200,7 @@ function renderFloorSwitch() {
 
 function renderFloorSummary() {
   const el = document.getElementById('floorSummary');
+  if (!el) return;
   const floor = API.floors.getById(currentFloorId);
   const seats = API.seats.getByFloor(currentFloorId);
   const available = seats.filter(s => s.status === 'available').length;
@@ -225,7 +227,8 @@ function renderFloorSummary() {
 function switchFloor(floorId) {
   currentFloorId = floorId;
   selectedSeatId = null;
-  document.getElementById('seatInfoPanel').classList.remove('show');
+  const panel = document.getElementById('seatInfoPanel');
+  if (panel) panel.classList.remove('show');
   renderFloorSwitch();
   renderFloorSummary();
   renderSeatMap();
@@ -236,7 +239,6 @@ function renderSeatMap() {
   const seats = API.seats.getByFloor(currentFloorId);
   if (!el) return;
 
-  // ⚡ Số cột theo kích thước màn hình
   const w = window.innerWidth;
   let cols;
   if (w < 400) cols = 2;
@@ -312,11 +314,11 @@ function openBookingForm() {
   const dateEl = document.getElementById('bkDate');
   dateEl.min = API.utils.today();
   const sameDay = now.getDate() === new Date().getDate();
+  
   if (!sameDay || validateBooking(API.utils.today(), hhmm(now))) {
-    /* quá giờ nhận đặt hôm nay → gợi ý sáng mai */
     const tm = new Date(); tm.setDate(tm.getDate() + 1);
     dateEl.value = `${tm.getFullYear()}-${String(tm.getMonth()+1).padStart(2,'0')}-${String(tm.getDate()).padStart(2,'0')}`;
-        document.getElementById('bkTime').value = '08:00';
+    document.getElementById('bkTime').value = '08:00';
     showToast('ℹ️ Đã quá giờ nhận đặt hôm nay, gợi ý bạn đặt cho ngày mai', '#856404');
   } else {
     document.getElementById('bkTime').value = hhmm(now);
@@ -331,7 +333,6 @@ function openBookingForm() {
   openModal('bookingModal');
 }
 
-/* Kiểm tra ngày/giờ đặt chỗ. Trả về thông báo lỗi hoặc null nếu hợp lệ */
 function validateBooking(date, time) {
   const today = API.utils.today();
   if (!date || !time) return 'Vui lòng chọn ngày và giờ';
@@ -345,7 +346,7 @@ function validateBooking(date, time) {
   const [h, m] = time.split(':').map(Number);
   const mins = h * 60 + m;
   if (mins < 7 * 60 || mins > 22 * 60) {
-    return 'Giờ đặt phải trong khoảng 07:00 – 22:00 (quán mở 07:00 – 22:30)';
+    return 'Giờ đặt phải trong khoảng 07:00 – 22:00';
   }
 
   if (date === today) {
@@ -364,10 +365,12 @@ function handleBooking(e) {
   const user = API.users.getCurrent();
   const err = validateBooking(document.getElementById('bkDate').value, document.getElementById('bkTime').value);
   if (err) { showToast('⚠ ' + err, '#c62828'); return false; }
+  
   if (API.bookings.getByUser(user.id).filter(b => b.status === 'confirmed').length >= 3) {
     showToast('⚠ Bạn đang có 3 chỗ đặt hoạt động, vui lòng hoàn tất/hủy bớt trước khi đặt thêm', '#c62828');
     return false;
   }
+  
   const data = {
     userId: user.id,
     seatId: selectedSeatId,
@@ -379,82 +382,74 @@ function handleBooking(e) {
   };
 
   let bk = null;
-try {
-  bk = API.bookings.create(data);
-} catch (err) {
-  console.error('[booking] create error:', err);
-  showToast('⚠ Không thể đặt chỗ do lỗi lưu trữ, vui lòng thử lại', '#c62828');
-  return false;
-}
+  try {
+    bk = API.bookings.create(data);
+  } catch (err) {
+    console.error('[booking] create error:', err);
+    showToast('⚠ Không thể đặt chỗ do lỗi lưu trữ, vui lòng thử lại', '#c62828');
+    return false;
+  }
 
-// ⚡ Xử lý khi seat đã bị đặt (race giữa 2 tab)
-if (!bk) {
+  if (!bk) {
+    closeModal('bookingModal');
+    selectedSeatId = null;
+    document.getElementById('seatInfoPanel').classList.remove('show');
+    renderFloorSwitch();
+    renderFloorSummary();
+    renderSeatMap();
+    showToast('⚠ Bàn này vừa được đặt — mời bạn chọn bàn khác', '#c62828');
+    return false;
+  }
+
   closeModal('bookingModal');
   selectedSeatId = null;
   document.getElementById('seatInfoPanel').classList.remove('show');
   renderFloorSwitch();
   renderFloorSummary();
   renderSeatMap();
-  showToast('⚠ Bàn này vừa được đặt — mời bạn chọn bàn khác', '#c62828');
-  return false;
-}
 
-
-closeModal('bookingModal');
-selectedSeatId = null;
-document.getElementById('seatInfoPanel').classList.remove('show');
-renderFloorSwitch();
-renderFloorSummary();
-renderSeatMap();
-
-showToast(`✓ Đặt bàn ${bk.seatId} thành công! Mã: ${bk.id}`);
-// ⚡ WOW: Chat receipt card nếu chat đang mở
-try {
-  const chatBody = document.getElementById('chatBody');
-  if (chatBody && typeof UICards !== 'undefined' && typeof UICards.appendTo === 'function') {
-    const floorInfo = API.floors.getById(bk.floorId);
-    const receipt = `[UI_BOOKING]${JSON.stringify({
-      title: '✅ Đặt bàn thành công',
-      total: 1,
-      bookings: [{
-        id: bk.id,
-        customerName: user.name || 'Khách',
-        seatId: bk.seatId,
-        floorName: floorInfo ? floorInfo.name : bk.floorId,
-        time: bk.time,
-        guests: bk.guests,
-        note: bk.note || ''
-      }]
-    })}[/UI_BOOKING]`;
-    UICards.appendTo(receipt);
-  }
-} catch (e) { console.warn('[booking] chat receipt failed:', e); }
+  showToast(`✓ Đặt bàn ${bk.seatId} thành công! Mã: ${bk.id}`);
   
-  // ⚡ F2: Bắn confetti khi đặt bàn thành công
+  try {
+    const chatBody = document.getElementById('chatBody');
+    if (chatBody && typeof UICards !== 'undefined' && typeof UICards.appendTo === 'function') {
+      const floorInfo = API.floors.getById(bk.floorId);
+      const receipt = `[UI_BOOKING]${JSON.stringify({
+        title: '✅ Đặt bàn thành công',
+        total: 1,
+        bookings: [{
+          id: bk.id,
+          customerName: user.name || 'Khách',
+          seatId: bk.seatId,
+          floorName: floorInfo ? floorInfo.name : bk.floorId,
+          time: bk.time,
+          guests: bk.guests,
+          note: bk.note || ''
+        }]
+      })}[/UI_BOOKING]`;
+      UICards.appendTo(receipt);
+    }
+  } catch (e) { console.warn('[booking] chat receipt failed:', e); }
+
   if (typeof window.fxConfetti === 'function') window.fxConfetti();
+  if (typeof window.refreshSeatCardsAfterBooking === 'function') window.refreshSeatCardsAfterBooking();
   
-  // ⚡ F2: Refresh thẻ chat nếu đang mở
-  if (typeof window.refreshSeatCardsAfterBooking === 'function') {
-    window.refreshSeatCardsAfterBooking();
-  }
   return false;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   if (Auth.isStaff()) return;
 
-  // ⚡ CRITICAL: render UI lần đầu — TRƯỚC mọi logic khác
+  // ⚡ FIX: Render giao diện lần đầu
   renderFloorSwitch();
   renderFloorSummary();
   renderSeatMap();
 
-  // Đọc ?seat=... từ URL
   const preSeat = new URLSearchParams(location.search).get('seat');
   if (preSeat) {
     const seat = API.seats.getById(preSeat);
     if (seat && seat.status === 'available') {
       currentFloorId = seat.floorId;
-      // ⚡ CRITICAL: render lại SAU KHI đổi tầng để tab/summary đồng bộ
       renderFloorSwitch();
       renderFloorSummary();
       renderSeatMap();
@@ -464,25 +459,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  Realtime.on('booking:changed', () => {
-    if (selectedSeatId) {
-      const seat = API.seats.getById(selectedSeatId);
-      if (!seat || seat.status !== 'available') {
-        showToast(`⚠ Bàn ${selectedSeatId} vừa được người khác đặt`, '#c62828');
-        selectedSeatId = null;
-        document.getElementById('seatInfoPanel').classList.remove('show');
-      }
-    }
-    renderFloorSwitch();
-    renderFloorSummary();
-    renderSeatMap();
-  });
-
   window.addEventListener('storage', () => {
     if (selectedSeatId) {
       const seat = API.seats.getById(selectedSeatId);
       if (!seat || seat.status !== 'available') {
-        showToast(`⚠ Bàn ${selectedSeatId} vừa được người khác đặt — mời chọn bàn khác`, '#c62828');
+        showToast(`⚠ Bàn ${selectedSeatId} vừa được người khác đặt`, '#c62828');
         selectedSeatId = null;
         document.getElementById('seatInfoPanel').classList.remove('show');
       }
