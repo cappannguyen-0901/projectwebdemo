@@ -239,7 +239,7 @@ function renderCartPage() {
   if (!empty || !content) return;
 
   // ⚡ CHỐNG NHÁY: Nếu số lượng món và tổng tiền không đổi, không vẽ lại
-  const signature = JSON.stringify(cart.map(i => `${i.itemId}_${i.size}_${i.qty}`));
+  const signature = JSON.stringify(cart.map(i => `${i.itemId}_${i.size}_${i.qty}`)) + '_' + (appliedPromo || 'none');
   if (content.dataset.signature === signature) return;
   content.dataset.signature = signature;
 

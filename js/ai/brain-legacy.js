@@ -122,6 +122,7 @@ const AIBrainLegacy = {
     const card = (tag, data) => `[UI_${tag}]${JSON.stringify(data)}[/UI_${tag}]`;
 
     const rules = [
+    
       [/\b(nhan vien|staff)\b.*\b(danh sach|list|ai|co ai)\b/, () => {
         const staff = API.staff.getAll();
         if (!staff.length) return '👥 Chưa có nhân viên trong hệ thống.';
@@ -195,6 +196,7 @@ const AIBrainLegacy = {
       if (re.test(n)) { try { return build(); } catch (e) { return null; } }
     }
     return null;
+    
   },
 
   _detectTopic(text) {
