@@ -496,17 +496,21 @@ const AIBrainLegacy = {
     return null;
   },
 
-    _checkPromotions(text) {
+      _checkPromotions(text) {
     const n = (typeof normVN === 'function') ? normVN(text) : String(text || '').toLowerCase();
     
-    // ⚡ Nhận diện mọi biến thể có dấu hoặc không dấu
+    // ⚡ Nếu là lệnh thêm/sửa/xóa mã -> Trả về Thẻ giao diện có nút bấm
+    if (/\b(them|tao|sua|xoa|doi|cap nhat)\b/.test(n) && /\b(ma|khuyen mai|voucher|coupon|sale)\b/.test(n)) {
+        return `[UI_PROMO_MANAGE]{"title": "Quản lý khuyến mãi", "desc": "Dạ, để thêm hoặc sửa mã khuyến mãi, anh/chị vui lòng bấm vào nút bên dưới để mở trang quản lý."}[/UI_PROMO_MANAGE]`;
+    }
+
+    // Nếu chỉ xem khuyến mãi -> Hiện danh sách mã như cũ
     if (!/\b(ma giam|khuyen mai|voucher|coupon|ma km|giam gia|sale)\b/.test(n)) return null;
 
     const today = API.utils.today();
     const active = API.promotions.getActive(today);
     if (active.length === 0) return 'Dạ hiện tại quán chưa có chương trình khuyến mãi nào ạ.';
 
-    // Tạo dữ liệu để vẽ Thẻ UI_PROMO
     const data = active.map(p => ({
       code: p.code,
       description: p.description || p.name,

@@ -590,6 +590,15 @@ const UICards = {
             </div>`).join('')}
         </div>`;
     },
+           PROMO_MANAGE(d) {
+      return `
+        <div class="ui-card ui-card-gold" style="text-align: center; padding: 20px 16px;">
+          <div style="font-size: 2rem; margin-bottom: 8px;">🎁</div>
+          <h4 style="color: #5D4037; margin-bottom: 6px;">${esc(d.title || 'Quản lý khuyến mãi')}</h4>
+          <p class="ui-sub" style="margin-bottom: 16px; color: #666;">${esc(d.desc || 'Anh/chị muốn tạo mã giảm giá mới cho quán?')}</p>
+          <a href="staff-promotions.html?action=add" class="btn ui-btn-block" style="background: linear-gradient(135deg, #C9A227, #b08d1e); color: #fff; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 12px rgba(201,162,39,0.3);">+ Tạo khuyến mãi mới</a>
+        </div>`;
+    },
 
     ORDER(d) {
       if (Array.isArray(d)) d = { total: d.length, orders: d };
@@ -617,7 +626,7 @@ const UICards = {
         </div>`;
     },
 
-        KPI(d) {
+          KPI(d) {
       const t = d.today || {};
       const st = d.status || {};
       const chips = [['Chờ xử lý', st.pending], ['Đang pha', st.preparing], ['Đang giao', st.shipping],
@@ -642,7 +651,8 @@ const UICards = {
             <div><div class="ui-sub">Tháng này</div><b>${UICards.fmt(d.month)}</b></div>
           </div>
           <div class="ui-chips">${chips}</div>
-          <a href="staff-dashboard.html" class="btn ui-btn-block">Mở dashboard</a>
+          <!-- ⚡ Đã đổi link và tên nút ở đây -->
+          <a href="staff-stats.html" class="btn ui-btn-block">Mở thống kê</a>
         </div>`;
     },
 
@@ -740,26 +750,35 @@ const UICards = {
         </div>`;
     },
 
-    MENU(d) {
+        MENU(d) {
       if (Array.isArray(d)) d = { total: d.length, items: d };
       const items = d.items || [];
       const more = d.total > items.length ? `<div class="ui-sub ui-more">…và ${d.total - items.length} món khác</div>` : '';
+      
+      // ⚡ Tự động nhận diện đây là Thẻ Giỏ hàng hay Thẻ Gợi ý món
+      const isCart = (d.title && d.title.includes('Giỏ hàng')) || d.isCart;
+      const btnHtml = isCart 
+        ? `<a href="cart.html" class="btn ui-btn-block" style="margin-top:10px;">Đi đến Giỏ hàng</a>`
+        : `<a href="menu.html" class="btn-outline ui-btn-block">Xem toàn bộ Menu</a>`;
+
       return `
         <div class="ui-card">
           <h4>🥤 ${esc(d.title || 'Món gợi ý')}</h4>
           ${items.map(m => this.menuRow(m)).join('')}
           ${more}
-          <a href="menu.html" class="btn-outline ui-btn-block">Xem toàn bộ Menu</a>
+          ${btnHtml}
         </div>`;
     },
 
-        CATALOG(d) {
+           CATALOG(d) {
       return `
         <div class="ui-card">
           <h4>📖 Menu CAPPAN (${esc(d.totalItems)} món)</h4>
           ${(d.categories || []).map(c => `
             <div class="ui-cat" style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #f0e6d2; padding-bottom: 6px; margin-top: 12px;">
               <div><span style="font-weight:700; color:#5D4037;">${esc(c.name)}</span> <span class="ui-sub">(${esc(c.count)} món)</span></div>
+              
+              <!-- ⚡ Phải có ?cat=${esc(c.id)} ở đây -->
               <a href="order.html?cat=${esc(c.id)}" class="btn ui-btn-sm" style="text-decoration:none; padding: 4px 12px; font-size: 12px; border-radius: 6px;">Xem nhóm →</a>
             </div>
             <div style="margin-top: 8px;">

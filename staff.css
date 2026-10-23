@@ -563,3 +563,35 @@ body[data-page^="staff-"] .toast {
   min-height: 6px !important; /* Đảm bảo doanh thu = 0 vẫn có một vạch nhỏ */
   transition: height 1s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
+/* ============================================================
+   FIX LỖI BẢNG KHUYẾN MÃI VÀ CÁC BẢNG STAFF
+============================================================ */
+
+/* 1. Tạo vùng cuộn ngang cho bảng */
+.staff-panel {
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+#promoContainer, #bookingsContainer {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* Cuộn mượt trên mobile */
+}
+
+/* 2. Ép bảng có kích thước tối thiểu để không bị bóp méo */
+.staff-table {
+  min-width: 850px; /* Đảm bảo đủ chỗ cho 7 cột */
+}
+
+/* 3. Không cho chữ bị rớt dòng (đặc biệt là cột Thời Gian và các nút) */
+.staff-table th, 
+.staff-table td {
+  white-space: nowrap !important;
+}
+
+/* 4. Thu gọn các nút Hành động để không chiếm quá nhiều diện tích */
+.btn-mini-action {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+}

@@ -11,9 +11,10 @@
 
 .dashboard-main {
   flex: 1;
-  min-width: 0;                 /* tránh bị bảng/table đẩy tràn */
+  min-width: 0;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto; /* ⚡ Đổi từ hidden thành auto để cho phép cuộn ngang khi bảng quá dài */
+  scrollbar-gutter: stable; /* ⚡ Giữ thanh cuộn ổn định, không bị giật layout */
 }
 
 /* Bỏ padding 80px / max-width của .section gốc trong dashboard */
@@ -55,6 +56,7 @@
 .dashboard-layout:has(.chat-panel.collapsed) .panel-resizer { display: none; }
 
 /* ============ CHAT PANEL (floating card) ============ */
+/* ⚡ Làm mượt hiệu ứng kéo/thu gọn */
 .chat-panel {
   width: var(--chat-w, 380px);
   min-width: 280px;
@@ -69,7 +71,8 @@
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  transition: width 0.2s, margin 0.2s;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin 0.3s, border 0.3s; /* ⚡ Mượt hơn */
+  will-change: width; /* ⚡ Tối ưu hiệu năng khi kéo */
 }
 
 .chat-panel.collapsed {
@@ -82,7 +85,9 @@
 }
 
 /* Khi đang kéo resizer: tắt animation để không bị giật */
-.dashboard-layout.resizing .chat-panel { transition: none; }
+.dashboard-layout.resizing .chat-panel {
+  transition: none !important;
+}
 .dashboard-layout.resizing { user-select: none; cursor: col-resize; }
 
 /* ============ HEADER ============ */

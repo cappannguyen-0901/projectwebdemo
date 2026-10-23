@@ -3731,3 +3731,16 @@ body[data-page="home"] .demo-banner {
 }
 .quick-time-btn:active { transform: scale(0.96); }
 [data-theme="dark"] .quick-time-btn { background: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-color); }
+/* ⚡ FIX LỖI TRẮNG TINH KHI MỚI LOAD DỮ LIỆU */
+#ordersContainer, #orderMenuGrid, #menuGrid, #bookingsContainer {
+  opacity: 1 !important;
+  transform: none !important;
+  visibility: visible !important;
+}
+#ordersContainer .order-card,
+#orderMenuGrid .menu-card,
+#menuGrid .menu-card,
+#bookingsContainer tr {
+  opacity: 1 !important;
+  transform: none !important;
+}

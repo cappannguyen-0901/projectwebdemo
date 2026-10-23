@@ -214,6 +214,17 @@ document.addEventListener('DOMContentLoaded', () => {
   renderStaffNav('promotions');
   renderToday();
   renderPromos();
+
+  // ⚡ TỰ ĐỘNG MỞ FORM NẾU ĐƯỢC CHUYỂN TỪ CHATBOT SANG
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('action') === 'add') {
+    // Đợi 0.5 giây để giao diện load xong mới bật Modal
+    setTimeout(() => {
+      openPromoModal();
+      // Xóa tham số trên URL để F5 không bị mở lại form
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }, 500);
+  }
 });
 
 /* ---------- tiện ích ngày ---------- */

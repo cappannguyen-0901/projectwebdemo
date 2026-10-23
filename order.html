@@ -227,6 +227,13 @@ function clearCartQuick() {
 document.addEventListener('DOMContentLoaded', () => {
   if (Auth.isStaff()) return;
 
+  // ⚡ ĐOẠN NÀY ĐỂ ĐỌC ?cat= TỪ CHATBOT TRUYỀN SANG
+  const urlParams = new URLSearchParams(window.location.search);
+  const catParam = urlParams.get('cat');
+  if (catParam && API.categories.getById(catParam)) {
+    activeOrderCat = catParam;
+  }
+
   renderOrderTabs();
   renderOrderGrid();
   renderCartMini();
