@@ -13,6 +13,11 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="dark-mode.css">
+<!-- Nhúng file CSS mới ở cuối cùng để đè lên tất cả -->
+<link rel="stylesheet" href="card-premium.css"> 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
 <script>
   (function(){try{
     var t = localStorage.getItem('cappan_theme') || 'light';
@@ -68,7 +73,7 @@
     <a href="contact.html">Liên hệ</a>
     <a href="privacy.html">Chính sách bảo mật</a>
   </div>
-  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
+  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 444 038</div>
 </footer>
 
 <button class="chat-btn" onclick="toggleChat()">🤖</button>
@@ -87,7 +92,6 @@
   </div>
 </div>
   <div class="chat-body" id="chatBody" role="log" aria-live="polite" aria-label="Lịch sử trò chuyện với trợ lý">
-    <div class="msg bot"><div class="bubble">Bạn muốn uống gì hôm nay? ☕</div></div>
   </div>
   <div class="chat-input">
     <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
@@ -99,6 +103,7 @@
 <div class="toast" id="toast">✓ Thành công!</div>
 
 <script src="js/data/schema.js"></script>
+<script src="js/data/weather.js"></script>
 <script src="js/ai/ai-input.js"></script>
 <script src="js/ai/ai-output.js"></script>
 <script src="js/data/seed.js"></script>
@@ -106,11 +111,23 @@
 <script src="js/data/kb.js"></script>              
 <script src="js/data/promotions.js"></script>    
 <script src="js/api/index.js"></script>
+<script src="js/realtime.js"></script>
 <script src="js/staff-guard.js"></script>
+<script src="js/ai/item-lookup.js"></script>
+<script src="js/ai/injection-guard.js"></script>
+<script src="js/ai/multi-intent-splitter.js"></script>
+<script src="js/ai/intent-authorization.js"></script>
+<script src="js/ai/emotional-handler.js"></script>
+<script src="js/ai/user-memory.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
 <script src="js/ai/brain.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/main.js"></script>
+
+<script src="js/ai/proactive.js"></script>
+<script src="js/ai/handover.js"></script>
+<script src="js/ai/chat-interactions.js"></script>
+
 
 <script>
 let activeCat = 'all';
@@ -133,50 +150,65 @@ function setCat(catId) {
 
 function renderGrid() {
   const el = document.getElementById('menuGrid');
-  const user = API.users.getCurrent();
-  const isStaff = user && user.role === 'staff';
+  
+  // ⚡ 1. HIỂN THỊ SKELETON LOADING NGAY LẬP TỨC
+  el.innerHTML = Array(8).fill(0).map(() => `
+    <div class="skeleton-card">
+      <div class="skeleton skeleton-img"></div>
+      <div class="skeleton-info">
+        <div class="skeleton skeleton-title"></div>
+        <div class="skeleton skeleton-price"></div>
+        <div class="skeleton skeleton-btn"></div>
+      </div>
+    </div>
+  `).join('');
 
-  let items = activeCat === 'all' ? API.menu.getAll() : API.menu.getByCategory(activeCat);
+  // ⚡ 2. GIẢ LẬP ĐỘ TRỄ 400ms ĐỂ TẠO CẢM GIÁC MƯỢT MÀ
+  setTimeout(() => {
+    const user = API.users.getCurrent();
+    const isStaff = user && user.role === 'staff';
 
-  if (searchKeyword) {
-    items = items.filter(m => m.name.toLowerCase().includes(searchKeyword));
-  }
+    let items = activeCat === 'all' ? API.menu.getAll() : API.menu.getByCategory(activeCat);
 
-  if (items.length === 0) {
-    el.innerHTML = '<p class="empty-note">Không tìm thấy món nào.</p>';
-    return;
-  }
-
-  el.innerHTML = items.map(item => {
-    const outOfStock = !item.inStock;
-
-    // ⚡ Nhân viên chỉ xem — không đặt
-    let actionBtn = '';
-    if (isStaff) {
-      actionBtn = `<div class="staff-view-note">👨‍💼 Chế độ xem nhân viên</div>`;
-    } else {
-      actionBtn = `
-        <button class="add-cart-btn" onclick="quickOrder('${item.id}')"
-                ${outOfStock ? 'disabled' : ''}>
-          ${outOfStock ? 'Tạm hết' : '+ Đặt món này'}
-        </button>
-      `;
+    if (searchKeyword) {
+      items = items.filter(m => m.name.toLowerCase().includes(searchKeyword));
     }
 
-    return `
-      <div class="menu-card ${outOfStock ? 'out-of-stock' : ''}">
-        ${item.badge ? `<div class="badge">${esc(item.badge)}</div>` : ''}
-        ${outOfStock ? '<div class="badge badge-out">Hết hàng</div>' : ''}
-        <img src="${esc(item.img)}" alt="${esc(item.name)}" loading="lazy">
-        <div class="info">
-          <h4>${esc(item.name)}</h4>
-          <div class="price">${API.utils.formatVND(item.price)}</div>
-          ${item.description ? `<p class="desc">${esc(item.description)}</p>` : ''}
-          ${actionBtn}
+    if (items.length === 0) {
+      el.innerHTML = '<p class="empty-note">Không tìm thấy món nào.</p>';
+      return;
+    }
+
+    // 3. RENDER DỮ LIỆU THẬT
+    el.innerHTML = items.map(item => {
+      const outOfStock = !item.inStock;
+      let actionBtn = '';
+      if (isStaff) {
+        actionBtn = `<div class="staff-view-note">👨‍💼 Chế độ xem nhân viên</div>`;
+      } else {
+        actionBtn = `
+          <button class="add-cart-btn" onclick="quickOrder('${item.id}')"
+                  ${outOfStock ? 'disabled' : ''}>
+            ${outOfStock ? 'Tạm hết' : '+ Đặt món này'}
+          </button>
+        `;
+      }
+
+      return `
+        <div class="menu-card ${outOfStock ? 'out-of-stock' : ''}" style="animation: pop 0.4s ease;">
+          ${item.badge ? `<div class="badge">${esc(item.badge)}</div>` : ''}
+          ${outOfStock ? '<div class="badge badge-out">Hết hàng</div>' : ''}
+          <img src="${esc(item.img)}" alt="${esc(item.name)}" loading="lazy">
+          <div class="info">
+            <h4>${esc(item.name)}</h4>
+            <div class="price">${API.utils.formatVND(item.price)}</div>
+            ${item.description ? `<p class="desc">${esc(item.description)}</p>` : ''}
+            ${actionBtn}
+          </div>
         </div>
-      </div>
-    `;
-  }).join('');
+      `;
+    }).join('');
+  }, 400); // <--- Thay đổi số 400 này để tăng/giảm thời gian chờ (ms)
 }
 
 

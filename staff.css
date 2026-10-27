@@ -595,3 +595,211 @@ body[data-page^="staff-"] .toast {
   padding: 4px 10px;
   font-size: 0.75rem;
 }
+/* ============================================================
+   🏆 ĐỒNG BỘ SƠ ĐỒ GHẾ STAFF VỚI CUSTOMER (PREMIUM UI)
+   ============================================================ */
+
+/* 1. Thanh chuyển tầng (Floor Switch) - Segmented Control */
+.staff-floor-switch {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: #F5EFE6;
+  padding: 6px;
+  border-radius: 30px;
+  border: 1px solid #EADBC4;
+}
+
+.floor-btn-small {
+  padding: 8px 16px;
+  border-radius: 24px;
+  border: none;
+  background: transparent;
+  color: #6F4E37;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.floor-btn-small:hover:not(.active) { background: rgba(255,255,255,0.6); }
+.floor-btn-small.active {
+  background: #FFFFFF;
+  color: var(--brown);
+  box-shadow: 0 2px 8px rgba(111, 78, 55, 0.15);
+}
+
+/* 2. Nút Reset tất cả (Nguy hiểm - Cần nổi bật) */
+.btn-mini-reset {
+  background: #FFF0F0 !important;
+  color: #D32F2F !important;
+  border: 1px solid #FFCDD2 !important;
+  padding: 8px 16px !important;
+  border-radius: 20px !important;
+  font-weight: 700 !important;
+  transition: all 0.2s ease !important;
+}
+.btn-mini-reset:hover {
+  background: #D32F2F !important;
+  color: #FFF !important;
+  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3) !important;
+}
+
+/* 3. Lưới Sơ đồ ghế (Grid Layout) */
+.staff-seat-map {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 10px 0;
+}
+
+/* 4. Khung Bàn Ghế (Đồng bộ Form dáng với Customer) */
+.staff-seat {
+  position: relative;
+  background: #FFFFFF;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 10px;
+  border: 2px solid transparent;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+  min-height: 110px;
+}
+
+/* Ẩn icon ghế cũ và tiêu đề "Trống/Đã đặt" bằng text để gọn hơn */
+.staff-seat .seat-icon,
+.staff-seat .seat-status {
+  display: none !important;
+}
+
+.staff-seat .seat-id {
+  font-size: 1.6rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.staff-seat .seat-capacity {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+/* --- TRẠNG THÁI: TRỐNG (Xanh lá) --- */
+.staff-seat.available {
+  background: linear-gradient(180deg, #F1F8F1 0%, #E0F2E0 100%);
+  border-color: #A5D6A7;
+  color: #1B5E20;
+}
+.staff-seat.available:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(46, 125, 50, 0.15);
+  border-color: #4CAF50;
+}
+
+/* --- TRẠNG THÁI: ĐÃ ĐẶT (Đỏ) --- */
+.staff-seat.booked {
+  background: #FDF1F1;
+  border: 2px dashed #EF9A9A;
+  color: #C62828;
+}
+.staff-seat.booked:hover {
+  box-shadow: 0 10px 20px rgba(198, 40, 40, 0.15);
+}
+
+/* Mã Booking hiển thị mờ bên dưới */
+.staff-seat .seat-customer {
+  font-size: 0.65rem;
+  background: rgba(198, 40, 40, 0.1);
+  color: #D32F2F;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-top: 4px;
+  font-weight: 700;
+}
+
+/* Nút Reset (X) trên bàn đã đặt */
+.seat-reset-btn {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  color: #D32F2F;
+  border: 1.5px solid #D32F2F;
+  font-size: 0.8rem;
+  font-weight: bold;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 5;
+}
+.seat-reset-btn:hover {
+  background: #D32F2F;
+  color: #FFF;
+  transform: scale(1.1) rotate(90deg);
+}
+
+/* ============================================================
+   DARK MODE (TƯƠNG PHẢN TUYỆT ĐỐI)
+   ============================================================ */
+[data-theme="dark"] .staff-floor-switch {
+  background: #1C1917;
+  border-color: #3E3430;
+}
+[data-theme="dark"] .floor-btn-small { color: #A8A29E; }
+[data-theme="dark"] .floor-btn-small.active {
+  background: #E8B931;
+  color: #12100E;
+}
+
+[data-theme="dark"] .btn-mini-reset {
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: #F87171 !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Bàn Trống Dark Mode */
+[data-theme="dark"] .staff-seat.available {
+  background: linear-gradient(180deg, #1B2E1F 0%, #122316 100%);
+  border-color: #2E7D32;
+  color: #A5D6A7;
+}
+[data-theme="dark"] .staff-seat.available:hover {
+  border-color: #4CAF50;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.6), 0 0 15px rgba(46, 125, 50, 0.2);
+}
+
+/* Bàn Đã Đặt Dark Mode */
+[data-theme="dark"] .staff-seat.booked {
+  background: #261415;
+  border-color: #5C1D22;
+  color: #F87171;
+}
+[data-theme="dark"] .staff-seat .seat-customer {
+  background: rgba(239, 68, 68, 0.2);
+  color: #FCA5A5;
+}
+[data-theme="dark"] .seat-reset-btn {
+  background: #1C1917;
+  color: #F87171;
+  border-color: #F87171;
+}
+[data-theme="dark"] .seat-reset-btn:hover {
+  background: #F87171;
+  color: #12100E;
+}
+
+/* Responsive Mobile */
+@media (max-width: 768px) {
+  .staff-seat-map {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .staff-seat { min-height: 90px; padding: 10px; }
+  .staff-seat .seat-id { font-size: 1.3rem; }
+}

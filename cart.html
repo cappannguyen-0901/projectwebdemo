@@ -13,6 +13,11 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="dark-mode.css">
+<!-- Nhúng file CSS mới ở cuối cùng để đè lên tất cả -->
+<link rel="stylesheet" href="card-premium.css"> 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
 <script>
   (function(){try{
     var t = localStorage.getItem('cappan_theme') || 'light';
@@ -91,6 +96,13 @@
         <div class="promo-msg" id="promoMsg" role="status"></div>
         <small id="promoHint" style="color:var(--gray)"></small>
       </div>
+            <!-- ⚡ FREESHIP PROGRESS BAR -->
+      <div id="freeshipBar" style="padding:12px; border-radius:8px; margin-bottom:15px; display:none; border: 1px solid transparent;">
+        <div style="font-size:0.85rem; color:#1565c0; margin-bottom:8px;" id="freeshipText"></div>
+        <div style="width:100%; height:8px; background:#cce5ff; border-radius:4px; overflow:hidden;">
+          <div id="freeshipFill" style="height:100%; width:0%; background:#2196f3; border-radius:4px; transition:width 0.4s ease;"></div>
+        </div>
+      </div>
 
       <div class="checkout-summary">
         <div class="summary-row">
@@ -129,7 +141,7 @@
     <a href="contact.html">Liên hệ</a>
     <a href="privacy.html">Chính sách bảo mật</a>
   </div>
-  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
+  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 444 038</div>
 </footer>
 
 <button class="chat-btn" onclick="toggleChat()">🤖</button>
@@ -148,11 +160,9 @@
   </div>
 </div>
   <div class="chat-body" id="chatBody" role="log" aria-live="polite" aria-label="Lịch sử trò chuyện với trợ lý">
-    <div class="msg bot"><div class="bubble">Bạn cần hỗ trợ không? 🛒</div></div>
   </div>
   <div class="chat-input">
-    <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
-           onkeypress="if(event.key==='Enter') sendChat()">
+    <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." autocomplete="off">
     <button onclick="sendChat()">➤</button>
   </div>
 </div>
@@ -160,6 +170,7 @@
 <div class="toast" id="toast">✓ Thành công!</div>
 
 <script src="js/data/schema.js"></script>
+<script src="js/data/weather.js"></script>
 <script src="js/ai/ai-input.js"></script>
 <script src="js/ai/ai-output.js"></script>
 <script src="js/data/seed.js"></script>
@@ -169,10 +180,21 @@
 <script src="js/api/index.js"></script>
 <script src="js/realtime.js"></script> 
 <script src="js/staff-guard.js"></script>
+<script src="js/ai/item-lookup.js"></script>
+<script src="js/ai/injection-guard.js"></script>
+<script src="js/ai/multi-intent-splitter.js"></script>
+<script src="js/ai/intent-authorization.js"></script>
+<script src="js/ai/emotional-handler.js"></script>
+<script src="js/ai/user-memory.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
 <script src="js/ai/brain.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/main.js"></script>
+
+<script src="js/ai/proactive.js"></script>
+<script src="js/ai/handover.js"></script>
+<script src="js/ai/chat-interactions.js"></script>
+
 
 <script>
 const SHIPPING_FEE = 15000;
@@ -231,14 +253,19 @@ function applyPromo() {
   renderCartPage();
 }
 
-
+window.applyPromoQuick = function(code) {
+  const input = document.getElementById('coPromo');
+  if (input) {
+    input.value = code;
+    applyPromo(); // Gọi hàm áp dụng mã có sẵn của bạn
+  }
+};
 function renderCartPage() {
   const cart = API.cart.get();
   const empty = document.getElementById('cartEmpty');
   const content = document.getElementById('cartContent');
   if (!empty || !content) return;
 
-  // ⚡ CHỐNG NHÁY: Nếu số lượng món và tổng tiền không đổi, không vẽ lại
   const signature = JSON.stringify(cart.map(i => `${i.itemId}_${i.size}_${i.qty}`)) + '_' + (appliedPromo || 'none');
   if (content.dataset.signature === signature) return;
   content.dataset.signature = signature;
@@ -251,8 +278,58 @@ function renderCartPage() {
   empty.hidden = true;
   content.hidden = false;
 
+const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const totalQty = cart.reduce((s, i) => s + i.qty, 0);
   document.getElementById('cartItemCount').textContent = totalQty;
+
+  // ⚡ NÂNG CẤP: FOMO PROMOTIONS (Sợ bỏ lỡ)
+  const freeshipBar = document.getElementById('freeshipBar');
+  const freeshipText = document.getElementById('freeshipText');
+  const freeshipFill = document.getElementById('freeshipFill');
+  const FREESHIP_THRESHOLD = 100000;
+
+  let bestPromo = null;
+  let maxDiscount = 0;
+
+  // Nếu chưa áp dụng mã nào, tìm mã tốt nhất khách có thể dùng
+  if (!appliedPromo) {
+    const user = API.users.getCurrent();
+    API.promotions.getActive().forEach(p => {
+      const r = API.promotions.evaluate(p.code, subtotal, SHIPPING_FEE, user && user.id);
+      if (r.ok && r.discount > maxDiscount) {
+        maxDiscount = r.discount;
+        bestPromo = p;
+      }
+    });
+  }
+
+   if (bestPromo) {
+    freeshipBar.style.background = '#fff3e0'; // ⚡ Nền cam nhạt
+    freeshipBar.style.borderColor = '#ffcc80'; // ⚡ Viền cam
+    freeshipBar.style.display = 'block';
+    freeshipText.innerHTML = `🎁 Đơn hàng có thể giảm thêm <strong>${API.utils.formatVND(maxDiscount)}</strong>! 
+      <button type="button" onclick="applyPromoQuick('${bestPromo.code}')" style="background:#e65100; color:#fff; border:none; padding:4px 10px; border-radius:20px; font-size:0.75rem; font-weight:bold; cursor:pointer; margin-left:8px; box-shadow: 0 2px 5px rgba(230,81,0,0.4);">
+        Dùng mã ${bestPromo.code}
+      </button>`;
+    freeshipFill.style.width = '100%';
+    freeshipFill.style.background = 'linear-gradient(90deg, #ff9800, #e65100)';
+  } else if (appliedPromo) {
+    // Đã dùng mã -> Ẩn thanh gợi ý
+    freeshipBar.style.display = 'none';
+  } else if (subtotal > 0 && subtotal < FREESHIP_THRESHOLD) {
+    // ⚡ FIX: Trả lại màu nền xanh và viền xanh cho Freeship thông thường
+    freeshipBar.style.background = '#f0f8ff';
+    freeshipBar.style.borderColor = '#cce5ff';
+    freeshipBar.style.display = 'block';
+    
+    const missing = FREESHIP_THRESHOLD - subtotal;
+    freeshipText.innerHTML = `Mua thêm <strong>${API.utils.formatVND(missing)}</strong> để đủ điều kiện dùng mã <strong>FREESHIP</strong>!`;
+    freeshipFill.style.width = `${(subtotal / FREESHIP_THRESHOLD) * 100}%`;
+    freeshipFill.style.background = '#2196f3';
+  } else {
+    freeshipBar.style.display = 'none';
+  }
+
 
   const list = document.getElementById('cartItemsList');
   list.innerHTML = cart.map(i => `
@@ -273,7 +350,6 @@ function renderCartPage() {
     </div>
   `).join('');
 
-  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   document.getElementById('sumSubtotal').textContent = API.utils.formatVND(subtotal);
   document.getElementById('sumShipping').textContent = API.utils.formatVND(SHIPPING_FEE);
   const dc = currentDiscount(subtotal);
@@ -281,13 +357,14 @@ function renderCartPage() {
   document.getElementById('sumDiscount').textContent = '-' + API.utils.formatVND(dc.discount);
   document.getElementById('sumPromoCode').textContent = dc.code ? '(' + dc.code + ')' : '';
   document.getElementById('sumTotal').textContent = API.utils.formatVND(subtotal + SHIPPING_FEE - dc.discount);
+
   const hint = document.getElementById('promoHint');
-if (hint) {
-  const codes = API.promotions.getActive().map(p => p.code);
-  hint.textContent = codes.length
-    ? 'Mã hiện có: ' + codes.join(', ') + (appliedPromo ? ' · Đang chọn: ' + appliedPromo : '')
-    : '';
-}
+  if (hint) {
+    const codes = API.promotions.getActive().map(p => p.code);
+    hint.textContent = codes.length
+      ? 'Mã hiện có: ' + codes.join(', ') + (appliedPromo ? ' · Đang chọn: ' + appliedPromo : '')
+      : '';
+  }
 
   const user = API.users.getCurrent();
   if (user) {
@@ -345,7 +422,7 @@ function checkout() {
   }
 
   const name = document.getElementById('coName').value.trim();
-  const phone = document.getElementById('coPhone').value.trim();
+  const phone = document.getElementById('coPhone').value.trim().replace(/\s/g, '');
   const address = document.getElementById('coAddress').value.trim();
   const note = document.getElementById('coNote').value.trim();
 
@@ -354,41 +431,114 @@ function checkout() {
     return;
   }
 
+  // ⚡ Validate SĐT Việt Nam
+  if (!/^0\d{9,10}$/.test(phone)) {
+    showToast('⚠ Số điện thoại không hợp lệ (VD: 0909123456)!', '#c62828');
+    return;
+  }
+
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const dc = currentDiscount(subtotal);
   const finalTotal = subtotal + SHIPPING_FEE - dc.discount;
   const totalQty = cart.reduce((s, i) => s + i.qty, 0);
-
+  
   if (!confirm(`Xác nhận đặt ${totalQty} món?\nTổng: ${API.utils.formatVND(finalTotal)}`)) return;
 
   const user = API.users.getCurrent();
-  const order = API.orders.create({
-    userId: user.id,
-    items: cart,
-    total: finalTotal,
-    discount: dc.discount,
-    promoCode: dc.code || '',
-    subtotal: subtotal,
-    shipping: SHIPPING_FEE,
-    address, phone, note,
-    customerName: name
-  });
+  
+  let order = null;
+  try {
+    order = API.orders.create({
+      userId: user.id,
+      items: cart,
+      total: finalTotal,
+      subtotal: subtotal,
+      shipping: SHIPPING_FEE,
+      discount: dc.discount,
+      promoCode: dc.code || '',
+      address: address,
+      phone: phone,
+      note: note,
+      customerName: name
+    });
+  } catch (err) {
+    console.error('[checkout] create error:', err);
+    showToast('⚠ Không thể tạo đơn hàng (bộ nhớ đầy). Vui lòng thử lại!', '#c62828');
+    return;
+  }
 
-  API.users.update(user.id, { address });
+  if (!order || !order.id) {
+    showToast('⚠ Không thể tạo đơn hàng. Vui lòng thử lại!', '#c62828');
+    return;
+  }
+
+  // Cập nhật profile
+  API.users.update(user.id, { address: address, name: name });
+  
   API.cart.clear();
-
-  // ⚡ FIX: clear mã promo khỏi sessionStorage — tránh leak sang đơn sau
   setAppliedPromo(null);
-
   updateUserArea();
 
+  // ⚡ Hiệu ứng Confetti & Toast
+  if (typeof window.fxConfetti === 'function') window.fxConfetti();
   showToast(`✓ Đặt hàng thành công! Mã: ${order.id}`);
-  setTimeout(() => { window.location.href = 'tracking.html'; }, 1200);
+  
+  // ⚡ FIX TRIỆT ĐỂ: Lưu tin nhắn vào AIBrain History để không bị mất khi chuyển trang
+  try {
+    const receiptMsg = `Dạ, em xác nhận quý khách đã đặt thành công đơn hàng **${order.id}** với tổng tiền **${API.utils.formatVND(finalTotal)}**. Cảm ơn quý khách đã sử dụng dịch vụ tại CAPPAN Coffee & More! ạ.`;
+    
+    // 1. Hiển thị ngay trên màn hình hiện tại
+    if (typeof addChatMsg === 'function') {
+      addChatMsg(receiptMsg, 'bot');
+    }
+    
+    // 2. Lưu vào bộ nhớ AIBrain (SessionStorage)
+    if (typeof AIBrain !== 'undefined' && typeof AIBrain._getSessionId === 'function') {
+      const sid = AIBrain._getSessionId();
+      const role = AIBrain._getRole();
+      AIBrain._getHistory(sid, role); // Đảm bảo mảng history đã tồn tại
+      AIBrain.histories[sid].push({ role: 'assistant', content: receiptMsg });
+      AIBrain._saveHistory(sid); // Lưu xuống sessionStorage
+    }
+  } catch (e) {
+    console.warn('[checkout] Không lưu được tin nhắn chat:', e);
+  }
+
+  // Chờ 2.5s cho khách đọc toast rồi mới chuyển trang
+  setTimeout(() => { window.location.href = 'tracking.html'; }, 2500);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   if (Auth.isStaff()) return;
   renderCartPage();
+
+  // ⚡ TỰ ĐỘNG ĐIỀN ĐỊA CHỈ TỪ CHAT CHUYỂN SANG
+  const chatAddress = sessionStorage.getItem('cappan_chat_checkout_address');
+  if (chatAddress) {
+    const addrInput = document.getElementById('coAddress');
+    if (addrInput) {
+      addrInput.value = chatAddress;
+      // Xóa bộ nhớ tạm để lần sau vào không bị điền lại địa chỉ cũ
+      sessionStorage.removeItem('cappan_chat_checkout_address');
+    }
+  }
+    // ⚡ TỰ ĐỘNG ĐIỀN THÔNG TIN TỪ CHAT CHUYỂN SANG
+  const checkoutInfo = sessionStorage.getItem('cappan_checkout_info');
+  if (checkoutInfo) {
+    try {
+      const info = JSON.parse(checkoutInfo);
+      if (info.name) document.getElementById('coName').value = info.name;
+      if (info.phone) document.getElementById('coPhone').value = info.phone;
+      if (info.address) document.getElementById('coAddress').value = info.address;
+      
+      // Xóa bộ nhớ tạm để lần sau vào không bị điền lại
+      sessionStorage.removeItem('cappan_checkout_info');
+      
+      // Tự động cuộn xuống form để khách thấy đã điền xong
+      document.querySelector('.cart-checkout').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch(e) {}
+  }
+
 });
 </script>
 <script src="js/demo.js"></script>

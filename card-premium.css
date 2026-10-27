@@ -1,0 +1,500 @@
+/* ============================================================
+   CAPPAN PREMIUM UI CARDS - UNIFIED & CLEAN v14.0
+============================================================ */
+
+.ui-card-wrapper { position: relative !important; width: 100% !important; margin-bottom: 12px !important; }
+.ui-card {
+  background: #FFFFFF !important;
+  border: 1px solid #F0E6D2 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 15px rgba(111, 78, 55, 0.06) !important;
+  padding: 16px !important;
+  display: flex; flex-direction: column; gap: 12px; box-sizing: border-box;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+}
+
+.ui-card-expand-btn {
+  position: absolute !important; top: 12px !important; right: 12px !important;
+  background: #FFF8E7 !important; border: 1px solid #EADBC4 !important; color: #6F4E37 !important;
+  padding: 4px 10px !important; border-radius: 8px !important; font-size: 11px !important; font-weight: 700 !important;
+  cursor: pointer !important; transition: all 0.2s !important; z-index: 10;
+}
+.ui-card-expand-btn:hover { background: #C9A227 !important; color: #FFF !important; }
+
+.ui-card h4 {
+  display: block !important; color: #4A2E20 !important; font-size: 1.05rem !important;
+  font-weight: 800 !important; margin: 0 !important; padding-right: 55px !important;
+  line-height: 1.4 !important;
+}
+.ui-card h4 .ui-sub-count { font-size: 0.85rem !important; color: #888 !important; font-weight: 600 !important; }
+
+.ui-cat {
+  display: flex !important; justify-content: space-between !important; align-items: center !important;
+  border-bottom: 1.5px solid #EADBC4 !important; padding-bottom: 8px !important; margin-top: 14px !important; margin-bottom: 8px !important;
+}
+.ui-cat span { color: #5D4037 !important; font-weight: 800 !important; font-size: 0.95rem !important; }
+.ui-link-more { color: #C9A227 !important; font-size: 0.85rem !important; font-weight: 700 !important; text-decoration: none !important; white-space: nowrap !important; }
+.ui-link-more:hover { text-decoration: underline !important; }
+
+.ui-menu-row { display: flex !important; justify-content: space-between !important; align-items: center !important; padding: 10px 0 !important; border-bottom: 1px dashed #EADBC4 !important; }
+.ui-menu-row:last-child { border-bottom: none !important; }
+.ui-menu-row > div:first-child { display: flex !important; flex-direction: column !important; flex: 1 !important; min-width: 0 !important; }
+.menu-item-name { font-size: 0.95rem !important; font-weight: 700 !important; color: #3E2723 !important; margin-bottom: 2px !important; }
+.menu-item-price { font-size: 0.9rem !important; font-weight: 800 !important; color: #2E7D32 !important; }
+
+.ui-btn-add {
+  background: #F4E4CB !important; color: #6B4C35 !important; border: 1px solid #DDBE8E !important;
+  padding: 6px 14px !important; border-radius: 8px !important; font-size: 0.8rem !important; font-weight: 700 !important;
+  cursor: pointer !important; white-space: nowrap !important; margin-left: 10px !important;
+}
+.ui-btn-add:hover { background: #C9A227 !important; color: #FFF !important; }
+
+/* ============================================================
+   ⚡ NÚT XEM TẤT CẢ - PREMIUM EFFECT (SHIMMER + GLOW)
+   ============================================================ */
+.ui-btn-see-all {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100% !important;
+  padding: 10px !important;
+  margin-top: 12px !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  border: 1.5px dashed #C9A227 !important;
+  color: #C9A227 !important;
+  font-weight: 700 !important;
+  font-size: 0.9rem !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  
+  /* ⚡ KÍCH HOẠT HIỆU ỨNG */
+  position: relative !important;
+  overflow: hidden !important; /* Giữ vệt sáng không tràn ra ngoài */
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+  box-shadow: 0 0 0 rgba(201, 162, 39, 0) !important;
+}
+
+/* 1. Hiệu ứng vệt sáng lướt qua (Shimmer) */
+.ui-btn-see-all::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important; left: -100% !important;
+  width: 50% !important; height: 100% !important;
+  background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%) !important;
+  transform: skewX(-25deg) !important;
+  z-index: 1 !important;
+}
+
+/* 2. Hiệu ứng Hover: Đổi viền liền, phát sáng, vệt sáng chạy */
+.ui-btn-see-all:hover {
+  background: rgba(201, 162, 39, 0.08) !important;
+  border-style: solid !important; /* Viền đứt biến thành liền */
+  box-shadow: 0 6px 20px rgba(201, 162, 39, 0.25) !important; /* Tỏa sáng */
+  transform: translateY(-2px) !important; /* Nổi lên nhẹ */
+}
+.ui-btn-see-all:hover::before {
+  animation: shineEffect 1s forwards !important;
+}
+
+/* 3. Hiệu ứng Click (Nhún xuống) */
+.ui-btn-see-all:active {
+  transform: translateY(1px) scale(0.97) !important;
+  box-shadow: 0 2px 5px rgba(201, 162, 39, 0.2) !important;
+}
+
+/* Keyframes cho Shimmer */
+@keyframes shineEffect {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
+
+/* ============================================================
+   DARK MODE CHO HIỆU ỨNG
+   ============================================================ */
+[data-theme="dark"] .ui-btn-see-all {
+  border-color: #E8B931 !important;
+  color: #E8B931 !important;
+  background: rgba(232, 185, 49, 0.05) !important;
+}
+[data-theme="dark"] .ui-btn-see-all:hover {
+  background: rgba(232, 185, 49, 0.15) !important;
+  box-shadow: 0 6px 20px rgba(232, 185, 49, 0.2) !important;
+  border-style: solid !important;
+}
+[data-theme="dark"] .ui-btn-see-all::before {
+  /* Vệt sáng trong Dark Mode mờ hơn một chút để không bị chói */
+  background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(232,185,49,0.4) 50%, rgba(255,255,255,0) 100%) !important;
+}
+
+/* SEAT ROW */
+.ui-seat-row { display: flex !important; justify-content: space-between !important; align-items: center !important; padding: 10px 12px !important; border-radius: 8px !important; text-decoration: none !important; background: #FFF8E1 !important; border: 1px solid #FFCC80 !important; margin-bottom: 8px !important; }
+.seat-name { font-weight: 600 !important; color: #E65100 !important; font-size: 0.9rem !important; }
+.seat-btn { background: #E65100 !important; color: #FFF !important; padding: 4px 12px !important; border-radius: 20px !important; font-size: 0.75rem !important; font-weight: bold !important; }
+
+/* DARK MODE */
+[data-theme="dark"] .ui-card { background: #1C1917 !important; border-color: #3E3430 !important; }
+[data-theme="dark"] .ui-card h4 { color: #E8B931 !important; }
+[data-theme="dark"] .ui-card-expand-btn { background: #292524 !important; border-color: #3E3430 !important; color: #E8B931 !important; }
+[data-theme="dark"] .ui-menu-row { border-bottom-color: #3E3430 !important; }
+[data-theme="dark"] .menu-item-name { color: #F5F5F0 !important; }
+[data-theme="dark"] .menu-item-price { color: #4ADE80 !important; }
+[data-theme="dark"] .ui-cat { border-bottom-color: #3E3430 !important; }
+[data-theme="dark"] .ui-cat span { color: #E8B931 !important; }
+[data-theme="dark"] .ui-btn-add { background: rgba(232, 185, 49, 0.15) !important; color: #E8B931 !important; border-color: rgba(232, 185, 49, 0.3) !important; }
+[data-theme="dark"] .ui-btn-add:hover { background: #E8B931 !important; color: #12100E !important; }
+[data-theme="dark"] .ui-btn-see-all { border-color: #E8B931 !important; color: #E8B931 !important; }
+[data-theme="dark"] .ui-seat-row { background: #2A1A14 !important; border-color: #5D4037 !important; }
+[data-theme="dark"] .seat-name { color: #FFB74D !important; }
+[data-theme="dark"] .seat-btn { background: #FFB74D !important; color: #12100E !important; }
+/* ============================================================
+   ✨ FIXED BUTTON INTERACTIONS - NO LAYOUT SHIFT, NO TEXT OVERLAP
+   ============================================================ */
+
+/* 1. THIẾT LẬP CHUNG */
+.ui-card-expand-btn,
+.ui-btn-add,
+.ui-btn-see-all,
+.seat-btn,
+.ui-welcome-btn,
+.ui-btn-block {
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease !important;
+  position: relative !important;
+  overflow: hidden !important; /* Giữ vệt sáng */
+  will-change: transform, box-shadow !important;
+}
+
+/* ⚡ SỬA LỖI 1: Không dùng scale(1.05) làm tràn layout, chỉ dùng translateY nhẹ */
+/* ⚡ SỬA LỖI 2: Vệt sáng được đặt dưới lớp chữ (z-index thấp hơn) */
+.ui-card-expand-btn::after,
+.ui-btn-add::after,
+.seat-btn::after,
+.ui-btn-see-all::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 0; left: -150% !important;
+  width: 50%; height: 100% !important;
+  background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%) !important;
+  transform: skewX(-25deg) !important;
+  z-index: 1 !important;
+  pointer-events: none !important;
+}
+
+/* Đảm bảo chữ luôn nổi lên trên vệt sáng */
+.ui-card-expand-btn > *, .ui-btn-add > *, .seat-btn > *, .ui-btn-see-all > * {
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+.ui-card-expand-btn:hover::after,
+.ui-btn-add:hover::after,
+.seat-btn:hover::after,
+.ui-btn-see-all:hover::after {
+  animation: shineSweepFix 0.8s forwards !important;
+}
+
+@keyframes shineSweepFix {
+  0% { left: -150%; }
+  100% { left: 200%; }
+}
+
+/* Hiệu ứng nhún xuống khi bấm (Rất nhẹ, không vỡ layout) */
+.ui-card-expand-btn:active,
+.ui-btn-add:active,
+.ui-btn-see-all:active,
+.seat-btn:active {
+  transform: translateY(1px) !important;
+  box-shadow: none !important;
+}
+
+/* ============================================================
+   2. HIỆU ỨNG RIÊNG TỪNG NÚT (Chỉ đổi màu & đổ bóng)
+   ============================================================ */
+
+/* --- Nút "Xem" --- */
+.ui-card-expand-btn:hover {
+  background: #C9A227 !important;
+  color: #FFFFFF !important;
+  border-color: #C9A227 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 10px rgba(201, 162, 39, 0.3) !important;
+}
+
+/* --- Nút "+ Thêm" --- */
+.ui-btn-add:hover {
+  background: #C9A227 !important;
+  color: #FFFFFF !important;
+  border-color: #C9A227 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(201, 162, 39, 0.3) !important;
+}
+
+/* --- Nút "Đặt ngay" (Seat) --- */
+.seat-btn {
+  display: inline-block !important; /* Đảm bảo nhận transform */
+}
+.seat-btn:hover {
+  background: #E65100 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(230, 81, 0, 0.3) !important;
+}
+
+/* ⚡ SỬA LỖI 3: Nút "Xem toàn bộ Menu" không đổi border-style để chống giật layout */
+.ui-btn-see-all:hover {
+  background: rgba(201, 162, 39, 0.08) !important;
+  /* Giữ nguyên dashed, chỉ đổi màu đậm hơn và đổ bóng */
+  border-color: #B88A1E !important; 
+  color: #B88A1E !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 15px rgba(201, 162, 39, 0.2) !important;
+}
+
+/* --- Nút "Welcome" --- */
+.ui-welcome-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08) !important;
+  border-color: #C9A227 !important;
+}
+
+/* ============================================================
+   3. DARK MODE
+   ============================================================ */
+[data-theme="dark"] .ui-card-expand-btn::after,
+[data-theme="dark"] .ui-btn-add::after,
+[data-theme="dark"] .seat-btn::after,
+[data-theme="dark"] .ui-btn-see-all::after {
+  background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(232,185,49,0.4) 50%, rgba(255,255,255,0) 100%) !important;
+}
+
+[data-theme="dark"] .ui-card-expand-btn:hover {
+  background: #E8B931 !important;
+  color: #12100E !important;
+}
+
+[data-theme="dark"] .ui-btn-add:hover {
+  background: #E8B931 !important;
+  color: #12100E !important;
+}
+/* ============================================================
+   🚀 FIX TRIỆT ĐỂ: ÉP NÚT XEM VỀ GÓC PHẢI VÀ CÂN LẠI TIÊU ĐỀ
+   ============================================================ */
+
+/* 1. Khung bao bọc phải là relative để neo nút */
+.ui-card-wrapper {
+  display: block !important; /* Chống bị chia cột */
+  position: relative !important;
+  width: 100% !important;
+}
+
+/* 2. Ép nút Xem lên góc trên bên phải */
+.ui-card-expand-btn {
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  left: auto !important; /* ⚡ XÓA BỎ mọi lệnh canh trái gây lỗi */
+  bottom: auto !important;
+  z-index: 99 !important;
+  margin: 0 !important;
+}
+
+/* 3. Đảm bảo thẻ luôn rộng 100% */
+.ui-card {
+  position: relative !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* 4. Tiêu đề (Món gợi ý, Menu CAPPAN...) ép sang trái và chừa chỗ cho nút Xem */
+.ui-card h4 {
+  text-align: left !important; /* Không cho căn giữa */
+  padding-right: 65px !important; /* Chừa khoảng trống bên phải để nút Xem không đè chữ */
+  padding-left: 0 !important;
+  margin-top: 4px !important;
+}
+/* ============================================================
+   🛵 LIVE ORDER PROGRESS BAR
+   ============================================================ */
+.live-progress-bar-wrap {
+  height: 10px;
+  background: #E0E0E0;
+  border-radius: 5px;
+  overflow: hidden;
+  margin: 12px 0;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.live-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #C9A227, #FFD700);
+  border-radius: 5px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark Mode */
+[data-theme="dark"] .live-progress-bar-wrap {
+  background: #333;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+}
+[data-theme="dark"] .live-progress-bar-fill {
+  background: linear-gradient(90deg, #E8B931, #FFF2B8);
+}
+/* ⚡ FIX LỖI NÚT XÓA CACHE BỊ ĐÈ */
+.chat-header {
+  position: relative !important;
+  z-index: 100 !important;
+}
+.chat-header-actions {
+  position: relative !important;
+  z-index: 101 !important;
+  display: flex !important;
+  gap: 8px !important;
+}
+.chat-header-actions button {
+  position: relative !important;
+  z-index: 102 !important;
+  cursor: pointer !important;
+  pointer-events: auto !important; /* Ép buộc nhận click */
+}
+/* ============================================================
+   CAPPAN CARD FIX v3 — BỔ SUNG CLASS CÒN THIẾU
+   Đồng bộ 15 renderers
+   ============================================================ */
+
+/* ═══ 1. SEAT rows ═══ */
+.ui-seat-row {
+  display: flex !important; justify-content: space-between !important; align-items: center !important;
+  gap: 8px !important; background: #FFF8E1 !important; border: 1px solid #FFCC80 !important;
+  border-radius: 10px !important; padding: 10px 14px !important; margin-bottom: 8px !important;
+  text-decoration: none !important; color: inherit !important; transition: all 0.15s !important;
+}
+.ui-seat-row:hover { background: #FFECB3 !important; transform: translateY(-1px) !important; }
+.ui-seat-row .seat-name { font-weight: 600 !important; color: #E65100 !important; font-size: 0.9rem !important; }
+.ui-seat-row .seat-name small { color: #666 !important; font-weight: 400 !important; margin-left: 4px !important; }
+.ui-seat-row .seat-btn {
+  background: #E65100 !important; color: #fff !important; padding: 4px 12px !important;
+  border-radius: 20px !important; font-size: 0.75rem !important; font-weight: 700 !important; white-space: nowrap !important;
+}
+
+/* ═══ 2. PROMO inner box ═══ */
+.ui-inner-box {
+  background: #FAF8F5 !important; border: 1px solid #F3ECE1 !important;
+  border-radius: 10px !important; padding: 10px 12px !important; margin-bottom: 6px !important;
+}
+
+/* ═══ 3. ORDER rows ═══ */
+.ui-row { display: flex !important; justify-content: space-between !important; align-items: center !important; gap: 8px !important; }
+.ui-progress { background: #F0E6D2 !important; border-radius: 99px !important; overflow: hidden !important; height: 6px !important; }
+.ui-progress > div { background: linear-gradient(90deg, #C9A227, #E8B931) !important; height: 100% !important; transition: width 0.4s !important; }
+.ui-step { font-size: 0.75rem !important; color: #666 !important; margin-top: 4px !important; }
+.ui-step.ui-red { color: #c62828 !important; font-weight: 700 !important; }
+.ui-order {
+  background: #FAF8F5 !important; border: 1px solid #F3ECE1 !important;
+  border-radius: 10px !important; padding: 10px 12px !important; margin-bottom: 8px !important;
+}
+.ui-order.ui-dim { opacity: 0.65 !important; }
+
+/* ═══ 4. KPI ═══ */
+.ui-kpi-main {
+  text-align: center !important; padding: 12px 0 !important;
+  background: linear-gradient(135deg, #FFFDF5, #FFF4D4) !important;
+  border-radius: 10px !important; margin-bottom: 10px !important;
+}
+.ui-kpi-value { font-size: 1.6rem !important; font-weight: 800 !important; color: #C9A227 !important; line-height: 1.2 !important; }
+.ui-kpi-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin: 10px 0 !important; }
+.ui-kpi-grid > div { background: #FFF !important; padding: 8px 10px !important; border-radius: 8px !important; border: 1px solid #F0E6D2 !important; }
+.ui-kpi-grid b { color: #2E7D32 !important; font-size: 1rem !important; }
+
+/* ═══ 5. Chips ═══ */
+.ui-chips { display: flex !important; flex-wrap: wrap !important; gap: 6px !important; margin-top: 8px !important; }
+.ui-chip { background: #FFF3E0 !important; color: #E65100 !important; padding: 3px 10px !important; border-radius: 20px !important; font-size: 0.75rem !important; font-weight: 600 !important; }
+.ui-chip-muted { background: #F5F5F5 !important; color: #666 !important; }
+.ui-chip-warn { background: #FFEBEE !important; color: #c62828 !important; }
+.ui-chip-btn { cursor: pointer !important; border: 1px solid #FFCC80 !important; }
+.ui-chip-btn:hover { background: #FFE0B2 !important; }
+
+/* ═══ 6. COMPARE ═══ */
+.ui-cmp { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+.ui-cmp-col {
+  background: #FAF8F5 !important; border: 1.5px solid #EADBC4 !important;
+  border-radius: 10px !important; padding: 10px !important; text-align: center !important;
+}
+.ui-cmp-win { background: linear-gradient(135deg, #FFFDF5, #FFF4D4) !important; border-color: #C9A227 !important; }
+.ui-badge {
+  display: inline-block !important; background: #C9A227 !important; color: #fff !important;
+  padding: 2px 8px !important; border-radius: 12px !important; font-size: 0.7rem !important;
+  font-weight: 700 !important; margin-bottom: 4px !important;
+}
+
+/* ═══ 7. MENU info ═══ */
+.ui-menu-info { display: flex !important; flex-direction: column !important; flex: 1 !important; min-width: 0 !important; }
+.ui-menu-title-wrap { display: flex !important; align-items: center !important; gap: 6px !important; flex-wrap: wrap !important; }
+.ui-link-more { color: #C9A227 !important; font-size: 0.8rem !important; font-weight: 600 !important; text-decoration: none !important; }
+.ui-link-more:hover { text-decoration: underline !important; }
+.ui-more-text { text-align: center !important; font-size: 0.8rem !important; color: #888 !important; padding: 6px 0 !important; }
+.ui-sub-count { color: #888 !important; font-size: 0.8rem !important; font-weight: 400 !important; }
+
+/* ═══ 8. LIVE_ORDER ═══ */
+.live-progress-bar-wrap { background: #F0E6D2 !important; height: 8px !important; border-radius: 99px !important; overflow: hidden !important; margin: 8px 0 !important; }
+.live-progress-bar-fill { background: linear-gradient(90deg, #C9A227, #E8B931) !important; height: 100% !important; border-radius: 99px !important; transition: width 1s !important; }
+.live-info-text { font-size: 0.9rem !important; line-height: 1.6 !important; color: #3E2723 !important; margin-top: 10px !important; }
+.live-map { width: 100% !important; height: 180px !important; border: 0 !important; border-radius: 10px !important; margin-top: 10px !important; }
+
+/* ═══ 9. VOUCHERS PAGE ═══ */
+.voucher-header { text-align: center !important; margin-bottom: 24px !important; }
+.points-box {
+  display: inline-block !important; padding: 20px 40px !important;
+  background: linear-gradient(135deg, #FFFDF5, #FFF4D4) !important;
+  border: 1.5px solid #FCEA9B !important; border-radius: 20px !important;
+  box-shadow: 0 8px 24px rgba(201,162,39,0.15) !important;
+}
+.points-value { font-size: 3rem !important; font-weight: 800 !important; color: #C9A227 !important; line-height: 1 !important; font-family: 'Playfair Display', serif !important; }
+.points-label { font-size: 0.9rem !important; color: #8B6F47 !important; font-weight: 600 !important; margin-top: 4px !important; letter-spacing: 1px !important; text-transform: uppercase !important; }
+.points-hint { text-align: center !important; color: #E65100 !important; font-size: 0.88rem !important; margin-top: 12px !important; font-weight: 600 !important; }
+.voucher-grid { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important; gap: 16px !important; margin-top: 8px !important; }
+.voucher-card {
+  position: relative !important;
+  background: linear-gradient(135deg, #FFFDF5, #FFF4D4) !important;
+  border: 1.5px dashed #C9A227 !important; border-radius: 14px !important;
+  padding: 18px 16px !important; transition: all 0.25s !important;
+}
+.voucher-card:hover { transform: translateY(-4px) !important; box-shadow: 0 12px 28px rgba(201,162,39,0.2) !important; border-style: solid !important; }
+.voucher-code {
+  font-family: 'Courier New', monospace !important; font-weight: 800 !important;
+  color: #C9A227 !important; font-size: 1.15rem !important; letter-spacing: 1.5px !important;
+  padding-bottom: 8px !important; border-bottom: 1px dashed #EADBC4 !important; margin-bottom: 8px !important;
+}
+.voucher-desc { font-size: 0.85rem !important; color: #5D4037 !important; line-height: 1.4 !important; margin-bottom: 8px !important; }
+.voucher-points { font-size: 0.78rem !important; color: #888 !important; font-style: italic !important; }
+
+/* ═══ 10. DARK MODE ═══ */
+[data-theme="dark"] .ui-seat-row { background: #2A1A14 !important; border-color: #4E342E !important; }
+[data-theme="dark"] .ui-seat-row:hover { background: #3E2723 !important; }
+[data-theme="dark"] .ui-seat-row .seat-name { color: #E8B931 !important; }
+[data-theme="dark"] .ui-seat-row .seat-name small { color: #A8A29E !important; }
+[data-theme="dark"] .ui-seat-row .seat-btn { background: #E8B931 !important; color: #12100E !important; }
+[data-theme="dark"] .ui-inner-box { background: #262220 !important; border-color: #3E3430 !important; }
+[data-theme="dark"] .ui-order { background: #262220 !important; border-color: #3E3430 !important; }
+[data-theme="dark"] .ui-progress { background: #3E3430 !important; }
+[data-theme="dark"] .ui-step { color: #A8A29E !important; }
+[data-theme="dark"] .ui-kpi-main { background: linear-gradient(135deg, #2A2522, #1C1917) !important; }
+[data-theme="dark"] .ui-kpi-value { color: #E8B931 !important; }
+[data-theme="dark"] .ui-kpi-grid > div { background: #1C1917 !important; border-color: #3E3430 !important; }
+[data-theme="dark"] .ui-kpi-grid b { color: #4ADE80 !important; }
+[data-theme="dark"] .ui-chip { background: #3E2723 !important; color: #E8B931 !important; }
+[data-theme="dark"] .ui-chip-muted { background: #292524 !important; color: #A8A29E !important; }
+[data-theme="dark"] .ui-chip-warn { background: #2B1113 !important; color: #F87171 !important; }
+[data-theme="dark"] .ui-cmp-col { background: #262220 !important; border-color: #3E3430 !important; }
+[data-theme="dark"] .ui-cmp-win { background: linear-gradient(135deg, #2A2522, #1C1917) !important; border-color: #E8B931 !important; }
+[data-theme="dark"] .ui-badge { background: #E8B931 !important; color: #12100E !important; }
+[data-theme="dark"] .live-progress-bar-wrap { background: #3E3430 !important; }
+[data-theme="dark"] .live-progress-bar-fill { background: linear-gradient(90deg, #E8B931, #F3DC82) !important; }
+[data-theme="dark"] .live-info-text { color: #F5F5F0 !important; }
+[data-theme="dark"] .ui-link-more { color: #E8B931 !important; }
+[data-theme="dark"] .ui-sub-count { color: #A8A29E !important; }
+[data-theme="dark"] .points-box { background: linear-gradient(135deg, #2A2522, #1C1917) !important; border-color: #3E3430 !important; }
+[data-theme="dark"] .points-value { color: #E8B931 !important; }
+[data-theme="dark"] .points-label { color: #A8A29E !important; }
+[data-theme="dark"] .voucher-card { background: linear-gradient(135deg, #2A2522, #1C1917) !important; border-color: #3E3430 !important; }
+[data-theme="dark"] .voucher-code { color: #E8B931 !important; border-bottom-color: #3E3430 !important; }
+[data-theme="dark"] .voucher-desc { color: #D1D5DB !important; }
+[data-theme="dark"] .voucher-points { color: #A8A29E !important; }

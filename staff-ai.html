@@ -14,6 +14,11 @@
 <link rel="stylesheet" href="chat-panel.css">
 <link rel="stylesheet" href="staff.css">
 <link rel="stylesheet" href="dark-mode.css">
+<!-- Nhúng file CSS mới ở cuối cùng để đè lên tất cả -->
+<link rel="stylesheet" href="card-premium.css"> 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
 <script>
   (function(){try{
     var t = localStorage.getItem('cappan_theme') || 'light';
@@ -91,8 +96,8 @@ d.classList.add('no-anim');}catch(e){}})();
 
   <div class="panel-resizer" id="panelResizer"></div>
 
-  <aside class="chat-panel" id="chatPanel">
-    <div class="chat-panel-header">
+    <aside class="chat-panel" id="chatPanel" onclick="if(this.classList.contains('collapsed')) { document.getElementById('chatFloatBtn')?.click(); }">
+    <div class="chat-panel-header" onclick="event.stopPropagation();">
       <span class="chat-panel-title">🤖 Trợ lý CAPPAN</span>
       <div class="chat-panel-actions">
         <button class="chat-panel-btn" id="btnCollapseChat" title="Thu gọn bảng chat">
@@ -109,8 +114,8 @@ d.classList.add('no-anim');}catch(e){}})();
         </button>
       </div>
     </div>
-    <div class="chat-body" id="chatBody"></div>
-    <div class="chat-panel-footer">
+    <div class="chat-body" id="chatBody" onclick="event.stopPropagation();"></div>
+    <div class="chat-panel-footer" onclick="event.stopPropagation();">
       <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." autocomplete="off">
       <button id="btnSendChat" title="Gửi">▶</button>
     </div>
@@ -121,23 +126,56 @@ d.classList.add('no-anim');}catch(e){}})();
 
 <div class="toast" id="toast">✓ Thành công!</div>
 
+<!-- ══════════════ 1. DATA LAYER (không phụ thuộc gì) ══════════════ -->
 <script src="js/data/schema.js"></script>
-<script src="js/ai/ai-input.js"></script>
-<script src="js/ai/ai-output.js"></script>
 <script src="js/data/seed.js"></script>
 <script src="js/data/recipes.js"></script>
 <script src="js/data/kb.js"></script>
 <script src="js/data/promotions.js"></script>
+
+<!-- ══════════════ 2. AI INPUT/OUTPUT (chỉ cần schema) ══════════════ -->
+<script src="js/ai/ai-input.js"></script>
+<script src="js/ai/ai-output.js"></script>
+
+<!-- ══════════════ 3. API + REALTIME (cần data) ══════════════ -->
 <script src="js/api/index.js"></script>
-<script src="js/realtime.js"></script> 
+<script src="js/realtime.js"></script>
+
+<!-- ══════════════ 4. GUARD (cần API) ══════════════ -->
 <script src="js/staff-guard.js"></script>
+
+<!-- ══════════════ 5. AI SUB-MODULES (thứ tự quan trọng) ══════════════ -->
+<script src="js/ai/item-lookup.js"></script>
+<script src="js/ai/injection-guard.js"></script>
+<script src="js/ai/multi-intent-splitter.js"></script>
+<script src="js/ai/intent-authorization.js"></script>
+<script src="js/ai/emotional-handler.js"></script>
+<script src="js/ai/user-memory.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
 <script src="js/ai/brain.js"></script>
+
+<!-- ══════════════ 6. CORE (cần API + AI) ══════════════ -->
 <script src="js/auth.js"></script>
 <script src="js/main.js"></script>
+
+<!-- ══════════════ 7. CHAT PANEL (cần AIBrain + main) ══════════════ -->
 <script src="js/chat-panel.js"></script>
 <script src="js/staff-nav.js"></script>
 
+<!-- ══════════════ 8. ⚡ MỚI: CHAT INTERACTIONS ══════════════ -->
+<!-- Phải SAU brain.js + main.js + chat-panel.js (vì override AIBrain) -->
+<script src="js/ai/chat-interactions.js"></script>
+
+<!-- ══════════════ 9. HANDOVER (staff cũng escalate được) ══════════════ -->
+<script src="js/ai/handover.js"></script>
+
+<!-- ══════════════ 10. HIỆU ỨNG + DARK MODE + DEMO (CUỐI CÙNG) ══════════════ -->
+<script src="js/demo.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/dark-mode.js"></script>
+
+<!-- ══════════════ 11. INLINE SCRIPT CỦA TỪNG TRANG ══════════════ -->
+<!-- (staff-dashboard, staff-orders... tự chèn inline ở đây) -->
 <script>
 const SRC = {
   kb:     { label: 'Luật cứng (KB)', color: '#2E7D32' },
@@ -151,6 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!Auth.requireStaff()) return;
   renderStaffNav('ai');
   render();
+
+  // ⚡ Lắng nghe tín hiệu Realtime để tự động cập nhật biểu đồ khi có log mới từ tab khác
+  if (typeof Realtime !== 'undefined') {
+    Realtime.on('ai:metrics', render);
+    Realtime.on('ai:feedback', render);
+  }
 });
 
 function render() {
@@ -239,9 +283,9 @@ function clearMetrics() {
   if (!confirm('Xóa toàn bộ số liệu AI đã ghi?')) return;
   AIMetrics.clear(); 
   
-  // ⚡ Phát tín hiệu để các tab khác cũng xóa
+    // ⚡ Phát tín hiệu để các tab khác cũng xóa
   if (window.Realtime && typeof window.Realtime.emit === 'function') {
-    window.Realtime.emit('data:changed', { source: 'AIMetrics' });
+    window.Realtime.emit('ai:metrics', { source: 'AIMetrics' }); // ⚡ Đã đổi thành ai:metrics
   }
   
   render(); 
@@ -267,10 +311,7 @@ async function runSamples() {
   showToast('✓ Đã chạy xong 10 câu mẫu');
 }
 </script>
-<script src="js/demo.js"></script>
-<script src="js/fx.js"></script>
-<script src="js/dark-mode.js"></script>
-<script src="js/staff-ai-debug.js"></script>
+
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const sec = document.querySelector('.dashboard-main .section');

@@ -11,30 +11,15 @@ const API = {
 
   /* ---------- USERS ---------- */
   users: {
-    getAll() {
-      try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.users) || '[]'); }
-      catch { return []; }
-    },
-    getById(id) { return this.getAll().find(u => u.id === id) || null; },
-    getByPhone(p) { return this.getAll().find(u => u.phone === p) || null; },
-        getCurrent() {
-      try {
-        // ⚡ SỬA LỖI ĐA TAB: Dùng sessionStorage thay vì localStorage
-        const raw = sessionStorage.getItem(STORAGE_KEYS.currentUser) || localStorage.getItem(STORAGE_KEYS.currentUser);
-        return JSON.parse(raw || 'null'); 
-      } catch { return null; }
-    },
-    
-    setCurrent(u) {
-      if (u) {
-        // Lưu vào sessionStorage để mỗi tab có một phiên riêng
-        sessionStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(u));
-        localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(u)); // Fallback
-      } else {
-        sessionStorage.removeItem(STORAGE_KEYS.currentUser);
-        localStorage.removeItem(STORAGE_KEYS.currentUser);
-      }
-    },    getCurrent() {
+  getAll() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.users) || '[]'); }
+    catch { return []; }
+  },
+  getById(id) { return this.getAll().find(u => u.id === id) || null; },
+  getByPhone(p) { return this.getAll().find(u => u.phone === p) || null; },
+
+  // ⚡ FIX 3: Đã xóa cặp hàm trùng lặp. Chỉ dùng sessionStorage để mỗi tab có phiên riêng.
+    getCurrent() {
       try {
         // ⚡ CHỈ ĐỌC TỪ SESSION STORAGE. Mỗi tab có một session riêng.
         const raw = sessionStorage.getItem(STORAGE_KEYS.currentUser);
@@ -50,43 +35,44 @@ const API = {
         sessionStorage.removeItem(STORAGE_KEYS.currentUser);
       }
     },
-    create(data) {
-      const list = this.getAll();
-      const user = {
-        id: 'U' + String(list.length + 1).padStart(3, '0'),
-        name: data.name,
-        phone: data.phone,
-        password: data.password,
-        role: data.role || 'customer',
-        email: data.email || '',
-        address: data.address || '',
-        birthday: data.birthday || '',
-        joinedAt: new Date().toISOString(),
-        noShowCount: 0
-      };
-      list.push(user);
-      localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(list));
-      return user;
-    },
-    update(id, patch) {
-      const list = this.getAll();
-      const i = list.findIndex(u => u.id === id);
-      if (i === -1) return null;
-      list[i] = { ...list[i], ...patch };
-      localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(list));
-      const cur = this.getCurrent();
-      if (cur && cur.id === id) this.setCurrent(list[i]);
-      return list[i];
-    },
-    seedDemo() {
-      if (this.getAll().length > 0) return;
-      const demo = [
-        { id:'U001', name:'Khách Demo', phone:'0900000001', password:'123', role:'customer', joinedAt:new Date().toISOString(), noShowCount:0 },
-        { id:'U002', name:'Nhân viên Demo', phone:'0900000002', password:'123', role:'staff', joinedAt:new Date().toISOString(), noShowCount:0 }
-      ];
-      localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(demo));
-    }
+
+  create(data) {
+    const list = this.getAll();
+    const user = {
+      id: 'U' + String(list.length + 1).padStart(3, '0'),
+      name: data.name,
+      phone: data.phone,
+      password: data.password,
+      role: data.role || 'customer',
+      email: data.email || '',
+      address: data.address || '',
+      birthday: data.birthday || '',
+      joinedAt: new Date().toISOString(),
+      noShowCount: 0
+    };
+    list.push(user);
+    localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(list));
+    return user;
   },
+  update(id, patch) {
+    const list = this.getAll();
+    const i = list.findIndex(u => u.id === id);
+    if (i === -1) return null;
+    list[i] = { ...list[i], ...patch };
+    localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(list));
+    const cur = this.getCurrent();
+    if (cur && cur.id === id) this.setCurrent(list[i]);
+    return list[i];
+  },
+  seedDemo() {
+    if (this.getAll().length > 0) return;
+    const demo = [
+      { id:'U001', name:'Khách Demo', phone:'0900000001', password:'123', role:'customer', joinedAt:new Date().toISOString(), noShowCount:0 },
+      { id:'U002', name:'Nhân viên Demo', phone:'0900000002', password:'123', role:'staff', joinedAt:new Date().toISOString(), noShowCount:0 }
+    ];
+    localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(demo));
+  }
+},
 
   /* ---------- CATEGORIES ---------- */
   categories: {
@@ -594,7 +580,27 @@ const API = {
       API.seats.syncFromBookings();
 
       return list[i];
-    }
+    },
+        /* ⚡ THÊM MỚI: Cập nhật booking (Fix lỗi bypass Realtime) */
+    update(id, patch) {
+      const list = this.getAll();
+      const i = list.findIndex(b => b.id === id);
+      if (i === -1) return null;
+
+      const old = { ...list[i] };
+
+      // Đổi bàn → release ghế cũ, book ghế mới
+      if (patch.seatId && patch.seatId !== old.seatId) {
+        API.seats.release(old.seatId);
+        API.seats.book(patch.seatId);
+      }
+
+      list[i] = { ...old, ...patch, updatedAt: new Date().toISOString() };
+      localStorage.setItem(STORAGE_KEYS.bookings, JSON.stringify(list));
+      API.seats.syncFromBookings();
+
+      return list[i];
+    },
   },
 
   /* ---------- ORDERS ---------- */
@@ -754,9 +760,18 @@ const API = {
       } catch { return []; }
     },
 
-    set(items) {
+        set(items) {
       const key = this._getKey();
-      localStorage.setItem(key, JSON.stringify(items));
+      try {
+        localStorage.setItem(key, JSON.stringify(items));
+      } catch (e) {
+        console.warn('[API.cart] Bộ nhớ LocalStorage đầy hoặc bị khóa:', e);
+        // Có thể xóa bớt cache AI cũ để giải phóng dung lượng
+        try { localStorage.removeItem('cappan_ai_cache'); } catch(err) {}
+        try { localStorage.removeItem('cappan_ai_metrics'); } catch(err) {}
+        // Thử lưu lại lần 2
+        localStorage.setItem(key, JSON.stringify(items));
+      }
     },
 
     add(item) {

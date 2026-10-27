@@ -1,5 +1,6 @@
 /* ============================================================
    PROFILE — KHÁCH HÀNG (5 tab)
+   SUPREME PATCHED 2026: Thêm nút Hủy đơn + cancelMyOrder
 ============================================================ */
 
 const Profile = {
@@ -7,7 +8,12 @@ const Profile = {
   init() {
     if (!document.getElementById('profileContent')) return;
     this.render();
-  },
+
+    // ⚡ FIX: Đọc tham số tab từ URL để tự động chuyển tab
+    const urlParams = new URLSearchParams(window.location.search);
+    const tab = urlParams.get('tab');
+    if (tab && document.getElementById('panel-' + tab)) {
+      this.switchTab(tab);}},
 
   render() {
     const user = API.users.getCurrent();
@@ -60,7 +66,6 @@ const Profile = {
     });
   },
 
-  /* ---------- TAB ĐẶT CHỖ ---------- */
   renderBookings(user) {
     const el = document.getElementById('bookingsList');
     if (!el) return;
@@ -103,7 +108,6 @@ const Profile = {
     }).join('') + '</div>';
   },
 
-  /* ---------- TAB ĐƠN HÀNG ---------- */
   renderOrders(user) {
     const el = document.getElementById('ordersList');
     if (!el) return;
@@ -143,60 +147,49 @@ const Profile = {
               <div class="total-label">Tổng</div>
               <div class="total-value">${API.utils.formatVND(o.total)}</div>
             </div>
-            <button class="btn-outline" style="padding:4px 12px; font-size:0.78rem;"
-              onclick="reorder('${o.id}')">Đặt lại</button>
+            ${!isCancelled && !isDone && o.step < 2 ? `
+              <button class="btn-outline" style="padding:4px 12px; font-size:0.78rem; border-color:#c62828; color:#c62828;"
+                onclick="cancelMyOrder('${o.id}')">Hủy đơn</button>` : ''}
+            ${(isCancelled || isDone) ? `
+              <button class="btn-outline" style="padding:4px 12px; font-size:0.78rem;"
+                onclick="reorder('${o.id}')">Đặt lại</button>` : ''}
           </div>
         </div>
       `;
     }).join('') + '</div>';
   },
 
-  /* ---------- TAB ƯU ĐÃI ---------- */
-  renderVouchers(user) {
+    renderVouchers(user) {
     const el = document.getElementById('vouchersList');
     if (!el) return;
-
-    const orders = API.orders.getByUser(user.id).filter(o => o.step >= 4 && o.status !== 'cancelled');
-    const points = Math.floor(orders.reduce((s, o) => s + o.total, 0) / 10000);
-
-    // Khuyến mãi lấy từ dữ liệu staff thiết lập — chỉ hiện mã còn hiệu lực hôm nay
-    // ⚡ P1-7: Chỉ hiện mã mà user CÓ THỂ DÙNG ĐƯỢC ngay (loại WELCOME10 nếu user đã có đơn)
-const fmtDate = d => d.split('-').reverse().join('/');
-const promos = API.promotions.getActive().filter(p => {
-  const testAmount = Math.max(p.minOrder || 0, 1);
-  const r = API.promotions.evaluate(p.code, testAmount, 15000, user.id);
-  return r.ok;
-});
-
-    el.innerHTML = `
-      <div class="voucher-header">
-        <div class="points-box">
-          <div class="points-value">${points}</div>
-          <div class="points-label">Điểm tích lũy</div>
+    try {
+      const orders = API.orders.getByUser(user.id).filter(o => o.step >= 4 && o.status !== 'cancelled');
+      const points = Math.floor(orders.reduce((s, o) => s + (Number(o.total) || 0), 0) / 10000);
+      
+      const promos = [];
+      API.promotions.getActive().forEach(p => {
+        try {
+          if (API.promotions.evaluate(p.code, Math.max(p.minOrder || 0, 1), 15000, user.id).ok) promos.push(p);
+        } catch (e) {}
+      });
+      
+      const fmtDate = d => d ? d.split('-').reverse().join('/') : '';
+      
+      el.innerHTML = `
+        <div class="voucher-header">
+          <div class="points-box"><div class="points-value">${points}</div><div class="points-label">Điểm tích lũy</div></div>
+          <p class="points-hint">💡 10.000đ chi tiêu = 1 điểm</p>
         </div>
-        <p class="points-hint">💡 10.000đ chi tiêu = 1 điểm</p>
-      </div>
-      ${promos.length === 0 ? `
-        <div class="empty-state">
-          <div class="empty-icon">🎁</div>
-          <p>Hiện chưa có khuyến mãi nào đang áp dụng.</p>
-        </div>` : `
-      <div class="voucher-grid">
-        ${promos.map(p => `
-          <div class="voucher-card">
-            <div class="voucher-code">${esc(p.code)}</div>
-            <div class="voucher-desc">${esc(p.description || p.name)}</div>
-            <div class="voucher-points">
-              ${p.minOrder ? 'Đơn từ ' + API.utils.formatVND(p.minOrder) : 'Không yêu cầu tối thiểu'}
-              ${p.endDate ? ' · HSD ' + fmtDate(p.endDate) : ''}
-            </div>
-          </div>
-        `).join('')}
-      </div>`}
-    `;
+        ${promos.length === 0 ? `<div class="empty-state"><div class="empty-icon">🎁</div><p>Hiện chưa có khuyến mãi nào.</p></div>` : `
+        <div class="voucher-grid">
+          ${promos.map(p => `<div class="voucher-card"><div class="voucher-code">${esc(p.code)}</div><div class="voucher-desc">${esc(p.description || p.name)}</div></div>`).join('')}
+        </div>`}
+      `;
+    } catch (e) {
+      el.innerHTML = '<p class="empty-note">Không thể tải ưu đãi. Vui lòng thử lại sau.</p>';
+    }
   },
 
-  /* ---------- SAVE ---------- */
   save() {
     const user = API.users.getCurrent();
     if (!user) return;
@@ -236,13 +229,23 @@ window.cancelBooking = function(bookingId) {
   Profile.renderBookings(user);
 };
 
+// PATCH 4.2: Thêm cancelMyOrder
+window.cancelMyOrder = function(orderId) {
+  if (!confirm('Hủy đơn này? Sau khi hủy không thể khôi phục.')) return;
+  const u = API.users.getCurrent();
+  const o = API.orders.getById(orderId);
+  if (!o || !u || o.userId !== u.id) { showToast('⚠ Không tìm thấy đơn', '#c62828'); return; }
+  if (o.step >= 2) { showToast('⚠ Đơn đã qua bước chuẩn bị, vui lòng gọi 0366 444 038', '#c62828'); return; }
+  API.orders.cancel(orderId);
+  showToast(`✓ Đã hủy đơn ${orderId}`);
+  Profile.renderOrders(u);
+};
+
 window.reorder = function (orderId) {
   const order = API.orders.getById(orderId);
   if (!order) return;
   if (!confirm(`Thêm lại ${order.items.length} món vào giỏ?`)) return;
 
-  // ⚡ FIX H2: KHÔNG ghi đè qty — chỉ cần add, API.cart.add đã cộng dồn đúng.
-  // Nếu item chưa có trong giỏ → add qty 1; nếu có → cộng thêm đúng qty đặt lại.
   order.items.forEach(it => {
     const addTimes = Math.max(1, Number(it.qty) || 1);
     for (let k = 0; k < addTimes; k++) {

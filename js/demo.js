@@ -30,19 +30,43 @@ const DemoData = {
 
   /* ---------- RESET ---------- */
   reset() {
-    this.KEYS.forEach(k => localStorage.removeItem(k));
-    Object.keys(localStorage).forEach(k => { if (k.startsWith('cappan_cart_')) localStorage.removeItem(k); });
-    Object.keys(sessionStorage).forEach(k => {
-      if (k.startsWith('cappan_history_') || k.startsWith('cappan_greeted_') || k === 'cappan_ai_cool') sessionStorage.removeItem(k);
-    });
+  this.KEYS.forEach(k => localStorage.removeItem(k));
+  Object.keys(localStorage).forEach(k => {
+    if (k.startsWith('cappan_cart_') || k.startsWith('cappan_user_memory_')) {
+      localStorage.removeItem(k);
+    }
+  });
+  Object.keys(sessionStorage).forEach(k => {
+    if (k.startsWith('cappan_history_') || k.startsWith('cappan_greeted_') ||
+        k === 'cappan_ai_cool' || k === 'cappan_applied_promo' ||
+        k === 'cappan_checkout_info' || k === 'cappan_prefs') {
+      sessionStorage.removeItem(k);
+    }
+  });
 
-    API.users.seedDemo();
-    if (API.menu._syncSeed) API.menu._syncSeed();
-    API.seats.resetToDefault();
+  // ⚡ Reset in-memory AI state
+  try {
+    if (typeof AIBrain !== 'undefined' && AIBrain.histories) {
+      Object.keys(AIBrain.histories).forEach(k => delete AIBrain.histories[k]);
+    }
+    if (typeof LocalBrain !== 'undefined') {
+      LocalBrain.bookingDraft = null;
+      LocalBrain.orderDraft = null;
+      LocalBrain.ctx = null;
+      LocalBrain.lastEmotion = null;
+      LocalBrain.lastEmotionAt = 0;
+    }
+    if (typeof Handover !== 'undefined') Handover.reset();
+    if (typeof ResponseCache !== 'undefined') ResponseCache.clear();
+  } catch (e) {}
 
-    const cur = API.users.getCurrent();
-    if (cur && !API.users.getById(cur.id)) API.users.setCurrent(null);
-  },
+  API.users.seedDemo();
+  if (API.menu._syncSeed) API.menu._syncSeed();
+  API.seats.resetToDefault();
+
+  const cur = API.users.getCurrent();
+  if (cur && !API.users.getById(cur.id)) API.users.setCurrent(null);
+},
 
   /* ---------- NẠP DỮ LIỆU MẪU ---------- */
   seed() {
@@ -90,7 +114,13 @@ const DemoData = {
           d.setTime(now.getTime() - (10 + Math.floor(rnd() * span)) * 60000);
         }
 
-        const user = pick(users);
+                // ⚡ Ưu tiên gán đơn hàng cho Khách Demo (users[5]) để test tính năng Recommend
+        let user;
+        if (daysAgo >= 1 && daysAgo <= 4 && i % 2 === 0) {
+          user = users[5]; // Khách Demo mua nhiều đồ uống vào các ngày trước
+        } else {
+          user = pick(users);
+        }
         const lines = {};
         const n = 1 + Math.floor(rnd() * 3);
         for (let k = 0; k < n; k++) {

@@ -13,6 +13,11 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="dark-mode.css">
+<!-- Nhúng file CSS mới ở cuối cùng để đè lên tất cả -->
+<link rel="stylesheet" href="card-premium.css"> 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
 <script>
   (function(){try{
     var t = localStorage.getItem('cappan_theme') || 'light';
@@ -74,7 +79,7 @@
     <a href="contact.html">Liên hệ</a>
     <a href="privacy.html">Chính sách bảo mật</a>
   </div>
-  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
+  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 444 038</div>
 </footer>
 
 <button class="chat-btn" onclick="toggleChat()">🤖</button>
@@ -93,11 +98,9 @@
   </div>
 </div>
   <div class="chat-body" id="chatBody" role="log" aria-live="polite" aria-label="Lịch sử trò chuyện với trợ lý">
-    <div class="msg bot"><div class="bubble">Bạn cần hỏi gì về đơn hàng không? 📦</div></div>
   </div>
   <div class="chat-input">
-    <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
-           onkeypress="if(event.key==='Enter') sendChat()">
+    <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." autocomplete="off">
     <button onclick="sendChat()">➤</button>
   </div>
 </div>
@@ -105,6 +108,7 @@
 <div class="toast" id="toast">✓ Thành công!</div>
 
 <script src="js/data/schema.js"></script>
+<script src="js/data/weather.js"></script>
 <script src="js/ai/ai-input.js"></script>
 <script src="js/ai/ai-output.js"></script>
 <script src="js/data/shipper.js"></script>
@@ -113,11 +117,22 @@
 <script src="js/data/kb.js"></script>             
 <script src="js/data/promotions.js"></script>     
 <script src="js/api/index.js"></script>
+<script src="js/realtime.js"></script>
 <script src="js/staff-guard.js"></script>
+<script src="js/ai/item-lookup.js"></script>
+<script src="js/ai/injection-guard.js"></script>
+<script src="js/ai/multi-intent-splitter.js"></script>
+<script src="js/ai/intent-authorization.js"></script>
+<script src="js/ai/emotional-handler.js"></script>
+<script src="js/ai/user-memory.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
 <script src="js/ai/brain.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/main.js"></script>
+
+<script src="js/ai/proactive.js"></script>
+<script src="js/ai/handover.js"></script>
+<script src="js/ai/chat-interactions.js"></script>
 
 <script>
 let orderTimer = null;
@@ -225,6 +240,10 @@ function renderOrderCard(order) {
             <small id="countdown-${order.id}" style="color:var(--gray);margin-left:6px;"></small>
           </span>
         </div>
+          <div style="display:flex; gap:10px; margin-top:15px; padding-top:15px; border-top:1px dashed #ddd;">
+            <a href="tel:0912345678" style="flex:1; text-align:center; background:#2E7D32; color:white; padding:10px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:0.9rem;">📞 Gọi Shipper</a>
+            <button onclick="toggleChat(); setTimeout(() => { document.getElementById('chatInput').value='Shipper đang ở đâu?'; sendChat(); }, 300);" style="flex:1; border:1px solid #C9A227; color:#C9A227; background:white; border-radius:8px; font-weight:bold; font-size:0.9rem; cursor:pointer;">💬 Chat ngay</button>
+          </div>
         </div>
       ` : (isCancelled ? `
         <div class="order-done-msg" style="background:#fdecea;color:#b71c1c;">❌ Đơn hàng này đã bị hủy.</div>
@@ -260,34 +279,30 @@ function getETA(step) {
 function startOrderSimulation() {
   if (orderTimer) clearInterval(orderTimer);
 
-  // ⚡ Auto-advance mỗi 5 giây (demo)
   orderTimer = setInterval(() => {
     const user = API.users.getCurrent();
     if (!user) { clearInterval(orderTimer); return; }
 
-    const activeOrders = API.orders.getByUser(user.id).filter(o => API.orders.isActive(o));   // bỏ đơn đã hủy
-    if (activeOrders.length === 0) { clearInterval(orderTimer); return; }
+    // ⚡ CHỈ LẤY CÁC ĐƠN CÓ STEP < 3 (Dừng ở bước 3: Đang giao)
+    const activeOrders = API.orders.getByUser(user.id).filter(o => 
+      API.orders.isActive(o) && o.step < 3 
+    );
+    
+    if (activeOrders.length === 0) { 
+      clearInterval(orderTimer); // Hết đơn để tự động chạy -> Dừng
+      return; 
+    }
 
     let anyAdvanced = false;
     activeOrders.forEach(o => {
-  const newStep = o.step + 1;
-  API.orders.updateStep(o.id, newStep);
-  anyAdvanced = true;
+      const newStep = o.step + 1;
+      API.orders.updateStep(o.id, newStep);
+      anyAdvanced = true;
 
-  // ⚡ Toast mỗi bước, không chỉ bước cuối
-  const stepMessages = [
-    'Đã xác nhận',
-    'Đang pha chế',
-    'Shipper đã lấy hàng',
-    'Đang giao đến bạn',
-    'Đã giao thành công 🎉'
-  ];
-  if (newStep >= 4) {
-    showToast(`🎉 Đơn #${o.id} đã giao thành công!`);
-  } else {
-    showToast(`📦 Đơn #${o.id}: ${stepMessages[newStep] || 'Đang xử lý'}`, '#1565c0');
-  }
-});
+      // Chỉ báo Toast đến bước 3
+      const stepMessages = ['Đã xác nhận', 'Đang pha chế', 'Shipper đã lấy hàng', 'Đang giao đến bạn'];
+      showToast(`📦 Đơn #${o.id}: ${stepMessages[newStep] || 'Đang xử lý'}`, '#1565c0');
+    });
 
     if (anyAdvanced) renderTracking();
   }, 5000);
@@ -321,5 +336,12 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="js/demo.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/dark-mode.js"></script>
+
+<script>
+  window.addEventListener('pagehide', () => {
+    if (typeof orderTimer !== 'undefined' && orderTimer) { clearInterval(orderTimer); orderTimer = null; }
+    if (window._countdownTimer) { clearInterval(window._countdownTimer); window._countdownTimer = null; }
+  });
+</script>
 </body>
 </html>

@@ -13,12 +13,19 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="dark-mode.css">
+<!-- Nhúng file CSS mới ở cuối cùng để đè lên tất cả -->
+<link rel="stylesheet" href="card-premium.css"> 
+<!-- Dán đoạn này vào trong thẻ <head> của tất cả file HTML -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
 <script>
   (function(){try{
     var t = localStorage.getItem('cappan_theme') || 'light';
     if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
   }catch(e){}})();
 </script>
+
 </head>
 <body data-page="booking">
 
@@ -45,21 +52,37 @@
 <section class="section">
   <h2 class="section-title">Đặt Chỗ</h2>
   <p class="section-sub">Chọn tầng → chọn chỗ → điền thông tin</p>
-  <p class="demo-note">ℹ️ Bản demo: chỗ được giữ cho đến khi nhân viên bấm “Hoàn thành/Hủy” (chưa chia theo khung giờ). Nhận đặt trước tối đa 14 ngày, trong giờ 07:00 – 22:00.</p>
+  <p class="demo-note">ℹ️ Bản demo: chỗ được giữ cho đến khi nhân viên bấm "Hoàn thành/Hủy" (chưa chia theo khung giờ). Nhận đặt trước tối đa 14 ngày, trong giờ 07:00 – 22:00.</p>
 
   <div class="floor-switch" id="floorSwitch"></div>
   <div class="floor-summary" id="floorSummary"></div>
 
-  <div class="seat-area">
-    <div class="seat-map" id="seatMap"></div>
-
-    <div class="seat-legend">
-      <div class="legend-item"><div class="legend-box free"></div> Còn trống</div>
-      <div class="legend-item"><div class="legend-box booked"></div> Đã đặt</div>
+  <!-- ✅ MỚI: Toolbar (Filter + Legend có số lượng) -->
+  <div class="seat-toolbar">
+    <div class="seat-filter" role="group" aria-label="Lọc theo sức chứa">
+      <button type="button" class="filter-chip active" data-range="all" onclick="filterSeats('all')">Tất cả</button>
+      <button type="button" class="filter-chip" data-range="small" onclick="filterSeats('small')">1–2 người</button>
+      <button type="button" class="filter-chip" data-range="medium" onclick="filterSeats('medium')">3–4 người</button>
+      <button type="button" class="filter-chip" data-range="large" onclick="filterSeats('large')">5+ người</button>
+    </div>
+    <div class="seat-legend" id="seatLegend">
+      <div class="legend-item"><div class="legend-box free"></div> Trống <strong id="legendFree">0</strong></div>
+      <div class="legend-item"><div class="legend-box booked"></div> Đã đặt <strong id="legendBooked">0</strong></div>
       <div class="legend-item"><div class="legend-box selected"></div> Đang chọn</div>
     </div>
+  </div>
 
-    <div class="seat-info-panel" id="seatInfoPanel">
+  <!-- ✅ MỚI: Room layout wrapper (khớp CSS đã có sẵn) -->
+    <!-- SƠ ĐỒ GHẾ -->
+  <div class="seat-area">
+    <div class="room-layout" id="roomLayout">
+      <!-- Đã bỏ phần Cửa sổ / Lối vào theo yêu cầu -->
+      <div class="seat-map" id="seatMap" role="grid" aria-label="Sơ đồ bàn"></div>
+    </div>
+
+    <!-- Info panel có nút đóng -->
+    <div class="seat-info-panel" id="seatInfoPanel" role="region" aria-live="polite">
+      <button type="button" class="seat-info-close" onclick="closeSeatInfo()" aria-label="Đóng thông tin bàn">✕</button>
       <div class="seat-info-grid">
         <img id="seatInfoImg" src="" alt="Chỗ ngồi">
         <div>
@@ -99,7 +122,7 @@
         <div class="form-group">
       <label>Giờ đặt</label>
       <input type="time" id="bkTime" required>
-      <!-- ⚡ UPGRADE 8: Quick time buttons -->
+      <!-- ⚡ Quick time buttons -->
       <div class="quick-times" style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
         <button type="button" class="quick-time-btn" onclick="document.getElementById('bkTime').value='08:00'">🌅 08:00</button>
         <button type="button" class="quick-time-btn" onclick="document.getElementById('bkTime').value='12:00'">☀️ 12:00</button>
@@ -133,7 +156,7 @@
     <a href="contact.html">Liên hệ</a>
     <a href="privacy.html">Chính sách bảo mật</a>
   </div>
-  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
+  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 444 038</div>
 </footer>
 
 <button class="chat-btn" onclick="toggleChat()">🤖</button>
@@ -151,7 +174,7 @@
     <button onclick="toggleChat()" title="Đóng" aria-label="Đóng cửa sổ chat">✕</button>
   </div>
 </div>
-  <div class="chat-body" id="chatBody" role="log" aria-live="polite" aria-label="Lịch sử trò chuyện với trợ lý">    <div class="msg bot"><div class="bubble">Bạn muốn ngồi tầng nào? Tôi tư vấn cho! 😊</div></div>
+  <div class="chat-body" id="chatBody" role="log" aria-live="polite" aria-label="Lịch sử trò chuyện với trợ lý">
   </div>
   <div class="chat-input">
     <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
@@ -163,6 +186,7 @@
 <div class="toast" id="toast">✓ Thành công!</div>
 
 <script src="js/data/schema.js"></script>
+<script src="js/data/weather.js"></script>
 <script src="js/ai/ai-input.js"></script>
 <script src="js/ai/ai-output.js"></script>
 <script src="js/data/shipper.js"></script>
@@ -173,14 +197,27 @@
 <script src="js/api/index.js"></script>
 <script src="js/realtime.js"></script> 
 <script src="js/staff-guard.js"></script>
+<script src="js/ai/item-lookup.js"></script>
+<script src="js/ai/injection-guard.js"></script>
+<script src="js/ai/multi-intent-splitter.js"></script>
+<script src="js/ai/intent-authorization.js"></script>
+<script src="js/ai/emotional-handler.js"></script>
+<script src="js/ai/user-memory.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
 <script src="js/ai/brain.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/main.js"></script>
 
+<script src="js/ai/proactive.js"></script>
+<script src="js/ai/handover.js"></script>
+<script src="js/ai/chat-interactions.js"></script>
+
+
 <script>
 let currentFloorId = 'F1';
 let selectedSeatId = null;
+let currentFilter = 'all'; // Lưu bộ lọc hiện tại
+window._bookingPrefs = null;
 
 function renderFloorSwitch() {
   const el = document.getElementById('floorSwitch');
@@ -234,34 +271,73 @@ function switchFloor(floorId) {
   renderSeatMap();
 }
 
+// ✅ Hàm xử lý khi bấm nút Lọc
+function filterSeats(range) {
+  currentFilter = range;
+  document.querySelectorAll('.filter-chip').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.range === range);
+  });
+  
+  // Nếu bàn đang chọn không khớp với bộ lọc mới, tự động bỏ chọn
+  if (selectedSeatId) {
+    const seat = API.seats.getById(selectedSeatId);
+    if (seat && !matchesFilter(seat, range)) {
+      selectedSeatId = null;
+      document.getElementById('seatInfoPanel')?.classList.remove('show');
+    }
+  }
+  renderSeatMap();
+}
+
+// ✅ Hàm kiểm tra bàn có khớp bộ lọc không
+function matchesFilter(seat, range) {
+  if (range === 'all') return true;
+  if (range === 'small') return seat.capacity <= 2;
+  if (range === 'medium') return seat.capacity >= 3 && seat.capacity <= 4;
+  if (range === 'large') return seat.capacity >= 5;
+  return true;
+}
+
 function renderSeatMap() {
   const el = document.getElementById('seatMap');
   const seats = API.seats.getByFloor(currentFloorId);
   if (!el) return;
 
-  const w = window.innerWidth;
-  let cols;
-  if (w < 400) cols = 2;
-  else if (w < 768) cols = 3;
-  else cols = Math.min(seats.length, 4);
-
-  el.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+  // Tính số lượng cập nhật lên Legend
+  const freeCount = seats.filter(s => s.status === 'available').length;
+  const bookedCount = seats.length - freeCount;
+  const legendFree = document.getElementById('legendFree');
+  const legendBooked = document.getElementById('legendBooked');
+  if (legendFree) legendFree.textContent = freeCount;
+  if (legendBooked) legendBooked.textContent = bookedCount;
 
   el.innerHTML = seats.map(s => {
     const isBooked = s.status === 'booked';
     const isSelected = selectedSeatId === s.id;
+    const isMatch = matchesFilter(s, currentFilter);
+
     let cls = 'seat ';
     if (isBooked) cls += 'booked ';
     else cls += 'free ';
     if (isSelected) cls += 'selected ';
+    
+    // Thêm class dimmed nếu không khớp bộ lọc
+    if (!isMatch) cls += 'dimmed ';
+
+    const ariaLabel = `Bàn ${s.id}, sức chứa ${s.capacity} người, ${isBooked ? 'đã có người đặt' : 'đang trống'}`;
 
     return `
-      <div class="${cls}" onclick="selectSeat('${s.id}')">
-        <div class="seat-icon">🪑</div>
-        <div class="seat-id">${s.id}</div>
-        <div class="seat-capacity">${s.capacity}👤</div>
-        <div class="seat-status">${isBooked ? 'Đã đặt' : 'Trống'}</div>
-      </div>
+      <button type="button"
+              class="${cls}"
+              onclick="selectSeat('${s.id}')"
+              aria-label="${ariaLabel}"
+              aria-pressed="${isSelected}"
+              aria-disabled="${isBooked || !isMatch}"
+              tabindex="${(isBooked || !isMatch) ? '-1' : '0'}"
+              data-seat-id="${s.id}">
+        <span class="seat-id">${s.id}</span>
+        <span class="seat-capacity">${s.capacity} khách</span>
+      </button>
     `;
   }).join('');
 }
@@ -270,21 +346,46 @@ function selectSeat(seatId) {
   const seat = API.seats.getById(seatId);
   if (!seat) return;
 
-  if (seat.status === 'booked') {
-    showToast('⚠ Chỗ này đã được đặt!', '#c62828');
+  // Nếu bàn đã đặt HOẶC đang bị làm mờ do bộ lọc -> Chặn click
+  if (seat.status === 'booked' || !matchesFilter(seat, currentFilter)) {
+    if (seat.status === 'booked') {
+      showToast('⚠ Chỗ này đã được đặt!', '#c62828');
+      const btn = document.querySelector(`.seat[data-seat-id="${seatId}"]`);
+      if (btn) {
+        btn.classList.remove('shake');
+        void btn.offsetWidth; // Force reflow
+        btn.classList.add('shake');
+        setTimeout(() => btn.classList.remove('shake'), 450);
+      }
+    }
     return;
   }
 
   selectedSeatId = seatId;
-  renderSeatMap();
+  renderSeatMap(); // Render lại để nhận class .selected
 
   const floor = API.floors.getById(currentFloorId);
   document.getElementById('seatInfoTitle').textContent = `Bàn ${seat.id}`;
   document.getElementById('seatInfoImg').src = seat.img;
   document.getElementById('seatInfoDesc').textContent = seat.description || '';
-  document.getElementById('seatInfoCapacity').textContent = `👥 ${seat.capacity} người`;
-  document.getElementById('seatInfoZone').textContent = `📍 ${floor.name}`;
-  document.getElementById('seatInfoPanel').classList.add('show');
+  document.getElementById('seatInfoCapacity').textContent = `👥 Sức chứa: ${seat.capacity} người`;
+  document.getElementById('seatInfoZone').textContent = `📍 Khu vực: ${floor.name}`;
+  
+  const panel = document.getElementById('seatInfoPanel');
+  panel.classList.add('show');
+
+  if (window.innerWidth <= 768) {
+    setTimeout(() => {
+      panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150); 
+  }
+}
+
+// ✅ Hàm đóng bảng thông tin
+function closeSeatInfo() {
+  selectedSeatId = null;
+  document.getElementById('seatInfoPanel')?.classList.remove('show');
+  renderSeatMap();
 }
 
 function openBookingForm() {
@@ -306,28 +407,54 @@ function openBookingForm() {
     `Bàn ${seat.id} – ${floor.name} (${seat.capacity} người)`;
   document.getElementById('bkName').value = user.name || '';
   document.getElementById('bkPhone').value = user.phone || '';
-  document.getElementById('bkDate').value = API.utils.today();
 
-  const now = new Date();
-  now.setMinutes(now.getMinutes() + 30);
-  const hhmm = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  const dateEl = document.getElementById('bkDate');
-  dateEl.min = API.utils.today();
-  const sameDay = now.getDate() === new Date().getDate();
-  
-  if (!sameDay || validateBooking(API.utils.today(), hhmm(now))) {
-    const tm = new Date(); tm.setDate(tm.getDate() + 1);
-    dateEl.value = `${tm.getFullYear()}-${String(tm.getMonth()+1).padStart(2,'0')}-${String(tm.getDate()).padStart(2,'0')}`;
-    document.getElementById('bkTime').value = '08:00';
-    showToast('ℹ️ Đã quá giờ nhận đặt hôm nay, gợi ý bạn đặt cho ngày mai', '#856404');
+  const urlParams = new URLSearchParams(location.search);
+  const preDate = urlParams.get('date');
+  const preTime = urlParams.get('time');
+  const preGuests = urlParams.get('guests');
+
+  // 1. Xử lý NGÀY
+  if (preDate) {
+    document.getElementById('bkDate').value = preDate;
   } else {
-    document.getElementById('bkTime').value = hhmm(now);
+    document.getElementById('bkDate').value = API.utils.today();
+  }
+  document.getElementById('bkDate').min = API.utils.today();
+
+  // 2. Xử lý GIỜ
+  if (preTime) {
+    document.getElementById('bkTime').value = preTime;
+  } else {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 30);
+    const hhmm = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+
+    const err = validateBooking(API.utils.today(), hhmm(now));
+    if (err) {
+      const tm = new Date(); tm.setDate(tm.getDate() + 1);
+      document.getElementById('bkDate').value =
+        `${tm.getFullYear()}-${String(tm.getMonth()+1).padStart(2,'0')}-${String(tm.getDate()).padStart(2,'0')}`;
+      document.getElementById('bkTime').value = '08:00';
+      // Thông báo đúng lý do thay vì luôn "đã quá giờ"
+      showToast(`ℹ️ ${err}. Gợi ý bạn đặt cho ngày mai`, '#856404');
+    } else {
+      document.getElementById('bkTime').value = hhmm(now);
+    }
   }
 
+  // 3. Xử lý SỐ NGƯỜI
   const guestsEl = document.getElementById('bkGuests');
   guestsEl.innerHTML = '';
   for (let i = 1; i <= seat.capacity; i++) {
-    guestsEl.innerHTML += `<option value="${i}" ${i === seat.capacity ? 'selected' : ''}>${i} người</option>`;
+    const isDefault = (seat.capacity >= 4) ? (i === 2) : (i === seat.capacity);
+    guestsEl.innerHTML += `<option value="${i}" ${isDefault ? 'selected' : ''}>${i} người</option>`;
+  }
+  
+  if (preGuests) {
+    const val = parseInt(preGuests);
+    if (val && val <= seat.capacity) {
+      guestsEl.value = val.toString();
+    }
   }
 
   openModal('bookingModal');
@@ -410,42 +537,57 @@ function handleBooking(e) {
 
   showToast(`✓ Đặt bàn ${bk.seatId} thành công! Mã: ${bk.id}`);
   
-  try {
-    const chatBody = document.getElementById('chatBody');
-    if (chatBody && typeof UICards !== 'undefined' && typeof UICards.appendTo === 'function') {
-      const floorInfo = API.floors.getById(bk.floorId);
-      const receipt = `[UI_BOOKING]${JSON.stringify({
-        title: '✅ Đặt bàn thành công',
-        total: 1,
-        bookings: [{
-          id: bk.id,
-          customerName: user.name || 'Khách',
-          seatId: bk.seatId,
-          floorName: floorInfo ? floorInfo.name : bk.floorId,
-          time: bk.time,
-          guests: bk.guests,
-          note: bk.note || ''
-        }]
-      })}[/UI_BOOKING]`;
-      UICards.appendTo(receipt);
-    }
-  } catch (e) { console.warn('[booking] chat receipt failed:', e); }
+try {
+  const chatBody = document.getElementById('chatBody');
+  if (chatBody && typeof UICards !== 'undefined' && typeof UICards.appendTo === 'function') {
+    const floorInfo = API.floors.getById(bk.floorId);
 
-  if (typeof window.fxConfetti === 'function') window.fxConfetti();
-  if (typeof window.refreshSeatCardsAfterBooking === 'function') window.refreshSeatCardsAfterBooking();
+    // ⚡ CHỈ 1 message xác nhận + 1 card BOOKING
+    if (typeof addChatMsg === 'function') {
+      addChatMsg(`Dạ, em xác nhận quý khách đã đặt thành công bàn ${bk.seatId} (${floorInfo ? floorInfo.name : bk.floorId}) lúc ${bk.time}. Cảm ơn quý khách!`, 'bot');
+    }
+
+    const receipt = `[UI_BOOKING]${JSON.stringify({
+      title: '✅ Đặt bàn thành công',
+      total: 1,
+      bookings: [{
+        id: bk.id,
+        customerName: user.name || 'Khách',
+        seatId: bk.seatId,
+        floorName: floorInfo ? floorInfo.name : bk.floorId,
+        time: bk.time,
+        guests: bk.guests,
+        note: bk.note || ''
+      }]
+    })}[/UI_BOOKING]`;
+    UICards.appendTo(receipt);
+
+    // ⚡ Hint menu — text nhỏ, KHÔNG phải card
+    setTimeout(() => {
+      addChatMsg(`💡 Anh/chị có muốn xem menu để đặt trước đồ uống không? <a href="menu.html" style="color:#C9A227;font-weight:bold;">Xem Menu</a>`, 'bot', true);
+    }, 900);
+  }
+} catch (e) { console.warn('[booking] receipt failed:', e); }
   
+  if (typeof window.fxConfetti === 'function') window.fxConfetti();  
   return false;
 }
 
+// ⚡ KHỞI TẠO TRANG
 document.addEventListener('DOMContentLoaded', () => {
   if (Auth.isStaff()) return;
 
-  // ⚡ FIX: Render giao diện lần đầu
   renderFloorSwitch();
   renderFloorSummary();
   renderSeatMap();
 
-  const preSeat = new URLSearchParams(location.search).get('seat');
+  const urlParams = new URLSearchParams(location.search);
+  const preSeat = urlParams.get('seat');
+  const preFloor = urlParams.get('floor');
+  const preDate = urlParams.get('date');
+  const preTime = urlParams.get('time');
+  const preGuests = urlParams.get('guests');
+
   if (preSeat) {
     const seat = API.seats.getById(preSeat);
     if (seat && seat.status === 'available') {
@@ -454,16 +596,48 @@ document.addEventListener('DOMContentLoaded', () => {
       renderFloorSummary();
       renderSeatMap();
       selectSeat(preSeat);
+      
+      setTimeout(() => {
+        openBookingForm(); 
+      }, 400);
+      
     } else if (seat && seat.status === 'booked') {
       showToast(`⚠ Bàn ${preSeat} đã được đặt, mời bạn chọn bàn khác!`, '#c62828');
     }
+  } 
+  else if (preFloor) {
+    const floorObj = API.floors.getById(preFloor);
+    if (floorObj) {
+      currentFloorId = preFloor;
+      renderFloorSwitch();
+      renderFloorSummary();
+      renderSeatMap();
+      
+      setTimeout(() => {
+        document.querySelector('.seat-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
   }
+
+  // Realtime & Resize
+  Realtime.on('data:changed', () => {
+    if (selectedSeatId) {
+      const seat = API.seats.getById(selectedSeatId);
+      if (!seat || seat.status !== 'available') {
+        showToast(`⚠ Bàn ${selectedSeatId} vừa được đặt`, '#c62828');
+        selectedSeatId = null;
+        document.getElementById('seatInfoPanel').classList.remove('show');
+      }
+    }
+    renderFloorSwitch();
+    renderFloorSummary();
+    renderSeatMap();
+  });
 
   window.addEventListener('storage', () => {
     if (selectedSeatId) {
       const seat = API.seats.getById(selectedSeatId);
       if (!seat || seat.status !== 'available') {
-        showToast(`⚠ Bàn ${selectedSeatId} vừa được người khác đặt`, '#c62828');
         selectedSeatId = null;
         document.getElementById('seatInfoPanel').classList.remove('show');
       }
@@ -478,10 +652,34 @@ document.addEventListener('DOMContentLoaded', () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(renderSeatMap, 200);
   });
+  
+  // Lắng nghe phím Escape để đóng bảng thông tin
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const panel = document.getElementById('seatInfoPanel');
+      if (panel?.classList.contains('show')) closeSeatInfo();
+    }
+  });
 });
 </script>
 <script src="js/demo.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/dark-mode.js"></script>
+<script>
+  // ⚡ NÂNG CẤP: Proactive Nudge - Tự động tư vấn khi khách do dự
+  setTimeout(() => {
+    // Chỉ chạy nếu khách chưa chọn bàn và chatbox chưa mở
+    if (!selectedSeatId && !document.getElementById('chatBox').classList.contains('open')) {
+      const available = API.seats.getAvailable();
+      if (available.length > 0) {
+        // Tự động mở chat
+        toggleChat();
+        // Lấy 2 bàn trống ngẫu nhiên
+        const bestSeats = available.slice(0, 2).map(s => s.id).join(' hoặc ');
+        addChatMsg(`Dạ em thấy anh/chị đang xem sơ đồ. Quán hiện còn **${available.length} chỗ trống**, trong đó có bàn **${bestSeats}** rất đẹp. Anh/chị có cần em giữ chỗ không ạ?`, 'bot');
+      }
+    }
+  }, 45000); // 45 giây
+</script>
 </body>
 </html>

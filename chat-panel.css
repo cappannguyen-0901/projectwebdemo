@@ -302,3 +302,124 @@ html[data-chat="collapsed"] .panel-resizer { display: none; }
 @media (max-width: 900px) {
   html[data-chat="collapsed"] .chat-panel { display: none; }
 }
+/* ============================================================
+   🌙 DARK MODE FIX: STAFF CHAT PANEL (BẢNG CHAT BÊN PHẢI)
+   ============================================================ */
+
+/* 1. Khung tổng thể (Chat Panel) */
+[data-theme="dark"] .chat-panel {
+  background: #12100E !important; /* Nền tối sâu */
+  border-left: 1px solid #3E3430 !important;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* 2. Thanh Tiêu đề (Header) */
+[data-theme="dark"] .chat-panel-header {
+  background: linear-gradient(135deg, #2A1A14 0%, #1A110D 100%) !important;
+  border-bottom: 2px solid #C9A227 !important; /* Viền vàng phân cách */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
+}
+[data-theme="dark"] .chat-panel-title {
+  color: #E8B931 !important; /* Chữ vàng Gold */
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+[data-theme="dark"] .chat-panel-actions button {
+  color: #A8A29E !important;
+}
+[data-theme="dark"] .chat-panel-actions button:hover {
+  color: #E8B931 !important;
+  background: rgba(232, 185, 49, 0.1) !important;
+}
+
+/* 3. Khu vực hiển thị tin nhắn (Body) */
+[data-theme="dark"] .chat-body {
+  background: #161311 !important; /* Tối hơn nền panel 1 chút để tạo chiều sâu */
+}
+
+/* 4. Bong bóng Chat (Bubbles) */
+/* Tin nhắn của Bot (Trợ lý) */
+[data-theme="dark"] .chat-body .msg.bot .bubble {
+  background: #262220 !important;
+  color: #F5F5F0 !important;
+  border: 1px solid #3E3430 !important;
+  border-left: 4px solid #C9A227 !important; /* Viền vàng bên trái */
+  border-radius: 16px 16px 16px 4px !important;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
+}
+
+/* Tin nhắn của Nhân viên (User) */
+[data-theme="dark"] .chat-body .msg.user .bubble {
+  background: linear-gradient(135deg, #C9A227 0%, #9C7410 100%) !important;
+  color: #12100E !important; /* Chữ màu tối trên nền vàng */
+  font-weight: 600 !important;
+  border-radius: 16px 16px 4px 16px !important;
+  box-shadow: 0 4px 15px rgba(201, 162, 39, 0.2) !important;
+}
+
+/* Nút gợi ý nhanh (Quick Replies) */
+[data-theme="dark"] .chat-body .quick-reply-btn {
+  background: #1C1917 !important;
+  color: #D1D5DB !important;
+  border: 1px solid #3E3430 !important;
+}
+[data-theme="dark"] .chat-body .quick-reply-btn:hover {
+  background: rgba(232, 185, 49, 0.15) !important;
+  color: #E8B931 !important;
+  border-color: #E8B931 !important;
+}
+
+/* 5. Khung nhập liệu (Footer / Input area) */
+[data-theme="dark"] .chat-panel-footer {
+  background: #12100E !important;
+  border-top: 1px solid #3E3430 !important;
+  padding: 16px !important;
+}
+[data-theme="dark"] .chat-panel-footer input {
+  background: #1C1917 !important;
+  color: #F5F5F0 !important;
+  border: 1.5px solid #3E3430 !important;
+  border-radius: 20px !important;
+  padding: 10px 16px !important;
+}
+[data-theme="dark"] .chat-panel-footer input:focus {
+  border-color: #E8B931 !important;
+  box-shadow: 0 0 0 3px rgba(232, 185, 49, 0.2) !important;
+}
+[data-theme="dark"] .chat-panel-footer input::placeholder {
+  color: #6B6560 !important;
+}
+
+/* Nút Gửi (Send Button) */
+[data-theme="dark"] .chat-panel-footer button {
+  background: linear-gradient(135deg, #F3DC82 0%, #C9A227 100%) !important;
+  color: #12100E !important;
+  box-shadow: 0 4px 10px rgba(201, 162, 39, 0.3) !important;
+  border: none !important;
+  border-radius: 50% !important;
+  width: 42px !important;
+  height: 42px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+[data-theme="dark"] .chat-panel-footer button:hover {
+  transform: translateY(-2px) scale(1.05) !important;
+  box-shadow: 0 6px 15px rgba(201, 162, 39, 0.5) !important;
+}
+
+/* 6. Thanh cuộn (Scrollbar) cho mượt */
+[data-theme="dark"] .chat-body::-webkit-scrollbar {
+  width: 6px;
+}
+[data-theme="dark"] .chat-body::-webkit-scrollbar-track {
+  background: #161311;
+}
+[data-theme="dark"] .chat-body::-webkit-scrollbar-thumb {
+  background: #3E3430;
+  border-radius: 10px;
+}
+[data-theme="dark"] .chat-body::-webkit-scrollbar-thumb:hover {
+  background: #C9A227;
+}

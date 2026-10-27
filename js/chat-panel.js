@@ -1,6 +1,5 @@
 /* ============================================================
    CHAT PANEL HYBRID — Resize + Collapse + Greet staff
-   (bản đã sửa lỗi)
 ============================================================ */
 
 const ChatPanel = {
@@ -15,7 +14,7 @@ const ChatPanel = {
   _unread: 0,
 
   init() {
-    if (this._inited) return;              // tránh bind trùng sự kiện
+    if (this._inited) return;
     const layout = document.getElementById('dashboardLayout');
     const panel = document.getElementById('chatPanel');
     if (!layout || !panel) return;
@@ -30,7 +29,7 @@ const ChatPanel = {
 
     const body = document.getElementById('chatBody');
     const showBody = () => body?.classList.add('ready');
-    setTimeout(showBody, 1500);            // lưới an toàn nếu có lỗi
+    setTimeout(showBody, 1500);
 
     const ready = () => {
       try {
@@ -50,23 +49,20 @@ const ChatPanel = {
       }
     };
 
-    // Các script đã nạp xong trước DOMContentLoaded nên chạy ngay, không cần chờ 400ms
     if (typeof AIBrain !== 'undefined') ready();
     else window.addEventListener('load', ready);
   },
 
-  /* Bật lại transition sau khi trang đã vẽ xong khung hình đầu tiên */
   releaseAnimations() {
     requestAnimationFrame(() => requestAnimationFrame(() => {
       document.documentElement.classList.remove('no-anim');
     }));
   },
 
-  setState(state) {                       // 'open' | 'collapsed'
+  setState(state) {
     document.documentElement.dataset.chat = state;
   },
 
-  /* ---------- ICON THU GỌN: đồng bộ chevron ở mọi trang ---------- */
   normalizeCollapseIcon() {
     const btn = document.getElementById('btnCollapseChat');
     if (!btn) return;
@@ -77,11 +73,12 @@ const ChatPanel = {
       </svg>`;
   },
 
-  /* ---------- HISTORY ---------- */
   restoreHistory() {
     try {
       if (typeof AIBrain === 'undefined' || typeof addChatMsg !== 'function') return false;
       const sid = AIBrain._getSessionId();
+      if (!sid) return false;                          /* ⚡ V7: null sid guard */
+      if (!AIBrain.histories[sid]) return false;       /* ⚡ V7: no history entry */
       const role = AIBrain._getRole();
       AIBrain._getHistory(sid, role);
 
@@ -91,26 +88,23 @@ const ChatPanel = {
       const body = document.getElementById('chatBody');
       if (!body) return false;
 
-      this._muteBadge = true;               // không tính tin khôi phục là "tin mới"
+      this._muteBadge = true;
       body.innerHTML = '';
       let rendered = 0;
       history.forEach(item => {
-      if (item.role === 'user') {
-    addChatMsg(item.content, 'user');
-    rendered++;
-  } else if (item.role === 'assistant' && item.content) {
-    // ⚡ Khôi phục thẻ Generative UI đúng cách
-    if (typeof UICards !== 'undefined' && UICards.has(item.content)) {
-      UICards.appendTo(item.content);
-    } else {
-      addChatMsg(item.content, 'bot');
-    }
-    rendered++;
-  }
-});
+        if (item.role === 'user') {
+          addChatMsg(item.content, 'user');
+          rendered++;
+        } else if (item.role === 'assistant' && item.content) {
+          if (typeof UICards !== 'undefined' && UICards.has(item.content)) {
+            UICards.appendTo(item.content);
+          } else {
+            addChatMsg(item.content, 'bot');
+          }
+          rendered++;
+        }
+      });
       setTimeout(() => { this._muteBadge = false; }, 0);
-            // Nếu không render được message nào nhưng history có dữ liệu (user/assistant), coi như đã restore
-            // ⚡ Bổ sung điều kiện check tool_calls
       const hasRealContent = history.some(item =>
         item.role === 'user' ||
         (item.role === 'assistant' && item.content) ||
@@ -130,16 +124,13 @@ const ChatPanel = {
 
   focusInput() {
     const panel = document.getElementById('chatPanel');
-    // Không auto-focus khi đang thu gọn hoặc trên mobile (tránh bật bàn phím)
     if (!panel || panel.classList.contains('collapsed')) return;
     if (window.matchMedia('(max-width: 900px)').matches) return;
     document.getElementById('chatInput')?.focus();
   },
 
-  /* ---------- WIDTH ---------- */
   clampWidth(w, layout) {
     const layoutW = (layout || document.getElementById('dashboardLayout'))?.clientWidth || 1200;
-    // luôn chừa tối thiểu 320px cho nội dung chính
     const max = Math.min(this.MAX_W, Math.max(this.MIN_W, layoutW - 320));
     return Math.max(this.MIN_W, Math.min(max, w));
   },
@@ -150,7 +141,6 @@ const ChatPanel = {
     panel.style.width = this.clampWidth(saved) + 'px';
   },
 
-  /* ---------- RESIZER ---------- */
   initResizer(layout, panel) {
     const resizer = document.getElementById('panelResizer');
     if (!resizer) return;
@@ -165,7 +155,7 @@ const ChatPanel = {
       startX = clientX;
       startWidth = panel.offsetWidth;
       resizer.classList.add('active');
-      layout.classList.add('resizing');       // tắt transition → kéo mượt
+      layout.classList.add('resizing');
     };
 
     const move = (clientX) => {
@@ -191,20 +181,17 @@ const ChatPanel = {
     document.addEventListener('touchend', end);
     document.addEventListener('touchcancel', end);
 
-    // Double-click: trả về độ rộng mặc định
     resizer.addEventListener('dblclick', () => {
       panel.style.width = this.DEFAULT_W + 'px';
       localStorage.setItem(this.STORAGE_WIDTH, String(this.DEFAULT_W));
     });
 
-    // Resize cửa sổ: giữ panel không vượt quá giới hạn
     window.addEventListener('resize', () => {
       if (panel.classList.contains('collapsed') || !panel.style.width) return;
       panel.style.width = this.clampWidth(parseInt(panel.style.width, 10), layout) + 'px';
     });
   },
 
-  /* ---------- BUTTONS ---------- */
   initButtons(panel) {
     const floatBtn = document.getElementById('chatFloatBtn');
     const collapseBtn = document.getElementById('btnCollapseChat');
@@ -220,7 +207,6 @@ const ChatPanel = {
       if (typeof sendChat === 'function') sendChat();
     });
 
-    // keydown + isComposing: không gửi nhầm khi đang gõ Telex/VNI
     input?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
         e.preventDefault();
@@ -229,32 +215,31 @@ const ChatPanel = {
     });
   },
 
-  /* ---------- COLLAPSE / EXPAND (chỉ dùng class, không dùng inline style) ---------- */
   collapse(panel, floatBtn) {
-  panel.classList.add('collapsed');
-  floatBtn?.classList.add('show');
-  this.setState('collapsed');
-  localStorage.setItem(this.STORAGE_COLLAPSED, '1');
-  if (typeof hideNewMsgPill === 'function') hideNewMsgPill();  // ⚡ ẩn pill
-},
+    panel.classList.add('collapsed');
+    floatBtn?.classList.add('show');
+    this.setState('collapsed');
+    localStorage.setItem(this.STORAGE_COLLAPSED, '1');
+    if (typeof hideNewMsgPill === 'function') hideNewMsgPill();
+  },
 
   expand(panel, floatBtn) {
-  panel.classList.remove('collapsed');
-  floatBtn?.classList.remove('show');
-  this.setState('open');
-  this.clearBadge();
-  localStorage.setItem(this.STORAGE_COLLAPSED, '0');
+    panel.classList.remove('collapsed');
+    floatBtn?.classList.remove('show');
+    this.setState('open');
+    this.clearBadge();
+    localStorage.setItem(this.STORAGE_COLLAPSED, '0');
 
-  setTimeout(() => {
-    const body = document.getElementById('chatBody');
-    if (body) {
-      body._stick = true;                  // ⚡ reset stick
-      body.scrollTop = body.scrollHeight;
-      if (typeof hideNewMsgPill === 'function') hideNewMsgPill();  // ⚡ reset pill
-    }
-    this.focusInput();
-  }, 250);
-},
+    setTimeout(() => {
+      const body = document.getElementById('chatBody');
+      if (body) {
+        body._stick = true;
+        body.scrollTop = body.scrollHeight;
+        if (typeof hideNewMsgPill === 'function') hideNewMsgPill();
+      }
+      this.focusInput();
+    }, 250);
+  },
 
   restoreCollapsed(panel) {
     if (localStorage.getItem(this.STORAGE_COLLAPSED) !== '1') { this.setState('open'); return; }
@@ -263,70 +248,79 @@ const ChatPanel = {
     document.getElementById('chatFloatBtn')?.classList.add('show');
   },
 
-  /* ---------- BADGE: đếm tin mới khi đang thu gọn ---------- */
   initBadge(panel) {
-  const floatBtn = document.getElementById('chatFloatBtn');
-  const body = document.getElementById('chatBody');
-  if (!floatBtn || !body) return;
+    const floatBtn = document.getElementById('chatFloatBtn');
+    const body = document.getElementById('chatBody');
+    if (!floatBtn || !body) return;
 
-  let badge = floatBtn.querySelector('.chat-float-badge');
-  if (!badge) {
-    badge = document.createElement('span');
-    badge.className = 'chat-float-badge';
-    floatBtn.appendChild(badge);
-  }
-
-  new MutationObserver((mutations) => {
-    if (this._muteBadge || !panel.classList.contains('collapsed')) return;
-
-    let added = 0;
-    mutations.forEach(m => m.addedNodes.forEach(n => {
-      if (n.nodeType !== 1) return;
-      if (!n.classList?.contains('msg') || !n.classList.contains('bot')) return;
-      if (n.id === 'typingIndicator') return;              // ⚡ bỏ qua typing
-      if (n.classList.contains('typing-bubble')) return;   // ⚡ bỏ qua typing bubble
-      if (n.querySelector('.typing-bubble')) return;
-      added++;
-    }));
-
-    if (added > 0) {
-      this._unread += added;
-      this.renderBadge();
+    let badge = floatBtn.querySelector('.chat-float-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'chat-float-badge';
+      floatBtn.appendChild(badge);
     }
-  }).observe(body, { childList: true });
-},
 
-  /* ---------- CLEAR ---------- */
+    new MutationObserver((mutations) => {
+      if (this._muteBadge || !panel.classList.contains('collapsed')) return;
+      let added = 0;
+      mutations.forEach(m => m.addedNodes.forEach(n => {
+        if (n.nodeType !== 1) return;
+        if (!n.classList?.contains('msg') || !n.classList.contains('bot')) return;
+        if (n.id === 'typingIndicator') return;
+        if (n.classList.contains('typing-bubble')) return;
+        if (n.querySelector('.typing-bubble')) return;
+        added++;
+      }));
+      if (added > 0) {
+        this._unread += added;
+        this.renderBadge();
+      }
+    }).observe(body, { childList: true });
+  },
+
+  renderBadge() {
+    const badge = document.querySelector('#chatFloatBtn .chat-float-badge');
+    if (!badge) return;
+    badge.textContent = this._unread > 9 ? '9+' : String(this._unread);
+    badge.classList.toggle('show', this._unread > 0);
+  },
+
+  clearBadge() {
+    this._unread = 0;
+    const badge = document.querySelector('#chatFloatBtn .chat-float-badge');
+    if (badge) {
+      badge.textContent = '';
+      badge.classList.remove('show');
+    }
+  },
+
   clearChat() {
-  if (!confirm('Xóa toàn bộ lịch sử trò chuyện?')) return;
-  try {
-    if (typeof AIBrain !== 'undefined') {
-      const sid = AIBrain._getSessionId();
-      AIBrain._clearHistory(sid);
-      sessionStorage.removeItem('cappan_greeted_' + sid);
+    if (!confirm('Xóa toàn bộ lịch sử trò chuyện?')) return;
+    try {
+      if (typeof AIBrain !== 'undefined') {
+        const sid = AIBrain._getSessionId();
+        AIBrain._clearHistory(sid);
+        sessionStorage.removeItem('cappan_greeted_' + sid);
+      }
+    } catch (e) { console.error('[ChatPanel] Lỗi xóa history:', e); }
+
+    const body = document.getElementById('chatBody');
+    if (body) {
+      this._muteBadge = true;
+      body.innerHTML = `
+        <div class="msg bot">
+          <div class="bubble">Đã xóa lịch sử. Anh/chị cần hỗ trợ gì ạ?</div>
+        </div>
+      `;
+      if (typeof hideNewMsgPill === 'function') hideNewMsgPill();
+      body._stick = true;
+      body.scrollTop = 0;
+      setTimeout(() => { this._muteBadge = false; }, 0);
     }
-  } catch (e) { console.error('[ChatPanel] Lỗi xóa history:', e); }
+    this.clearBadge();
+    this.addQuickReplies();
+  },
 
-  const body = document.getElementById('chatBody');
-  if (body) {
-    this._muteBadge = true;
-    body.innerHTML = `
-      <div class="msg bot">
-        <div class="bubble">Đã xóa lịch sử. Anh/chị cần hỗ trợ gì ạ?</div>
-      </div>
-    `;
-    // ⚡ FIX: reset pill + scroll state
-    if (typeof hideNewMsgPill === 'function') hideNewMsgPill();
-    body._stick = true;
-    body.scrollTop = 0;
-    setTimeout(() => { this._muteBadge = false; }, 0);
-  }
-  this.clearBadge();  
-  this.addQuickReplies();
-
-},
-
-  /* ---------- GREET STAFF ---------- */
   greetStaffIfFirstVisit(callback) {
     const done = () => { if (typeof callback === 'function') callback(); };
 
@@ -347,7 +341,11 @@ const ChatPanel = {
 
     const greeting = `${timeGreet} ${user.name}!\n\nEm là trợ lý CAPPAN. Anh/chị cần hỗ trợ gì hôm nay?`;
 
-    if (typeof addChatMsg === 'function') addChatMsg(greeting, 'bot');
+    try {
+      if (typeof addChatMsg === 'function') addChatMsg(greeting, 'bot');
+    } catch (e) {
+      console.warn('[chat-panel] greet failed:', e);
+    }
     done();
   }
 };

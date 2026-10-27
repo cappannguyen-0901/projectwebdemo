@@ -13,6 +13,11 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="dark-mode.css">
+<!-- Nhúng file CSS mới ở cuối cùng để đè lên tất cả -->
+<link rel="stylesheet" href="card-premium.css"> 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
 <script>
   (function(){try{
     var t = localStorage.getItem('cappan_theme') || 'light';
@@ -44,6 +49,13 @@
 
 <section class="section">
   <h2 class="section-title">Đặt Nước</h2>
+  <div id="weatherSuggest" style="display: none;">
+  <span style="font-size: 1.5rem;">🌤️</span>
+  <div>
+    <strong id="wsTitle" style="color: #5D4037;">Thời tiết hôm nay</strong>
+    <div id="wsDesc" style="font-size: 0.85rem; color: #666;">Đang tải...</div>
+  </div>
+</div>
   <p class="section-sub">Chọn món → thêm vào giỏ → thanh toán</p>
 
   <div class="order-layout">
@@ -79,7 +91,7 @@
     <a href="contact.html">Liên hệ</a>
     <a href="privacy.html">Chính sách bảo mật</a>
   </div>
-  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 474 038</div>
+  <div class="footer-copy">© CAPPANNGUYEN · Hotline: 0366 444 038</div>
 </footer>
 
 <button class="chat-btn" onclick="toggleChat()">🤖</button>
@@ -98,7 +110,6 @@
   </div>
 </div>
   <div class="chat-body" id="chatBody" role="log" aria-live="polite" aria-label="Lịch sử trò chuyện với trợ lý">
-    <div class="msg bot"><div class="bubble">Bạn muốn đặt món gì? 🥤</div></div>
   </div>
   <div class="chat-input">
     <input type="text" id="chatInput" placeholder="Nhập tin nhắn..."
@@ -110,6 +121,7 @@
 <div class="toast" id="toast">✓ Thành công!</div>
 
 <script src="js/data/schema.js"></script>
+<script src="js/data/weather.js"></script>
 <script src="js/ai/ai-input.js"></script>
 <script src="js/ai/ai-output.js"></script>
 <script src="js/data/seed.js"></script>
@@ -117,11 +129,25 @@
 <script src="js/data/kb.js"></script>         
 <script src="js/data/promotions.js"></script>     
 <script src="js/api/index.js"></script>
+<script src="js/realtime.js"></script>
 <script src="js/staff-guard.js"></script>
+<script src="js/ai/item-lookup.js"></script>
+<script src="js/ai/injection-guard.js"></script>
+<script src="js/ai/multi-intent-splitter.js"></script>
+<script src="js/ai/intent-authorization.js"></script>
+<script src="js/ai/emotional-handler.js"></script>
+<script src="js/ai/user-memory.js"></script>
 <script src="js/ai/brain-legacy.js"></script>
 <script src="js/ai/brain.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/main.js"></script>
+
+<script src="js/ai/proactive.js"></script>
+<script src="js/ai/handover.js"></script>
+<script src="js/ai/chat-interactions.js"></script>
+
+
+<!-- ĐÂY LÀ ĐOẠN CUỐI FILE ORDER.HTML CHUẨN -->
 
 <script>
 let activeOrderCat = 'coffee';
@@ -142,28 +168,44 @@ function setOrderCat(catId) {
 
 function renderOrderGrid() {
   const el = document.getElementById('orderMenuGrid');
-  const items = API.menu.getByCategory(activeOrderCat);
-
-  el.innerHTML = items.map(item => `
-    <div class="menu-card ${!item.inStock ? 'out-of-stock' : ''}">
-      ${item.badge ? `<div class="badge">${esc(item.badge)}</div>` : ''}
-      ${!item.inStock ? '<div class="badge badge-out">Hết hàng</div>' : ''}
-      <img src="${esc(item.img)}" alt="${esc(item.name)}" loading="lazy">
-      <div class="info">
-        <h4>${esc(item.name)}</h4>
-        <div class="price">${API.utils.formatVND(item.price)}</div>
-        ${item.sizes && item.sizes.length ? `
-          <select class="size-sel" id="sz_${item.id}" aria-label="Chọn size ${esc(item.name)}">
-            ${item.sizes.map(s => `<option value="${esc(s.name)}">Size ${esc(s.name)}${s.extraPrice ? ` (+${API.utils.formatVND(s.extraPrice)})` : ''}</option>`).join('')}
-          </select>` : ''}
-        <button class="add-cart-btn"
-                onclick="addCart('${item.id}')"
-                ${!item.inStock ? 'disabled' : ''}>
-          ${item.inStock ? '+ Thêm vào giỏ' : 'Tạm hết'}
-        </button>
+  
+  // ⚡ 1. HIỂN THỊ SKELETON
+  el.innerHTML = Array(6).fill(0).map(() => `
+    <div class="skeleton-card">
+      <div class="skeleton skeleton-img"></div>
+      <div class="skeleton-info">
+        <div class="skeleton skeleton-title"></div>
+        <div class="skeleton skeleton-price"></div>
+        <div class="skeleton skeleton-btn"></div>
       </div>
     </div>
   `).join('');
+
+  // ⚡ 2. RENDER SAU 400MS
+  setTimeout(() => {
+    const items = API.menu.getByCategory(activeOrderCat);
+
+    el.innerHTML = items.map(item => `
+      <div class="menu-card ${!item.inStock ? 'out-of-stock' : ''}" style="animation: pop 0.4s ease;">
+        ${item.badge ? `<div class="badge">${esc(item.badge)}</div>` : ''}
+        ${!item.inStock ? '<div class="badge badge-out">Hết hàng</div>' : ''}
+        <img src="${esc(item.img)}" alt="${esc(item.name)}" loading="lazy">
+        <div class="info">
+          <h4>${esc(item.name)}</h4>
+          <div class="price">${API.utils.formatVND(item.price)}</div>
+          ${item.sizes && item.sizes.length ? `
+            <select class="size-sel" id="sz_${item.id}" aria-label="Chọn size ${esc(item.name)}">
+              ${item.sizes.map(s => `<option value="${esc(s.name)}">Size ${esc(s.name)}${s.extraPrice ? ` (+${API.utils.formatVND(s.extraPrice)})` : ''}</option>`).join('')}
+            </select>` : ''}
+          <button class="add-cart-btn"
+                  onclick="addCart('${item.id}')"
+                  ${!item.inStock ? 'disabled' : ''}>
+            ${item.inStock ? '+ Thêm vào giỏ' : 'Tạm hết'}
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }, 400);
 }
 
 function addCart(itemId) {
@@ -239,8 +281,59 @@ document.addEventListener('DOMContentLoaded', () => {
   renderCartMini();
 });
 </script>
+
 <script src="js/demo.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/dark-mode.js"></script>
+<script>
+
+document.addEventListener('DOMContentLoaded', async () => {
+  if (typeof WeatherService === 'undefined') return;
+  const w = await WeatherService.get();
+  if (!w) return;
+  
+  const banner = document.getElementById('weatherSuggest');
+  if (!banner) return;
+  
+  banner.style.display = 'flex';
+  document.getElementById('wsTitle').textContent = `Thời tiết tại quán: ${w.temp}°C`;
+  
+  let msg = '';
+  let icon = '🌤️';
+  let weatherClass = 'weather-normal'; // Mặc định
+
+  // ⚡ LOGIC ƯU TIÊN: Nóng > Mưa > Lạnh > Bình thường
+  if (w.isHot) {
+    msg = 'Trời đang khá nóng, gợi ý bạn các món giải nhiệt mát lạnh (Trà đào, Sinh tố).';
+    icon = '☀️';
+    weatherClass = 'weather-hot';
+  } else if (w.isRainy) {
+    msg = 'Trời mưa rồi, một ly đồ uống ấm bụng sẽ rất tuyệt (Trà gừng, Socola nóng).';
+    icon = '🌧️';
+    weatherClass = 'weather-rainy';
+  } else if (w.isCold) {
+    msg = 'Trời se lạnh, thưởng thức đồ uống nóng sẽ rất hợp (Cà phê, Trà gừng).';
+    icon = '❄️';
+    weatherClass = 'weather-cold';
+  } else {
+    msg = 'Thời tiết dễ chịu, chúc bạn chọn được món ngon!';
+    icon = '🌤️';
+    weatherClass = 'weather-normal';
+  }
+  
+  // ⚡ CẬP NHẬT UI/UX BẰNG CLASS THAY VÌ INLINE STYLE
+  const iconEl = banner.querySelector('span');
+  if (iconEl) iconEl.textContent = icon;
+  
+  // Xóa các class cũ và thêm class mới
+  banner.className = weatherClass; 
+  banner.style.display = 'flex'; // Đảm bảo vẫn hiển thị
+  
+  document.getElementById('wsDesc').textContent = msg;
+});
+
+</script>
+
+
 </body>
 </html>

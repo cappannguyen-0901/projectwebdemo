@@ -18,7 +18,7 @@ const KB = {
 
     // Liên hệ
     address: 'Công viên Gia Định, P. Hạnh Thông, Q. Gò Vấp, TP.HCM',
-    hotline: '0366 474 038',
+    hotline: '0366 444 038',
     email: 'cappannguyen@gmail.com',
 
     // Giờ
@@ -67,12 +67,12 @@ const KB = {
     },
     {
       question: 'Chủ quán là ai?',
-      answer: 'Dạ em chưa có thông tin này. Anh/chị vui lòng gọi hotline 0366 474 038 để được hỗ trợ ạ.',
+      answer: 'Dạ em chưa có thông tin này. Anh/chị vui lòng gọi hotline 0366 444 038 để được hỗ trợ ạ.',
       keywords: ['chủ quán', 'sáng lập', 'founder', 'owner', 'ông chủ', 'bà chủ']
     },
     {
       question: 'Quán thành lập năm nào?',
-      answer: 'Dạ em chưa có thông tin này. Anh/chị vui lòng gọi hotline 0366 474 038 để được hỗ trợ ạ.',
+      answer: 'Dạ em chưa có thông tin này. Anh/chị vui lòng gọi hotline 0366 444 038 để được hỗ trợ ạ.',
       keywords: ['thành lập', 'mở năm', 'ra đời', 'khai trương năm']
     },
     {
@@ -82,7 +82,7 @@ const KB = {
     },
     {
       question: 'Có đặt tiệc riêng không?',
-      answer: 'Dạ CAPPAN có nhận đặt tiệc riêng cho đoàn từ 10 người. Anh/chị vui lòng gọi hotline 0366 474 038 để được tư vấn menu và không gian phù hợp.',
+      answer: 'Dạ CAPPAN có nhận đặt tiệc riêng cho đoàn từ 10 người. Anh/chị vui lòng gọi hotline 0366 444 038 để được tư vấn menu và không gian phù hợp.',
       keywords: ['tiệc', 'sinh nhật', 'sự kiện', 'đặt nhiều', 'đoàn đông']
     },
     {
@@ -92,12 +92,12 @@ const KB = {
     },
     {
       question: 'Quán có bán đồ ăn không?',
-      answer: 'Dạ CAPPAN chủ yếu phục vụ đồ uống, món ăn hiện có là Bánh Flan. Anh/chị gọi hotline 0366 474 038 để hỏi thêm món ăn nhẹ nhé ạ.',
+      answer: 'Dạ CAPPAN chủ yếu phục vụ đồ uống, món ăn hiện có là Bánh Flan. Anh/chị gọi hotline 0366 444 038 để hỏi thêm món ăn nhẹ nhé ạ.',
       keywords: ['đồ ăn', 'món ăn', 'ăn vặt', 'ăn nhẹ', 'bánh']
     },
     {
       question: 'Bạn là AI hay người thật?',
-      answer: 'Dạ em là trợ lý AI của CAPPAN, không phải người thật. Em có thể nhầm, với thông tin quan trọng anh/chị vui lòng gọi hotline 0366 474 038 ạ.',
+      answer: 'Dạ em là trợ lý AI của CAPPAN, không phải người thật. Em có thể nhầm, với thông tin quan trọng anh/chị vui lòng gọi hotline 0366 444 038 ạ.',
       keywords: ['là ai', 'ai hay người', 'người thật', 'robot', 'chatbot']
     },
     {
