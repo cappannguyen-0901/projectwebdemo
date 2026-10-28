@@ -1,0 +1,488 @@
+/* ============================================================
+   CAPPAN DESIGN POLISH LAYER v15.2 — ui-polish.css
+   ============================================================
+   NGUYÊN TẮC BẮT BUỘC (ràng buộc "không ảnh hưởng chức năng"):
+   1. CHỈ thẩm mỹ: màu sắc / bóng / bo góc / viền / animation entrance.
+      KHÔNG đổi display/position/width/height của phần tử mà JS query
+      (data-live-order, chatBody, ui-cmp*, ui-kpi*...).
+   2. File này được nạp CUỐI cùng (<link> ngay trước </head>) nên
+      thắng cascade ở mọi trang (khách lẫn staff) mà không cần sửa
+      các file CSS cũ.
+   3. Toàn bộ animation đều được tắt khi prefers-reduced-motion.
+   4. Dark mode đồng bộ qua [data-theme="dark"].
+   ============================================================ */
+
+/* ---------- 0. Token cục bộ (tiền tố --pol- tránh đụng token cũ) ---------- */
+:root {
+  --pol-gold: #C9A227;
+  --pol-gold-soft: rgba(201, 162, 39, 0.28);
+  --pol-radius-card: 18px;
+  --pol-shadow-card: 0 1px 2px rgba(62, 39, 35, 0.05), 0 6px 18px rgba(111, 78, 55, 0.08), 0 14px 34px rgba(111, 78, 55, 0.05);
+  --pol-shadow-card-hover: 0 2px 4px rgba(62, 39, 35, 0.06), 0 10px 26px rgba(111, 78, 55, 0.13), 0 18px 44px rgba(111, 78, 55, 0.07);
+  --pol-ring: 0 0 0 2px #fff, 0 0 0 4.5px rgba(201, 162, 39, 0.65);
+}
+
+/* ============================================================
+   1. THẺ UI CARD — surface cao cấp hơn
+   ============================================================ */
+.ui-card {
+  background-color: #FFFFFF !important;
+  /* Hairline vàng mảnh chạy dọc mép trên (vẽ bằng background-image,
+     không thêm phần tử → không đổi layout, không đụng DOM JS query) */
+  background-image: linear-gradient(180deg, rgba(201, 162, 39, 0.55) 0, rgba(201, 162, 39, 0.10) 3px, rgba(201, 162, 39, 0) 3px) !important;
+  border-radius: var(--pol-radius-card) !important;
+  box-shadow: var(--pol-shadow-card) !important;
+  transition: box-shadow 0.28s ease, transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.15), border-color 0.28s ease;
+}
+
+.ui-card:hover {
+  box-shadow: var(--pol-shadow-card-hover) !important;
+  border-color: rgba(201, 162, 39, 0.45) !important;
+  transform: translateY(-2px);
+}
+
+/* Thẻ chào mừng / nhấn mạnh giữ tone vàng đậm hơn nhẹ */
+.ui-card-gold {
+  background-image: linear-gradient(135deg, #FFFDF5 0%, #FFF6DC 60%, #FBEED0 100%), linear-gradient(180deg, rgba(201, 162, 39, 0.65) 0, rgba(201, 162, 39, 0.12) 3px, rgba(201, 162, 39, 0) 3px) !important;
+  border-color: rgba(201, 162, 39, 0.5) !important;
+}
+
+.ui-card h4 { letter-spacing: -0.01em; }
+
+/* Nút "Xem" (phóng to thẻ) — tinh gọn hơn */
+.ui-card-expand-btn {
+  border-radius: 9px !important;
+  backdrop-filter: blur(4px);
+}
+.ui-card-expand-btn:hover {
+  box-shadow: 0 3px 10px rgba(201, 162, 39, 0.35) !important;
+  transform: translateY(-1px);
+}
+.ui-card-expand-btn:active { transform: translateY(0) scale(0.96); }
+
+/* ============================================================
+   2. CHIP / DÒNG THÔNG TIN / NÚT HÀNH ĐỘNG
+   ============================================================ */
+.ui-chip {
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.ui-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(201, 162, 39, 0.22);
+}
+
+.ui-act-info {
+  border-radius: 12px !important;
+  background: linear-gradient(180deg, #FFFDF8, #FAF4E8) !important;
+  border-color: rgba(201, 162, 39, 0.28) !important;
+}
+
+/* Nút hành động chính (ui-fab-btn) — nâng chiều sâu */
+.ui-fab-btn {
+  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.2), box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease !important;
+}
+.ui-fab-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(201, 162, 39, 0.35) !important;
+}
+.ui-fab-btn:active { transform: translateY(0) scale(0.97); }
+
+/* Nút trong thẻ chào mừng */
+.ui-welcome-btn { transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2), box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease; }
+.ui-welcome-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(201, 162, 39, 0.3); }
+.ui-welcome-btn:active { transform: translateY(0) scale(0.97); }
+
+/* ============================================================
+   3. BONG BÓNG CHAT — refined
+   ============================================================ */
+.msg { animation: polMsgIn 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.08) both; }
+
+@keyframes polMsgIn {
+  from { opacity: 0; transform: translateY(9px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+.msg .bubble {
+  max-width: 84%;
+  padding: 11px 16px;
+  box-shadow: 0 1px 2px rgba(62, 39, 35, 0.06);
+}
+
+/* Bot: viền trái vàng mảnh — "chữ ký" thương hiệu, dùng chung light */
+.msg.bot .bubble {
+  border-left: 3px solid rgba(201, 162, 39, 0.65);
+  border-radius: 16px 16px 16px 5px;
+  background: linear-gradient(180deg, #FBF6EA, #F4EBD9);
+}
+
+/* Khách: gradient nâu ấm, giữ đọc tốt */
+.msg.user .bubble {
+  background: linear-gradient(135deg, var(--brown, #6F4E37), var(--dark-brown, #4a3428));
+  border-radius: 16px 16px 5px 16px;
+  box-shadow: 0 2px 8px rgba(62, 39, 35, 0.22);
+}
+
+/* Bubble có thẻ bên trong → nở tối đa chỗ cho thẻ, bỏ padding dư */
+.msg.bot .bubble:has(.ui-card) { padding: 6px 8px; background: none; border-left: none; box-shadow: none; }
+
+/* Bong bóng "đang gõ" — bóng đổ mềm + dots to nhẹ */
+.typing-bubble {
+  box-shadow: 0 4px 14px rgba(62, 39, 35, 0.09) !important;
+}
+.typing-bubble .dot {
+  width: 9px; height: 9px;
+  box-shadow: 0 1px 3px rgba(201, 162, 39, 0.45);
+}
+
+/* ============================================================
+   4. QUICK REPLIES — vòng focus bàn phím (a11y) + shadow
+   ============================================================ */
+.quick-reply-btn {
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(62, 39, 35, 0.07);
+}
+.quick-reply-btn:active { transform: translateY(0) scale(0.96); }
+
+/* ============================================================
+   5. KHUNG CHAT — header, body, input, nút gửi
+   ============================================================ */
+.chat-box {
+  border-radius: 20px !important;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 24px 60px rgba(42, 26, 20, 0.28), 0 2px 8px rgba(42, 26, 20, 0.08) !important;
+}
+
+.chat-box .chat-header {
+  background: linear-gradient(135deg, var(--brown, #6F4E37) 0%, var(--dark-brown, #4a3428) 100%);
+  box-shadow: inset 0 -1px 0 rgba(201, 162, 39, 0.35);
+}
+
+.chat-box .chat-body {
+  background: linear-gradient(180deg, #FAF7F0 0%, #F5EEE2 100%);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201, 162, 39, 0.4) transparent;
+}
+.chat-box .chat-body::-webkit-scrollbar { width: 8px; }
+.chat-box .chat-body::-webkit-scrollbar-track { background: transparent; }
+.chat-box .chat-body::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(201, 162, 39, 0.45), rgba(201, 162, 39, 0.25));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Input: ring vàng khi focus (không đổi layout) */
+.chat-input input:focus {
+  border-color: rgba(201, 162, 39, 0.75) !important;
+  box-shadow: 0 0 0 3.5px rgba(201, 162, 39, 0.16);
+  background: #FFFDF8;
+}
+
+/* Nút gửi: gradient vàng thương hiệu */
+.chat-input button, #btnSendChat, .chat-send-btn {
+  background: linear-gradient(135deg, #D9B13B 0%, #C9A227 55%, #B08A1E 100%) !important;
+  color: #2A1A14 !important;
+  box-shadow: 0 2px 8px rgba(201, 162, 39, 0.4) !important;
+  border: none !important;
+}
+.chat-input button:hover, #btnSendChat:hover, .chat-send-btn:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 4px 14px rgba(201, 162, 39, 0.5) !important;
+}
+.chat-input button:active, #btnSendChat:active, .chat-send-btn:active { transform: scale(0.94); }
+
+/* ============================================================
+   6. NÚT CHAT NỔI (FAB) — focus ring + shadow sâu hơn
+   ============================================================ */
+.chat-btn, #chatFloatBtn {
+  box-shadow: 0 6px 20px rgba(111, 78, 55, 0.35), 0 2px 5px rgba(62, 39, 35, 0.2) !important;
+}
+
+/* ============================================================
+   7. THẺ ĐƠN LIVE — thanh tiến trình shimmer + cờ LIVE thở
+   ============================================================ */
+.ui-live-bar { height: 7px; border-radius: 999px; }
+.ui-live-bar > div {
+  border-radius: 999px;
+  background: linear-gradient(90deg, #C9A227, #E8C64A, #C9A227) !important;
+  background-size: 200% 100%;
+  animation: polLiveShimmer 1.8s linear infinite;
+}
+@keyframes polLiveShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.ui-live-flag {
+  display: inline-block;
+  color: #C9A227;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  animation: polFlagBreath 2.2s ease-in-out infinite;
+}
+@keyframes polFlagBreath {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* ============================================================
+   8. SO SÁNH 2 MÓN — cột thắng nổi bật rõ hơn
+   ============================================================ */
+.ui-cmp-win {
+  box-shadow: inset 0 0 0 1.5px rgba(201, 162, 39, 0.55), 0 6px 16px rgba(201, 162, 39, 0.16) !important;
+}
+
+/* ============================================================
+   9. KPI — số liệu canh bảng (tabular-nums, không nhảy khi update)
+   ============================================================ */
+.ui-kpi-value, .ui-kpi-grid b, .stat-card b, .stat-card strong {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   10. FOCUS-VISIBLE THỐNG NHẤT (bàn phím / a11y) — mọi nút chat UI
+   ============================================================ */
+.quick-reply-btn:focus-visible,
+.ui-fab-btn:focus-visible,
+.ui-welcome-btn:focus-visible,
+.ui-card-expand-btn:focus-visible,
+.ui-rating-star:focus-visible,
+.ui-chip-btn:focus-visible,
+.chat-input button:focus-visible,
+.chat-header button:focus-visible,
+.chat-header-actions button:focus-visible,
+.chat-btn:focus-visible,
+#chatFloatBtn:focus-visible,
+#btnClearChat:focus-visible,
+#btnCollapseChat:focus-visible {
+  outline: none !important;
+  box-shadow: var(--pol-ring) !important;
+}
+
+/* ============================================================
+   10.5 BUTTON SYSTEM — đồng bộ toàn bộ nút trong mọi thẻ + chat
+   (đặt TRƯỚC khối dark mode để dark luôn thắng khi bật)
+   ============================================================ */
+
+/* --- Hàng nút trong thẻ: không còn dồn cục như mặc định --- */
+.ui-welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 8px;
+  align-items: center;
+}
+.ui-act { gap: 10px; }
+
+/* --- Nút chào mừng (trước đây KHÔNG có base style → rơi về nút trình duyệt) --- */
+.ui-welcome-btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(180deg, #FFFFFF 0%, #FDF6E7 100%) !important;
+  border: 1.5px solid rgba(201, 162, 39, 0.55) !important;
+  color: #5D4037 !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  box-shadow: 0 1px 2px rgba(62, 39, 35, 0.06), 0 3px 8px rgba(201, 162, 39, 0.12) !important;
+}
+.ui-welcome-btn:hover {
+  background: linear-gradient(135deg, #D9B13B 0%, #C9A227 100%) !important;
+  border-color: transparent !important;
+  color: #2A1A14 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 16px rgba(201, 162, 39, 0.42) !important;
+}
+.ui-welcome-btn:active { transform: translateY(0) scale(0.96) !important; }
+
+/* Vệt sáng lướt khi hover — khớp pattern "premium effect" của các nút khác */
+.ui-welcome-btn::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -150%;
+  width: 50%; height: 100%;
+  background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0) 100%);
+  transform: skewX(-25deg);
+  z-index: 1;
+  pointer-events: none;
+}
+.ui-welcome-btn > * { position: relative; z-index: 2; }
+.ui-welcome-btn:hover::after { animation: shineSweepFix 0.8s forwards; }
+
+/* --- Nút "+ Thêm" trong thẻ menu: pill cao cấp hơn chút --- */
+.ui-btn-add {
+  border-radius: 999px !important;
+  padding: 7px 15px !important;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2), box-shadow 0.2s ease !important;
+}
+.ui-btn-add:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 5px 14px rgba(201, 162, 39, 0.4) !important;
+}
+.ui-btn-add:disabled { opacity: 0.55; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+
+/* --- Chip bấm được: bỏ cam lạc tông → tông vàng gold --- */
+.ui-chip-btn {
+  border-radius: 999px !important;
+  border: 1px solid rgba(201, 162, 39, 0.5) !important;
+  background: #FFFDF6 !important;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+.ui-chip-btn:hover {
+  background: rgba(201, 162, 39, 0.14) !important;
+  border-color: rgba(201, 162, 39, 0.8) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(201, 162, 39, 0.2);
+}
+
+/* --- Nút hành động chính: pill + tương phản chữ trên nền vàng --- */
+.ui-fab-btn {
+  padding: 9px 16px !important;
+  border-radius: 999px !important;
+}
+/* Chữ trắng trên vàng #C9A227 tương phản kém → đổi sang chữ nâu đậm (khớp dark mode) */
+.ui-fab-primary {
+  color: #2A1A14 !important;
+  text-shadow: none !important;
+}
+
+/* --- Nút xác nhận 2 bước: bo mềm + bóng (chỉ thẩm mỹ) --- */
+.confirm-yes, .confirm-no {
+  border-radius: 10px !important;
+  box-shadow: 0 2px 6px rgba(62, 39, 35, 0.12) !important;
+}
+
+/* --- Quick replies: đồng bộ chiều cao với welcome-btn --- */
+.quick-reply-btn { padding: 8px 15px !important; }
+
+/* --- Dark mode cho button system --- */
+[data-theme="dark"] .ui-welcome-btn {
+  background: linear-gradient(180deg, #2A2522 0%, #241F1B 100%) !important;
+  border-color: rgba(232, 185, 49, 0.5) !important;
+  color: #F0E0C0 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 3px 8px rgba(0, 0, 0, 0.3) !important;
+}
+[data-theme="dark"] .ui-welcome-btn:hover {
+  background: linear-gradient(135deg, #E8C64A 0%, #E0B840 100%) !important;
+  color: #2A1A14 !important;
+  box-shadow: 0 6px 16px rgba(232, 185, 49, 0.35) !important;
+}
+[data-theme="dark"] .ui-welcome-btn::after {
+  background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(232,185,49,0.4) 50%, rgba(255,255,255,0) 100%);
+}
+[data-theme="dark"] .ui-chip-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(232, 185, 49, 0.4) !important;
+  color: #E7DFD3;
+}
+[data-theme="dark"] .ui-chip-btn:hover {
+  background: rgba(232, 185, 49, 0.16) !important;
+  border-color: rgba(232, 185, 49, 0.75) !important;
+}
+[data-theme="dark"] .ui-btn-add { border-radius: 999px !important; }
+
+/* ============================================================
+   11. DARK MODE — đồng bộ toàn bộ layer
+   ============================================================ */
+[data-theme="dark"] .ui-card {
+  background-color: #262220 !important;
+  background-image: linear-gradient(180deg, rgba(232, 185, 49, 0.5) 0, rgba(232, 185, 49, 0.08) 3px, rgba(232, 185, 49, 0) 3px) !important;
+  border-color: #3E3430 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 22px rgba(0, 0, 0, 0.35) !important;
+}
+[data-theme="dark"] .ui-card:hover {
+  border-color: rgba(232, 185, 49, 0.45) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 12px 30px rgba(0, 0, 0, 0.45) !important;
+}
+[data-theme="dark"] .ui-card-gold {
+  background-image: linear-gradient(135deg, #2A2522 0%, #241F1B 60%, #201B17 100%), linear-gradient(180deg, rgba(232, 185, 49, 0.6) 0, rgba(232, 185, 49, 0.1) 3px, rgba(232, 185, 49, 0) 3px) !important;
+}
+
+[data-theme="dark"] .ui-act-info {
+  background: linear-gradient(180deg, #2A2522, #241F1B) !important;
+  border-color: rgba(232, 185, 49, 0.25) !important;
+  color: #E7DFD3;
+}
+
+[data-theme="dark"] .msg.bot .bubble {
+  background: linear-gradient(180deg, #2A2522, #241F1B);
+  border-left-color: rgba(232, 185, 49, 0.75);
+  color: #E7DFD3;
+}
+[data-theme="dark"] .msg.user .bubble {
+  background: linear-gradient(135deg, #6F4E37, #5D4037);
+  color: #FFF8E7;
+}
+[data-theme="dark"] .msg.bot .bubble:has(.ui-card) {
+  background: none;
+  border-left: none;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .chat-box .chat-body {
+  background: linear-gradient(180deg, #1C1917 0%, #211C18 100%);
+  scrollbar-color: rgba(232, 185, 49, 0.4) transparent;
+}
+[data-theme="dark"] .chat-box .chat-body::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(232, 185, 49, 0.4), rgba(232, 185, 49, 0.2));
+  background-clip: padding-box;
+}
+
+[data-theme="dark"] .chat-input input:focus {
+  background: #262220;
+  border-color: rgba(232, 185, 49, 0.7) !important;
+  box-shadow: 0 0 0 3.5px rgba(232, 185, 49, 0.14);
+}
+
+[data-theme="dark"] .quick-reply-btn {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .typing-bubble .dot {
+  box-shadow: 0 1px 3px rgba(232, 185, 49, 0.4);
+}
+
+[data-theme="dark"] .ui-live-bar > div {
+  background: linear-gradient(90deg, #E8B931, #F0CE6A, #E8B931) !important;
+  background-size: 200% 100%;
+}
+
+[data-theme="dark"] .ui-cmp-win {
+  box-shadow: inset 0 0 0 1.5px rgba(232, 185, 49, 0.55), 0 6px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .chat-input button, [data-theme="dark"] #btnSendChat, [data-theme="dark"] .chat-send-btn {
+  background: linear-gradient(135deg, #E8C64A 0%, #E0B840 55%, #C9A227 100%) !important;
+  color: #2A1A14 !important;
+}
+
+[data-theme="dark"] .ui-live-flag { color: #E8B931; }
+
+/* ============================================================
+   12. GIẢM CHUYỂN ĐỘNG (prefers-reduced-motion)
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .msg,
+  .ui-live-bar > div,
+  .ui-live-flag,
+  .ui-live-step.current .ui-live-dot,
+  .typing-bubble .dot,
+  .tool-indicator {
+    animation: none !important;
+  }
+  .msg { opacity: 1 !important; transform: none !important; }
+  .ui-welcome-btn::after, .ui-btn-add::after { animation: none !important; }
+  .ui-fab-primary { animation: none !important; }
+  .ui-card, .ui-card:hover, .ui-fab-btn, .ui-welcome-btn, .ui-chip, .quick-reply-btn {
+    transition: none !important;
+  }
+}

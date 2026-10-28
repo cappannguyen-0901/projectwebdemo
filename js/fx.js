@@ -259,9 +259,13 @@
   function hookToast() {
     const orig = window.showToast;
     if (typeof orig !== 'function') return;
-    window.showToast = function (msg) {
+    window.showToast = function (msg, color, opts) {
       const r = orig.apply(this, arguments);
-      if (/(Đặt bàn[\s\S]*?thành công|Đặt hàng thành công|đã giao thành công)/i.test(String(msg))) confetti();
+      // ⚡ FIX #23: không bắn confetti khi toast được restore sau điều hướng
+      const restoring = !!(opts && opts.restore);
+      if (!restoring && /(Đặt bàn[\s\S]*?thành công|Đặt hàng thành công|đã giao thành công)/i.test(String(msg))) {
+        confetti();
+      }
       return r;
     };
   }

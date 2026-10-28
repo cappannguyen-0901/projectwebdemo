@@ -11,7 +11,8 @@ const DemoData = {
     'cappan_users', 'cappan_bookings', 'cappan_orders', 'cappan_current_order', 'cappan_cart_guest',
     'cappan_menu_custom', 'cappan_menu_overrides', 'cappan_menu_removed', 'cappan_menu_state',
     'cappan_promotions', 'cappan_schedule', 'cappan_seats_state', 'cappan_staff_list',
-    'cappan_ai_cache', 'cappan_ai_metrics'
+    'cappan_ai_cache', 'cappan_ai_metrics',
+    'cappan_ai_drafts_v6', 'cappan_ai_hist_v5'
   ],
 
   /* Bộ sinh số giả ngẫu nhiên cố định (mulberry32) */
@@ -39,7 +40,9 @@ const DemoData = {
   Object.keys(sessionStorage).forEach(k => {
     if (k.startsWith('cappan_history_') || k.startsWith('cappan_greeted_') ||
         k === 'cappan_ai_cool' || k === 'cappan_applied_promo' ||
-        k === 'cappan_checkout_info' || k === 'cappan_prefs') {
+        k === 'cappan_checkout_info' || k === 'cappan_prefs' ||
+        k === 'cappan_ai_pending_v5' || k === 'cappan_ai_ctx_v5' ||
+        k === 'cappan_group_memory' || k === 'cappan_pending_toast') {
       sessionStorage.removeItem(k);
     }
   });

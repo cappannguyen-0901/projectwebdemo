@@ -362,6 +362,10 @@ const AIBrainLegacy = {
   _checkFAQ(text) {
     if (typeof KB === 'undefined' || !Array.isArray(KB.faq)) return null;
     const n = normVN(text);
+    
+    // ⚡ FIX: Không trả lời FAQ "giao hàng" nếu user đang muốn SỬA/ĐỔI thông tin
+    if (/\b(doi|sua|thay|cap nhat)\b/.test(n) && /\b(dia chi|giao hang|so dien thoai|sdt)\b/.test(n)) return null;
+    
     if (/\b(ca|lich ca|shift|ca lam|ca cua)\b/.test(n)) return null;
     let bestMatch = null, bestScore = 0;
     KB.faq.forEach(f => {
@@ -850,6 +854,31 @@ const LocalBrain = {
     this.bookingDraft = this.bookingDraft || { sid: curSid };
     if (this.bookingDraft.sid !== curSid) this.bookingDraft.sid = curSid;
     return { intent: 'booking', text: '', confidence: 0.95 };
+  },
+
+  /* ⚡ GET SMART GREETING: lời chào đầu-session dạng thẻ interactive
+     (main.js đã gọi hàm này từ lâu nhưng trước đây hàm chưa tồn tại → dead code,
+      khách chỉ thấy chào text khô khan). Trả chuỗi có [UI_WELCOME] để UICards.appendTo render chip. */
+  getSmartGreeting() {
+    try {
+      const hour = new Date().getHours();
+      let hello = 'Chào buổi sáng';
+      if (hour >= 11 && hour < 14) hello = 'Chào buổi trưa';
+      else if (hour >= 14 && hour < 18) hello = 'Chào buổi chiều';
+      else if (hour >= 18) hello = 'Chào buổi tối';
+      const user = (typeof API !== 'undefined' && API.users && API.users.getCurrent) ? API.users.getCurrent() : null;
+      const options = [
+        { label: '📖 Xem menu', prompt: 'menu có gì' },
+        { label: '🪑 Đặt bàn', prompt: 'đặt bàn' },
+        { label: '🎁 Khuyến mãi', prompt: 'khuyến mãi hôm nay' }
+      ];
+      const top = (typeof API !== 'undefined' && API.menu && API.menu.getAvailable)
+        ? (API.menu.getAvailable() || []).filter(m => m && m.badge).slice(0, 2) : [];
+      top.forEach(m => options.push({ label: '🔥 ' + m.name, itemId: m.id }));
+      if (options.length < 4) options.push({ label: '🔥 Món bán chạy', prompt: 'món bán chạy' });
+      const payload = { title: 'Em giúp được gì ngay hôm nay?', options: options.slice(0, 5) };
+      return `${hello} ${user && user.name ? user.name : 'anh/chị'}! 👋\nGọi món, đặt bàn, thanh toán hay tra đơn — cứ nhắn trong khung chat này là em lo hết ạ.\n[UI_WELCOME]${JSON.stringify(payload)}[/UI_WELCOME]`;
+    } catch (e) { return ''; }
   }
 };
 
@@ -880,6 +909,7 @@ const LBHandlers = {
 
   /* ⚡ NEW — wire vào chain */
   multiOrder(raw, n) {
+    if (/\b(goi y|tu van|de xuat|lich su|dua tren|hay mua|da mua|quen thuoc)\b/.test(n)) return null;
     const items = LocalBrain._findItems(raw);
     if (!items || items.length < 1 || items.generic) return null;
     const isOrderIntent = /\b(mua|lay|goi|them|dat)\b/.test(n) || (/\b(uong|an)\b/.test(n) && !/\b(gi|nao|khong|ko|goi y|phu hop)\b/.test(n));
@@ -906,7 +936,8 @@ const LBHandlers = {
 
   /* ⚡ NEW — wire vào chain, FIX filter Bánh Flan */
   medicalRecommend(raw, n) {
-    if (/\b(dau da day|kho ngu|mat ngu|buon non|say xe)\b/.test(n)) {
+    // ⚡ FIX #12: bổ sung "mang thai" + "không uống được cafein" + "tránh cafein"
+    if (/\b(dau da day|kho ngu|mat ngu|buon non|say xe|mang thai|khong uong duoc cafein|tranh cafein)\b/.test(n)) {
       const items = API.menu.getAvailable()
         .filter(m => {
           const tags = LocalBrain._tagsOf(m);

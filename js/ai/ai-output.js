@@ -68,7 +68,8 @@ const AIOutput = {
       [/\[UI_GROUP_SUMMARY\]/, 'Dạ em đã tổng hợp nhu cầu nhóm ạ:'],
       [/\[UI_WELCOME\]/, 'Dạ em có thể giúp gì ngay đây ạ:'],
       [/\[UI_RATING\]/, 'Dạ anh/chị vui lòng đánh giá trải nghiệm nhé ạ:'],
-      [/\[UI_CART_SUCCESS\]/, 'Dạ đã thêm vào giỏ hàng ạ:']
+      [/\[UI_CART_SUCCESS\]/, 'Dạ đã thêm vào giỏ hàng ạ:'],
+      [/\[UI_ORDER_CHECKOUT\]/, 'Dạ em kiểm tra thông tin giao hàng ạ:']
     ];
     for (const [re,txt] of map) if(re.test(cards)) return txt;
     return 'Dạ em gửi anh/chị thông tin này ạ:';

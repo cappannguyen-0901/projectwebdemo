@@ -1062,7 +1062,8 @@ button.emoji-btn { font-size: 14px !important; background: transparent !importan
 #btnSendChat, .chat-send-btn { cursor: pointer !important; transition: all 0.2s ease; outline: none; }
 #btnSendChat:hover, .chat-send-btn:hover { opacity: 0.9; transform: translateY(-1px) scale(1.03); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); }
 .quick-reply-btn, .quick-replies button, #chatBody .quick-btn { cursor: pointer !important; transition: all 0.2s ease; border: 1px solid #dcdcdc; border-radius: 16px; padding: 6px 12px; background-color: #ffffff; font-size: 0.88rem; user-select: none; }
-.quick-reply-btn:hover, .quick-replies button:hover, #chatBody .quick-btn:hover { background-color: #f0f7ff !important; border-color: #007bff !important; color: #0056b3 !important; transform: translateY(-2px); box-shadow: 0 3px 8px rgba(0, 123, 255, 0.15); }
+/* ⚡ FIX: bỏ hover xanh #007bff lạc tông — màu hover do theme.css (vàng gold) chủ đạo */
+.quick-reply-btn:hover, .quick-replies button:hover, #chatBody .quick-btn:hover { transform: translateY(-2px); }
 
 /* ==========================================================
    ⚡ v6 — INTERACTIVE ACTION CARDS (flow đặt bàn / đặt nước)
@@ -1206,6 +1207,26 @@ body[data-page="home"] .demo-banner { margin-top: 86px; }
   background: linear-gradient(90deg, #292524 25%, #3E3430 50%, #292524 75%);
   background-size: 200% 100%;
 }
+/* ⚡ FIX: skeleton card menu/order trước đây không có CSS → vùng nhấp nháy vô hình */
+.skeleton-card {
+  background: var(--card-bg, #fff);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(62, 39, 35, 0.08);
+  min-height: 230px;
+}
+.skeleton-img { height: 140px; border-radius: 0; }
+.skeleton-info { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.skeleton-title { height: 16px; width: 70%; }
+.skeleton-price { height: 14px; width: 42%; }
+.skeleton-btn { height: 36px; width: 100%; margin-top: 4px; border-radius: 8px; }
+[data-theme="dark"] .skeleton-card { background: #292524; box-shadow: 0 2px 10px rgba(0,0,0,0.4); }
+
+/* ⚡ FIX: rating star dùng class thay inline-onmouseover (đi kèm data-rating delegated handler) */
+.ui-rating-star { background: none; border: none; font-size: 32px; cursor: pointer; color: #ddd; padding: 0; transition: color .15s; }
+.ui-rating-star:hover { color: #C9A227 !important; }
+[data-theme="dark"] .ui-rating-star { color: #5c554d; }
+[data-theme="dark"] .ui-rating-star:hover { color: #E0B840 !important; }
 
 /* 10. HIỆU ỨNG GÕ PHÍM (SONAR) */
 .typing-bubble {
@@ -1688,14 +1709,15 @@ body[data-page="booking"] .seat-area .seat.dimmed {
 [data-theme="dark"] #weatherSuggest.weather-cold #wsDesc { color: #4DB6AC; }
 /* ============================================================
    🌟 CAPPAN MASTER UI/UX PACK (OVERRIDE TOÀN DIỆN)
-   Tác giả: Principal UX/UI Designer
    ============================================================ */
 
-/* 1. TYPOGRAPHY & BASE SETUP (Nâng cấp Font & Khoảng cách) */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,700&display=swap');
+/* 1. TYPOGRAPHY & BASE SETUP */
+/* ⚡ FIX: xoá @import (không hợp lệ khi nằm giữa file — browser bỏ qua),
+   font Plus Jakarta đã được nạp qua <link> trong HTML nếu cần.
+   Theo MASTER TYPOGRAPHY ở cuối file, --font-ui = Inter (đã load sẵn). */
 
 body {
-  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-family: var(--font-ui, 'Inter', system-ui, sans-serif) !important;
   letter-spacing: -0.2px;
   -webkit-font-smoothing: antialiased;
 }

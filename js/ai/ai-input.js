@@ -111,8 +111,12 @@ const AIInput = {
   _entities(norm){
     const e={};
     const seats=norm.match(/\b[a-d]\d{1,2}\b/g); if(seats) e.seatIds=[...new Set(seats.map(s=>s.toUpperCase()))];
-    const orders=norm.match(/\bod\d{3,5}\b/g); if(orders) e.orderIds=[...new Set(orders.map(s=>s.toUpperCase()))];
-    const bks=norm.match(/\bbk\d{3,5}\b/g); if(bks) e.bookingIds=[...new Set(bks.map(s=>s.toUpperCase()))];
+    // ⚡ FIX: ID thực tế có dạng ODmvqq43sn73r6 (chữ thường, dài) -> dùng regex linh hoạt hơn
+    const orders = norm.match(/\bod[a-z0-9]+\b/g); 
+    if(orders) e.orderIds=[...new Set(orders.map(s=>s.toUpperCase()))];
+    
+    const bks = norm.match(/\bbk[a-z0-9]+\b/g); 
+    if(bks) e.bookingIds=[...new Set(bks.map(s=>s.toUpperCase()))];
     const mids=norm.match(/\bm\d{3}\b/g); if(mids) e.menuIds=[...new Set(mids.map(s=>s.toUpperCase()))];
     const guests=norm.match(/\b(\d{1,2}|mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi)\s*(nguoi|ng|khach)\b/); if(guests){const w={mot:1,hai:2,ba:3,bon:4,nam:5,sau:6,bay:7,tam:8,chin:9,muoi:10}; e.guests=w[guests[1]]||parseInt(guests[1],10);}
     let tm=norm.match(/\b(\d{1,2}):(\d{2})\b/); if(!tm) tm=norm.match(/\b(\d{1,2})\s*(?:h|gio)\s*(\d{1,2})?\b/); if(tm){let h=parseInt(tm[1],10),m=tm[2]?parseInt(tm[2],10):0; if(/\b(toi|chieu|pm)\b/.test(norm)&&h>=1&&h<=11)h+=12; if(/\b(sang|am)\b/.test(norm)&&h===12)h=0; if(h>=0&&h<=23&&m>=0&&m<=59) e.time=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');}

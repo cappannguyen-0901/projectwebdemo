@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@piotr-oles/pi-bash-timeout": "^1.0.0"
+  }
+}

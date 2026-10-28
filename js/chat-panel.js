@@ -77,12 +77,10 @@ const ChatPanel = {
     try {
       if (typeof AIBrain === 'undefined' || typeof addChatMsg !== 'function') return false;
       const sid = AIBrain._getSessionId();
-      if (!sid) return false;                          /* ⚡ V7: null sid guard */
-      if (!AIBrain.histories[sid]) return false;       /* ⚡ V7: no history entry */
-      const role = AIBrain._getRole();
-      AIBrain._getHistory(sid, role);
-
-      const history = AIBrain.histories[sid] || [];
+      if (!sid) return false;
+      // ⚡ FIX #4: gọi _getHistory TRƯỚC để nạp histories[sid] từ localStorage
+      const role = typeof AIBrain._getRole === 'function' ? AIBrain._getRole() : (sid.startsWith('staff_') ? 'staff' : 'guest');
+      const history = AIBrain._getHistory(sid, role) || [];
       if (history.length <= 1) return false;
 
       const body = document.getElementById('chatBody');

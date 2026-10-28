@@ -10,9 +10,10 @@ try {
 
 const PENDING_TOAST_KEY = 'cappan_pending_toast';
 
-function showToast(msg, color = '#2E7D32') {
-  // ⚡ CHỈ persist critical — KHÔNG persist "đã thêm" (spam)
-  if (/thành công|đã đặt (bàn|hàng|chỗ)|đã hủy (đơn|booking|chỗ)|hoàn tất booking/i.test(msg)) {
+function showToast(msg, color = '#2E7D32', opts) {
+  // ⚡ FIX #23: khi restore từ pending → KHÔNG persist lại (tránh lặp vô hạn)
+  const restoring = !!(opts && opts.restore);
+  if (!restoring && /thành công|đã đặt (bàn|hàng|chỗ)|đã hủy (đơn|booking|chỗ)|hoàn tất booking/i.test(msg)) {
     try {
       sessionStorage.setItem(PENDING_TOAST_KEY, JSON.stringify({ msg, color, ts: Date.now() }));
     } catch (e) {}
@@ -40,15 +41,16 @@ function showToast(msg, color = '#2E7D32') {
   t._timer = setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// ⚡ Restore pending toast khi load trang mới (NGOÀI showToast — fix bug scope)
 (function restorePendingToast() {
   const run = () => {
     try {
       const saved = sessionStorage.getItem(PENDING_TOAST_KEY);
       if (!saved) return;
       const { msg, color, ts } = JSON.parse(saved);
-      sessionStorage.removeItem(PENDING_TOAST_KEY);
-      if (Date.now() - ts < 30000) setTimeout(() => showToast(msg, color), 400);
+      sessionStorage.removeItem(PENDING_TOAST_KEY);   // xoá trước khi show
+      if (Date.now() - ts < 30000) {
+        setTimeout(() => showToast(msg, color, { restore: true }), 400);   // ⚡ FIX #23
+      }
     } catch (e) {}
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once: true });
@@ -477,7 +479,8 @@ function renderQuickReplies() {
   const div = document.createElement('div');
   div.id = 'quickReplies';
   div.className = 'quick-replies';
-  div.innerHTML = list.map(q => `<button type="button" class="quick-reply-btn" onclick="sendQuickReply('${q.replace(/'/g, "\\'")}')">${q}</button>`).join('');
+  // ⚡ FIX XSS: data-qr + delegated handler (không inline onclick — tránh breakout chuỗi từ AI)
+  div.innerHTML = list.map(q => `<button type="button" class="quick-reply-btn" data-qr="${esc(q)}">${esc(q)}</button>`).join('');
   body.appendChild(div);
   chatScroll();
 }
@@ -506,16 +509,16 @@ function addContextQuickReplies(list) {
 
   const mk = it => {
     if (typeof it === 'string') {
-      return `<button type="button" class="quick-reply-btn" onclick="sendQuickReply('${esc(it).replace(/'/g, "\\'")}')">${esc(it)}</button>`;
+      return `<button type="button" class="quick-reply-btn" data-qr="${esc(it)}">${esc(it)}</button>`;
     }
-    const label = esc(it.label || '').replace(/'/g, "\\'");
+    const label = esc(it.label || '');
     if (it.href) {
       const hr = _safeHref(it.href);
-      if (hr) return `<a type="button" class="quick-reply-btn" href="${esc(hr)}">${esc(it.label)}</a>`;
+      if (hr) return `<a type="button" class="quick-reply-btn" href="${esc(hr)}">${label}</a>`;
       return '';
     }
-    if (it.text) return `<button type="button" class="quick-reply-btn" onclick="sendQuickReply('${esc(it.text).replace(/'/g, "\\'")}')">${esc(it.label)}</button>`;
-    return `<button type="button" class="quick-reply-btn" onclick="sendQuickReply('${label}')">${esc(it.label)}</button>`;
+    // ⚡ FIX XSS: text/label đều đi qua data-qr + delegated handler
+    return `<button type="button" class="quick-reply-btn" data-qr="${esc(String(it.text || it.label || ''))}">${label}</button>`;
   };
   div.innerHTML = items.map(mk).join('');
   body.appendChild(div);
@@ -818,20 +821,24 @@ const UICards = {
     },
 
     /* Bước 2 đặt bàn: chip chọn khung giờ */
-    TIME_PICK() {
-      const opts = [
-        ['Tối nay 19h', 'tối nay 19h'], ['Hôm nay 12h', 'hôm nay 12h'],
-        ['Sáng mai 9h', 'sáng mai 9h'], ['Chiều mai 15h', 'chiều mai 15h'],
-        ['Tối mai 19h', 'tối mai 19h']
-      ];
-      return `
-        <div class="ui-card ui-act-card">
-          <h4>🕒 Chọn giờ ngồi</h4>
-          <div class="ui-act">${opts.map(o => UICards.abtn(o[0], o[1], { sm: true })).join('')}</div>
-          <div class="ui-sub" style="margin-top:8px;">Giờ khác: anh/chị gõ ví dụ "18h30 mai" ạ.</div>
-        </div>`;
-    },
-
+TIME_PICK() {
+  const now = new Date();
+  const h = now.getHours();
+  const opts = [];
+  if (h < 19) opts.push(['Tối nay 19h', 'tối nay 19h']);
+  if (h < 11) opts.push(['Hôm nay 12h', 'hôm nay 12h']);
+  opts.push(
+    ['Sáng mai 9h', 'sáng mai 9h'],
+    ['Chiều mai 15h', 'chiều mai 15h'],
+    ['Tối mai 19h', 'tối mai 19h']
+  );
+  return `
+    <div class="ui-card ui-act-card">
+      <h4>🕒 Chọn giờ ngồi</h4>
+      <div class="ui-act">${opts.map(o => UICards.abtn(o[0], o[1], { sm: true })).join('')}</div>
+      <div class="ui-sub" style="margin-top:8px;">Giờ khác: anh/chị gõ ví dụ "18h30 mai" ạ.</div>
+    </div>`;
+},
     /* Xác nhận: thông tin bàn + nút hành động lớn, nút chính nhấp nháy */
     BOOKING_CONFIRM(d) {
       const alts = (d && d.alts) || [];
@@ -1010,8 +1017,8 @@ const UICards = {
           <h4>🛒 Đã thêm vào giỏ</h4>
           <div class="ui-act-info">${esc(d.name)} × ${esc(d.qty)} · <b>${UICards.fmt(d.total)}</b>${d.pickup ? `<br>🕒 Lấy lúc ${esc(d.pickup)}` : ''}</div>
           <div class="ui-act">
-            ${UICards.alink('🛒 Thanh toán →', 'cart.html')}
-            ${UICards.abtn('🍲 Gọi thêm', 'gợi ý món khác', {})}
+            ${UICards.alink('🛒 Đến giỏ hàng', 'cart.html')}
+            ${UICards.abtn('💳 Thanh toán', 'thanh toán', { primary: true })}
           </div>
         </div>`;
     },
@@ -1044,6 +1051,22 @@ const UICards = {
           ${isCustomer 
             ? `<a href="profile.html?tab=orders" class="ui-btn-see-all">Xem lịch sử đơn hàng</a>`
             : `<a href="staff-orders.html" class="ui-btn-see-all">Quản lý đơn</a>`}
+        </div>`;
+    },
+        ORDER_CHECKOUT(d) {
+      return `
+        <div class="ui-card ui-act-card" style="border-left: 4px solid #2E7D32;">
+          <h4>🛍️ Xác nhận đặt hàng</h4>
+          <div class="ui-act-info" style="text-align: left; line-height: 1.6;">
+            👤 <b>${esc(d.name)}</b> · 📞 ${esc(d.phone)}<br>
+            📍 ${esc(d.address)}<br>
+            💰 Tổng: <b>${UICards.fmt(d.total)}</b>
+          </div>
+          <div class="ui-act" style="margin-top: 12px;">
+            ${UICards.abtn('✓ Xác nhận & Giao ngay', 'xác nhận đặt hàng', { primary: true })}
+            ${UICards.abtn('✏️ Sửa thông tin', 'sửa thông tin giao hàng', {})}
+            ${UICards.abtn('✗ Hủy', 'hủy', { danger: true, sm: true })}
+          </div>
         </div>`;
     },
 
@@ -1325,10 +1348,7 @@ SHIFT(d, isPreview = true) {
       <p class="ui-sub" style="margin-bottom: 12px;">Anh/chị thấy đơn hàng thế nào ạ?</p>
       <div id="rating_${esc(d.orderId)}" style="display: flex; gap: 8px; justify-content: center; margin-bottom: 8px;">
         ${[1,2,3,4,5].map(n =>
-          `<button type="button" onclick="submitRating('${esc(d.orderId)}', ${n}, this)"
-                   style="background: none; border: none; font-size: 32px; cursor: pointer; color: #ddd; padding: 0; transition: color .15s;"
-                   onmouseover="this.style.color='#C9A227'"
-                   onmouseout="this.style.color='#ddd'">☆</button>`
+          `<button type="button" class="ui-rating-star" data-rating="${n}" data-rating-order="${esc(d.orderId)}" aria-label="Đánh giá ${n} sao">☆</button>`
         ).join('')}
       </div>
     </div>`;
@@ -1521,6 +1541,18 @@ function addComboToCart(comboId) {
 window.addComboToCart = addComboToCart;
 
 document.addEventListener('click', (e) => {
+  // ⚡ FIX XSS: quick-reply & rating chuyển sang data-* + delegated handler
+  const qrBtn = e.target.closest('[data-qr]');
+  if (qrBtn) { sendQuickReply(qrBtn.getAttribute('data-qr')); return; }
+
+  const rateBtn = e.target.closest('[data-rating]');
+  if (rateBtn) {
+    const orderId = rateBtn.getAttribute('data-rating-order');
+    const stars = parseInt(rateBtn.getAttribute('data-rating'), 10) || 0;
+    if (orderId && stars) submitRating(orderId, stars, rateBtn);
+    return;
+  }
+
   const navBtn = e.target.closest('[data-nav-href]');
   if (navBtn) {
     const href = navBtn.getAttribute('data-nav-href');
@@ -1740,7 +1772,7 @@ function restoreChatHistory() {
   try {
     if (typeof AIBrain === 'undefined') return false;
     const sid = AIBrain._getSessionId();
-    const role = AIBrain._getRole();
+    const role = typeof AIBrain._getRole === 'function' ? AIBrain._getRole() : (sid.startsWith('staff_') ? 'staff' : 'guest');
     AIBrain._getHistory(sid, role);
     const history = AIBrain.histories[sid] || [];
     if (history.length <= 1) return false; 
@@ -2047,7 +2079,10 @@ window.submitRating = function(orderId, stars, el) {
       return;
     }
     if (e.key === 'Escape') {
-      document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+      // ⚡ FIX: đóng qua closeModal để gỡ đúng body.modal-open (trước đây remove class trực tiếp → khoá cuộn vĩnh viễn)
+      document.querySelectorAll('.modal-overlay.open').forEach(m => {
+        if (m.id && typeof window.closeModal === 'function') window.closeModal(m.id); else m.classList.remove('open');
+      });
       const box = document.getElementById('chatBox');
       if (box && box.classList.contains('open')) box.classList.remove('open');
       const modal = document.getElementById('uiCardModal');

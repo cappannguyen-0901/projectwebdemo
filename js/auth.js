@@ -84,8 +84,25 @@ const Auth = {
         sessionStorage.removeItem('cappan_pending_' + sid);
       } catch (e) {}
 
+      // ⚡ FIX (privacy): xoá metrics khi logout — metrics chứa nội dung câu hỏi của
+      // user cũ; trên máy dùng chung, user/staff kế tiếp không được đọc lại.
+      try { localStorage.removeItem('cappan_ai_metrics'); } catch (e) {}
+
       try {
         if (typeof AIBrain !== 'undefined') {
+          // ⚡ FIX #20: history THẬT nằm trong localStorage, phải xoá qua _clearHistory
+          if (typeof AIBrain._clearHistory === 'function') {
+            AIBrain._clearHistory(sid);
+          }
+          // ⚡ Xoá draft đặt bàn/đặt nước đang dở
+          if (typeof AIBrain._draftDel === 'function') {
+            AIBrain._draftDel(sid);
+          }
+          // ⚡ Xoá pending confirm (nếu có)
+          if (typeof AIBrain._clearPending === 'function') {
+            AIBrain._clearPending(sid);
+          }
+          // Fallback cho bản cũ (in-memory)
           if (AIBrain.histories && AIBrain.histories[sid]) delete AIBrain.histories[sid];
           if (AIBrain._pending && AIBrain._pending[sid]) delete AIBrain._pending[sid];
         }

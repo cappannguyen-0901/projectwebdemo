@@ -7,6 +7,19 @@ const _PROMO_SEED = (typeof SEED_PROMOTIONS !== 'undefined' ? SEED_PROMOTIONS : 
 /* Bản chụp menu gốc */
 const _MENU_BASE = (typeof SEED_MENU_ITEMS !== 'undefined' ? SEED_MENU_ITEMS : []).map(m => ({ ...m }));
 
+/* ⚡ HARDENING: mọi mutation ghi localStorage phải qua storeSet —
+   storage đầy/bị chặn (QuotaExceededError / SecurityError) không được ném
+   xuyên qua làm hỏng trạng thái nửa vời (VD: booking ghi được, ghế không đổi). */
+function storeSet(key, val) {
+  try {
+    localStorage.setItem(key, val);
+    return true;
+  } catch (e) {
+    try { console.warn('[API] ⚠ Không lưu được "' + key + '" — localStorage đầy hoặc bị chặn:', e && e.name || e); } catch (e2) {}
+    return false;
+  }
+}
+
 const API = {
 
   /* ---------- USERS ---------- */
@@ -51,7 +64,7 @@ const API = {
       noShowCount: 0
     };
     list.push(user);
-    localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(list));
+    storeSet(STORAGE_KEYS.users, JSON.stringify(list));
     return user;
   },
   update(id, patch) {
@@ -59,7 +72,7 @@ const API = {
     const i = list.findIndex(u => u.id === id);
     if (i === -1) return null;
     list[i] = { ...list[i], ...patch };
-    localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(list));
+    storeSet(STORAGE_KEYS.users, JSON.stringify(list));
     const cur = this.getCurrent();
     if (cur && cur.id === id) this.setCurrent(list[i]);
     return list[i];
@@ -70,7 +83,7 @@ const API = {
       { id:'U001', name:'Khách Demo', phone:'0900000001', password:'123', role:'customer', joinedAt:new Date().toISOString(), noShowCount:0 },
       { id:'U002', name:'Nhân viên Demo', phone:'0900000002', password:'123', role:'staff', joinedAt:new Date().toISOString(), noShowCount:0 }
     ];
-    localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(demo));
+    storeSet(STORAGE_KEYS.users, JSON.stringify(demo));
   }
 },
 
@@ -96,7 +109,7 @@ const API = {
       try { return JSON.parse(localStorage.getItem('cappan_menu_state') || '{}'); }
       catch { return {}; }
     },
-    _setStateMap(map) { localStorage.setItem('cappan_menu_state', JSON.stringify(map)); },
+    _setStateMap(map) { storeSet('cappan_menu_state', JSON.stringify(map)); },
 
     _read(key, fallback) {
       try {
@@ -183,7 +196,7 @@ const API = {
       };
       const custom = this._custom();
       custom.push(newItem);
-      localStorage.setItem('cappan_menu_custom', JSON.stringify(custom));
+      storeSet('cappan_menu_custom', JSON.stringify(custom));
       this._epoch++;
       this._invalidate();
       this._syncSeed();
@@ -199,11 +212,11 @@ const API = {
       const ci = custom.findIndex(m => m.id === id);
       if (ci >= 0) {
         custom[ci] = { ...custom[ci], ...safe };
-        localStorage.setItem('cappan_menu_custom', JSON.stringify(custom));
+        storeSet('cappan_menu_custom', JSON.stringify(custom));
       } else {
         const ov = this._overrides();
         ov[id] = { ...(ov[id] || {}), ...safe };
-        localStorage.setItem('cappan_menu_overrides', JSON.stringify(ov));
+        storeSet('cappan_menu_overrides', JSON.stringify(ov));
       }
       this._epoch++;
       this._invalidate();
@@ -217,18 +230,18 @@ const API = {
       const ci = custom.findIndex(m => m.id === id);
       if (ci >= 0) {
         custom.splice(ci, 1);
-        localStorage.setItem('cappan_menu_custom', JSON.stringify(custom));
+        storeSet('cappan_menu_custom', JSON.stringify(custom));
       } else {
         const removed = this._removed();
         if (!removed.includes(id)) removed.push(id);
-        localStorage.setItem('cappan_menu_removed', JSON.stringify(removed));
+        storeSet('cappan_menu_removed', JSON.stringify(removed));
       }
       const map = this._getStateMap();
       delete map[id];
       this._setStateMap(map);
       const ov = this._overrides();
       delete ov[id];
-      localStorage.setItem('cappan_menu_overrides', JSON.stringify(ov));
+      storeSet('cappan_menu_overrides', JSON.stringify(ov));
       this._epoch++;
       this._invalidate();
       this._syncSeed();
@@ -241,7 +254,7 @@ const API = {
     KEY: 'cappan_promotions',
 
     _save(list) {
-      localStorage.setItem(this.KEY, JSON.stringify(list));
+      storeSet(this.KEY, JSON.stringify(list));
       this._sync(list);
     },
 
@@ -258,7 +271,7 @@ const API = {
         const raw = localStorage.getItem(this.KEY);
         if (raw === null) {                      // lần đầu: nạp mã mặc định
           const seed = _PROMO_SEED.map(p => ({ ...p }));
-          localStorage.setItem(this.KEY, JSON.stringify(seed));
+          storeSet(this.KEY, JSON.stringify(seed));
           return seed;
         }
         const arr = JSON.parse(raw);
@@ -387,7 +400,7 @@ const API = {
           saved.forEach(s => {
             if (s.id && s.status === 'booked') map[s.id] = 'booked';
           });
-          localStorage.setItem('cappan_seats_state', JSON.stringify(map));
+          storeSet('cappan_seats_state', JSON.stringify(map));
           return map;
         }
         return (saved && typeof saved === 'object') ? saved : {};
@@ -398,7 +411,7 @@ const API = {
     },
 
     _setStateMap(map) {
-      localStorage.setItem('cappan_seats_state', JSON.stringify(map));
+      storeSet('cappan_seats_state', JSON.stringify(map));
     },
 
     syncFromBookings() {
@@ -548,7 +561,7 @@ const API = {
     createdAt: new Date().toISOString()
   };
   list.push(bk);
-  localStorage.setItem(STORAGE_KEYS.bookings, JSON.stringify(list));
+  if (!storeSet(STORAGE_KEYS.bookings, JSON.stringify(list))) return null; // ⚡ HARDENING: ghi fail → không book ghế, trả null như chỗ vừa bị mất
 
   API.seats.book(data.seatId);
   API.seats.syncFromBookings();
@@ -561,7 +574,7 @@ const API = {
       const i = list.findIndex(b => b.id === id);
       if (i === -1) return null;
       list[i].status = 'cancelled';
-      localStorage.setItem(STORAGE_KEYS.bookings, JSON.stringify(list));
+      if (!storeSet(STORAGE_KEYS.bookings, JSON.stringify(list))) return null; // ⚡ HARDENING: ghi fail → giữ ghế, báo lỗi
 
       API.seats.release(list[i].seatId);
       API.seats.syncFromBookings();
@@ -574,7 +587,7 @@ const API = {
       const i = list.findIndex(b => b.id === id);
       if (i === -1) return null;
       list[i].status = 'completed';
-      localStorage.setItem(STORAGE_KEYS.bookings, JSON.stringify(list));
+      if (!storeSet(STORAGE_KEYS.bookings, JSON.stringify(list))) return null; // ⚡ HARDENING: ghi fail → giữ ghế, báo lỗi
 
       API.seats.release(list[i].seatId);
       API.seats.syncFromBookings();
@@ -589,14 +602,15 @@ const API = {
 
       const old = { ...list[i] };
 
-      // Đổi bàn → release ghế cũ, book ghế mới
+      list[i] = { ...old, ...patch, updatedAt: new Date().toISOString() };
+      if (!storeSet(STORAGE_KEYS.bookings, JSON.stringify(list))) return null; // ⚡ HARDENING: ghi fail → không đụng ghế
+
+      // Đổi bàn → release ghế cũ, book ghế mới (chỉ khi ghi thành công)
       if (patch.seatId && patch.seatId !== old.seatId) {
         API.seats.release(old.seatId);
         API.seats.book(patch.seatId);
       }
 
-      list[i] = { ...old, ...patch, updatedAt: new Date().toISOString() };
-      localStorage.setItem(STORAGE_KEYS.bookings, JSON.stringify(list));
       API.seats.syncFromBookings();
 
       return list[i];
@@ -630,7 +644,7 @@ const API = {
       const i = list.findIndex(o => o.id === id);
       if (i === -1) return null;
       list[i] = { ...list[i], ...patch };
-      localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(list));
+      storeSet(STORAGE_KEYS.orders, JSON.stringify(list));
       const cur = this.getCurrent();
       if (cur && cur.id === id) this.setCurrent(list[i]);
       return list[i];
@@ -652,7 +666,7 @@ const API = {
 
     setCurrent(o) {
       if (o) {
-        localStorage.setItem(STORAGE_KEYS.currentOrder, JSON.stringify(o));
+        storeSet(STORAGE_KEYS.currentOrder, JSON.stringify(o));
       } else {
         localStorage.removeItem(STORAGE_KEYS.currentOrder);
       }
@@ -678,7 +692,7 @@ const API = {
         createdAt: new Date().toISOString()
       };
       list.push(o);
-      localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(list));
+      storeSet(STORAGE_KEYS.orders, JSON.stringify(list));
       this.setCurrent(o);
       return o;
     },
@@ -693,7 +707,7 @@ const API = {
       const map = ['pending', 'preparing', 'delivering', 'delivering', 'completed'];
       list[i].status = map[step] || 'pending';
 
-      localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(list));
+      storeSet(STORAGE_KEYS.orders, JSON.stringify(list));
 
       const cur = this.getCurrent();
       if (cur && cur.id === id) this.setCurrent(list[i]);
@@ -707,7 +721,7 @@ const API = {
       if (i === -1) return false;
 
       list.splice(i, 1);
-      localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(list));
+      storeSet(STORAGE_KEYS.orders, JSON.stringify(list));
 
       const cur = this.getCurrent();
       if (cur && cur.id === id) this.setCurrent(null);
@@ -731,7 +745,7 @@ const API = {
 
       const removed = list.length - filtered.length;
       if (removed > 0) {
-        localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(filtered));
+        storeSet(STORAGE_KEYS.orders, JSON.stringify(filtered));
       }
 
       return removed;
@@ -763,14 +777,14 @@ const API = {
         set(items) {
       const key = this._getKey();
       try {
-        localStorage.setItem(key, JSON.stringify(items));
+        storeSet(key, JSON.stringify(items));
       } catch (e) {
         console.warn('[API.cart] Bộ nhớ LocalStorage đầy hoặc bị khóa:', e);
         // Có thể xóa bớt cache AI cũ để giải phóng dung lượng
         try { localStorage.removeItem('cappan_ai_cache'); } catch(err) {}
         try { localStorage.removeItem('cappan_ai_metrics'); } catch(err) {}
         // Thử lưu lại lần 2
-        localStorage.setItem(key, JSON.stringify(items));
+        storeSet(key, JSON.stringify(items));
       }
     },
 
@@ -812,7 +826,7 @@ const API = {
           else userCart.push(gItem);
         });
 
-        localStorage.setItem(userKey, JSON.stringify(userCart));
+        storeSet(userKey, JSON.stringify(userCart));
         localStorage.removeItem(guestKey);
       } catch (e) {
         console.warn('Lỗi merge cart:', e);
@@ -835,7 +849,7 @@ const API = {
   staff: {
     _getStateKey() { return 'cappan_staff_list'; },
     _getCustomStaff() { try { return JSON.parse(localStorage.getItem(this._getStateKey()) || '[]'); } catch { return []; } },
-    _setCustomStaff(list) { localStorage.setItem(this._getStateKey(), JSON.stringify(list)); },
+    _setCustomStaff(list) { storeSet(this._getStateKey(), JSON.stringify(list)); },
     
     getAll() {
       let custom = this._getCustomStaff();
@@ -925,7 +939,7 @@ const API = {
     },
 
     setSchedule(schedule) {
-      localStorage.setItem('cappan_schedule', JSON.stringify(schedule));
+      storeSet('cappan_schedule', JSON.stringify(schedule));
     },
 
     getStaffInShift(date, shiftId) {
@@ -1114,11 +1128,11 @@ const API = {
         if (o.discount === undefined) { o.discount = 0; patched++; }
       });
       if (patched > 0) {
-        localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(orders));
+        storeSet(STORAGE_KEYS.orders, JSON.stringify(orders));
         console.info(`[schema] Patched ${patched} fields in orders`);
       }
     }
-    localStorage.setItem(KEY, String(SCHEMA_VERSION));
+    storeSet(KEY, String(SCHEMA_VERSION));
     console.info('[schema] Migration complete');
   } catch (e) {
     console.error('[schema] Migration failed:', e);

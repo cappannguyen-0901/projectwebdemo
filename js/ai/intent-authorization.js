@@ -79,20 +79,24 @@ const IntentAuthorization = {
     }
 
     /* Customer → check tool có trong AI_TOOLS.customer không */
-    if (typeof AI_TOOLS === 'undefined' || !AI_TOOLS.customer) {
-      /* AI_TOOLS chưa load → fail-safe: block (an toàn hơn allow) */
-      console.warn('[IntentAuthorization] AI_TOOLS chưa load — fail-safe block');
-      return {
-        allowed: false,
-        reason: 'Dạ em chưa sẵn sàng xử lý phần này ạ. Anh/chị vui lòng thử lại sau.',
-        requiredTool
-      };
-    }
+// ⚡ FIX #14: AI_TOOLS là MẢNG { name, roles, desc }, không phải object lồng
+if (typeof AI_TOOLS === 'undefined' || !Array.isArray(AI_TOOLS)) {
+  console.warn('[IntentAuthorization] AI_TOOLS chưa load — fail-safe block');
+  return {
+    allowed: false,
+    reason: 'Dạ em chưa sẵn sàng xử lý phần này ạ. Anh/chị vui lòng thử lại sau.',
+    requiredTool
+  };
+}
 
-    const customerTools = AI_TOOLS.customer.map(t => t.function.name);
-    if (customerTools.includes(requiredTool)) {
-      return { allowed: true, reason: 'customer_has_tool', requiredTool };
-    }
+const tool = AI_TOOLS.find(t => t.name === requiredTool);
+if (!tool) {
+  // Tool không có trong danh sách → không cần chặn
+  return { allowed: true, reason: 'unknown_tool', requiredTool };
+}
+if (Array.isArray(tool.roles) && tool.roles.includes(role)) {
+  return { allowed: true, reason: 'role_has_tool', requiredTool };
+}
 
     /* Block với message tự nhiên */
     return {

@@ -1,7 +1,13 @@
 (function() {
+  // ⚡ HARDENING: mọi truy cập storage đều bọc try/catch — trình duyệt chặn storage
+  // ("Block all cookies") không được giết module (trước đây hook realtime sẽ không cài).
+  const _lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const _lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const _lsDel = k => { try { localStorage.removeItem(k); } catch (e) {} };
+
   const channel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('cappan_sync') : null;
-  
-  let lastSyncTime = localStorage.getItem('cappan_sync_ping') || '0';
+
+  let lastSyncTime = _lsGet('cappan_sync_ping') || '0';
 
   // ⚡ BẢN ĐỒ ÁNH XẠ SỰ KIỆN: Tách kênh lõi và kênh AI
   const ROUTABLE_EVENTS = {
@@ -11,13 +17,14 @@
   };
 
   window.Realtime = {
-    emit(event, payload) {
-      const ping = Date.now() + Math.random();
-      localStorage.setItem('cappan_sync_ping', String(ping));
-      try {
-        if (channel) channel.postMessage({ event, payload, ts: ping });
-      } catch (e) {}
-    },
+emit(event, payload) {
+  const ping = Date.now() + Math.random();
+  lastSyncTime = String(ping);   // ⚡ FIX #3: chặn polling tự kích tab gốc
+  _lsSet('cappan_sync_ping', String(ping));
+  try {
+    if (channel) channel.postMessage({ event, payload, ts: ping });
+  } catch (e) {}
+},
     on(event, handler) {
       const domEvent = ROUTABLE_EVENTS[event];
       if (!domEvent) { console.warn('[Realtime] unknown event:', event); return; }
@@ -46,7 +53,7 @@
 
   // Lớp 3: Polling (Bảo hiểm)
   setInterval(() => {
-    const currentPing = localStorage.getItem('cappan_sync_ping') || '0';
+    const currentPing = _lsGet('cappan_sync_ping') || '0';
     if (currentPing !== lastSyncTime) {
       lastSyncTime = currentPing;
       routeSync({ event: 'data:changed' });
@@ -65,7 +72,7 @@
   };
 
   if (typeof API !== 'undefined') {
-    ['bookings', 'seats', 'orders', 'menu', 'promotions', 'users', 'cart', 'shifts'].forEach(module => {
+    ['bookings', 'seats', 'orders', 'menu', 'promotions', 'users', 'cart', 'shifts', 'staff'].forEach(module => {
       if (API[module]) {
         Object.keys(API[module]).forEach(method => {
           if (typeof API[module][method] === 'function' && 

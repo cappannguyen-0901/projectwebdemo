@@ -22,7 +22,7 @@ const KB = {
     email: 'cappannguyen@gmail.com',
 
     // Giờ
-    hours: '07:00 - 22:30 hàng ngày',
+    hours: '07:00 - 22:30',
     openHour: 7,      // 7:00 sáng
     closeHour: 22.5,  // 22:30 tối
 

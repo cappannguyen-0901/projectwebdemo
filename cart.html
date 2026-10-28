@@ -24,6 +24,7 @@
     if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
   }catch(e){}})();
 </script>
+<link rel="stylesheet" href="ui-polish.css">
 </head>
 <body data-page="cart">
 
@@ -171,6 +172,7 @@
 
 <script src="js/data/schema.js"></script>
 <script src="js/data/weather.js"></script>
+<script src="js/data/shipper.js"></script> 
 <script src="js/ai/ai-input.js"></script>
 <script src="js/ai/ai-output.js"></script>
 <script src="js/data/seed.js"></script>
@@ -492,13 +494,22 @@ function checkout() {
       addChatMsg(receiptMsg, 'bot');
     }
     
-    // 2. Lưu vào bộ nhớ AIBrain (SessionStorage)
+    // 2. Lưu vào AIBrain history — dùng _pushHistory (đã tự push + save)
     if (typeof AIBrain !== 'undefined' && typeof AIBrain._getSessionId === 'function') {
       const sid = AIBrain._getSessionId();
-      const role = AIBrain._getRole();
-      AIBrain._getHistory(sid, role); // Đảm bảo mảng history đã tồn tại
-      AIBrain.histories[sid].push({ role: 'assistant', content: receiptMsg });
-      AIBrain._saveHistory(sid); // Lưu xuống sessionStorage
+      if (typeof AIBrain._pushHistory === 'function') {
+        AIBrain._pushHistory(sid, 'assistant', receiptMsg);
+      } else {
+        // Fallback cho bản cũ (nếu chat-interactions.js lỗi → _getRole không có)
+        const role = typeof AIBrain._getRole === 'function'
+          ? AIBrain._getRole()
+          : (sid.startsWith('staff_') ? 'staff' : (sid.startsWith('customer_') ? 'customer' : 'guest'));
+        if (typeof AIBrain._getHistory === 'function') AIBrain._getHistory(sid, role);
+        if (AIBrain.histories && Array.isArray(AIBrain.histories[sid])) {
+          AIBrain.histories[sid].push({ role: 'assistant', content: receiptMsg });
+          if (typeof AIBrain._saveHistories === 'function') AIBrain._saveHistories();
+        }
+      }
     }
   } catch (e) {
     console.warn('[checkout] Không lưu được tin nhắn chat:', e);

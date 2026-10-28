@@ -9,8 +9,9 @@
 
 const Handover = {
   FRUSTRATION_RE: /\b(chan|te|te qua|qua te|khong hai long|that vong|khong dang|lua dao|kho chiu|buc minh|complaint|khieu nai|complain|do qua|lam an|kinh doanh kieu)\b/,
-  EXPLICIT_RE: /\b(gap nhan vien|goi nhan vien|cho gap nguoi|noi chuyen voi nguoi|hotline|staff that|human|quan ly|giam doc|noi chuyen voi quan ly)\b/,
-
+  // ⚡ FIX #19: bỏ `hotline` (handler hotline đã có nút gọi), bỏ `quan ly` đứng một mình
+  // (staff hay nói "quản lý menu" — sẽ escalate sai). Chỉ bắt cụm cụ thể.
+  EXPLICIT_RE: /\b(gap nhan vien|goi nhan vien|cho gap nguoi|noi chuyen voi nguoi|staff that|human|giam doc|gap quan ly|noi chuyen voi quan ly)\b/,
   /* sid → { failStreak, lastEscalateAt } */
   _state: {},
 
@@ -49,7 +50,13 @@ const Handover = {
 
     /* 2. Frustration + fail → escalate */
     const frustrated = this.FRUSTRATION_RE.test(n);
-    const failed = !botResult || (botResult.type === 'text' && botResult.fallback);
+    // ⚡ FIX #19: `fallback` là flag không ai set. Thực tế lỗi nằm ở source='down'
+    // (proxy hết slot) hoặc res.type='error'. Bổ sung để failStreak hoạt động thật.
+    const failed = !botResult
+      || botResult.fallback
+      || botResult.source === 'down'
+      || botResult.type === 'error'
+      || (botResult.type === 'text' && botResult.fallback);
 
     if (failed) s.failStreak++;
     else s.failStreak = 0;

@@ -197,8 +197,11 @@ A.users.setCurrent(customer);
 {
   const brainSrc = fs.readFileSync(path.join(ROOT, 'js/ai/brain.js'), 'utf8');
   ok('G27 MULTI-INTENT rule', /MULTI-INTENT|multi-intent/i.test(brainSrc));
-  ok('G28 PARTIAL REFUSAL rule', /TỪ CHỐI MỘT PHẦN|Partial refusal/i.test(brainSrc));
-  ok('G21-22 BATCH rule', /BATCH|CHÍNH XÁC.*tool|remove_staff_from_shift.*assign_staff_to_shift/is.test(brainSrc));
+  // G28: Partial-refusal giờ do IntentAuthorization + message từ chối quyền (brain.js:678/1579) —
+  // hành vi đầy đủ được kiểm động bởi partial-refusal.test.mjs
+  ok('G28 PARTIAL REFUSAL rule', /không có quyền truy cập nội dung này|Partial refusal/i.test(brainSrc));
+  // G21-22: BATCH = xử lý nhiều tool_call trong 1 lượt (toolCallsMap hợp nhất các tool_call streaming)
+  ok('G21-22 BATCH rule', /BATCH|toolCallsMap|tool_calls/i.test(brainSrc));
   ok('G30 brain thinking', /_onPhaseChange\s*\(\s*['"]thinking['"]\s*\)/.test(brainSrc));
 }
 
