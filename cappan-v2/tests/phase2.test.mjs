@@ -116,118 +116,235 @@ test('identity: giỏ tách bạch theo từng bản dạng — key per-uid', as
   assert.equal((await api.cart.get()).length, 1);
 });
 
-/* ======================= bookings + seats (§3.8 P2) ======================= */
-test('bookings.create: khóa ghế · trùng khung giờ CONFLICT · quá sức chứa VALIDATION', async () => {
-  const api = mk({ identity: () => 'U001' });
-  const bk = await api.bookings.create({
-    seatId: 'A1',
-    date: '2030-01-01',
-    time: '19:00',
-    guests: 2
-  });
+/* ======================= bookings v1.3 + seats (§3.8 — đặt chỗ = giữ chỗ) ======================= */
+/* giờ dùng chung cho test đặt chỗ: 2026-10-29T12:00 — mọi timer lùi/còn bằng setClock */
+let clock = new Date('2026-10-29T12:00:00');
+const setClock = (d) => (clock = new Date(d));
+const mkAt = ({ identity = () => null, storage = fresh() } = {}) =>
+  createApi({ storage, seed: SEED, identity, now: () => clock });
+const BK = (o = {}) => ({ seatId: 'A1', date: '2026-10-30', time: '19:00', guests: 2, ...o });
+
+test('bookings.create v1.3: pending_deposit + cọc ceil(cap/2)·35k · khóa cả ngày (giờ khác vẫn CONFLICT) · VALIDATION', async () => {
+  setClock('2026-10-29T12:00:00'); // reset giờ — mỗi test bắt đầu 12:00 ngày 29/10
+  const api = mkAt({ identity: () => 'U001' });
+  const bk = await api.bookings.create(BK());
   assert.ok(bk.id.startsWith('bk-'));
-  assert.equal(bk.status, 'confirmed');
-  assert.equal((await api.seats.getById('A1')).status, 'booked'); // ghế bị khóa
+  assert.equal(bk.status, 'pending_deposit'); // phải trả cọc mới GIỮ bàn
+  assert.equal(bk.depositAmount, 35000); // 2 chỗ → 1 ly
+  assert.ok(bk.depositExpiresAt); // hẹn trả cọc 15'
 
   await assert.rejects(
-    () => api.bookings.create({ seatId: 'A1', date: '2030-01-01', time: '19:00', guests: 2 }),
+    () => api.bookings.create(BK({ time: '21:00' })), // cùng NGÀY, giờ khác — vẫn bị chặn (1 bàn 1 booking/ngày)
     (e) => e.code === 'CONFLICT'
   );
+  const bk2 = await api.bookings.create(BK({ date: '2026-10-31', time: '21:00' })); // ngày khác → OK
+  assert.equal(bk2.status, 'pending_deposit');
+
   await assert.rejects(
-    () => api.bookings.create({ seatId: 'B1', date: '2030-01-01', time: '19:00', guests: 50 }),
+    () => api.bookings.create(BK({ seatId: 'B1', guests: 50 })),
     (e) => e.code === 'VALIDATION'
   );
   await assert.rejects(
-    () => api.bookings.create({ seatId: 'C5', date: '2030-01-01', time: '19:00', guests: 9 }), // C5 sức 8
+    () => api.bookings.create(BK({ seatId: 'C5', guests: 9 })), // C5 sức 8
     (e) => e.code === 'VALIDATION'
   );
   await assert.rejects(
-    () => api.bookings.create({ seatId: 'NOPE', date: '2030-01-01', time: '19:00' }),
+    () => api.bookings.create({ seatId: 'NOPE', date: '2026-10-30', time: '19:00' }),
     (e) => e.code === 'NOT_FOUND'
+  );
+  await assert.rejects(
+    () => api.bookings.create(BK({ time: '23:00' })), // ngoài giờ mở cửa
+    (e) => e.code === 'VALIDATION' && e.extra?.field === 'time'
+  );
+  await assert.rejects(
+    () => api.bookings.create(BK({ date: '2026-12-30' })), // quá 30 ngày
+    (e) => e.code === 'VALIDATION' && e.extra?.field === 'date'
+  );
+  await assert.rejects(
+    () => api.bookings.create(BK({ date: '2026-10-28' })), // ngày quá khứ
+    (e) => e.code === 'VALIDATION'
   );
 });
 
-test('bookings: giới hạn 3 slot hiệu lực/user · stranger FORBIDDEN · cancel/complete trả ghế', async () => {
-  const api = mk({ identity: () => 'U001' });
-  for (const i of [1, 2, 3])
-    await api.bookings.create({ seatId: 'A' + i, date: '2030-06-0' + i, time: '10:00' });
+test('bookings vòng đời v1.3: payDeposit → checkIn → complete · chỉ staff được checkIn/complete · seated giữ bàn', async () => {
+  setClock('2026-10-29T12:00:00'); // reset giờ — mỗi test bắt đầu 12:00 ngày 29/10
+  const store = fresh();
+  const boot = mkAt({ storage: store });
+  await boot.users.seedDemo();
+  const staffId = (await boot.users.getAll()).find((u) => u.phone === '0900000002').id;
+  const staff = mkAt({ storage: store, identity: () => staffId });
+  const cust = mkAt({ storage: store, identity: () => 'U-KH' });
+
+  const bk = await cust.bookings.create(BK());
+  assert.equal((await cust.bookings.getById(bk.id)).status, 'pending_deposit');
+
+  const c = await staff.bookings.payDeposit(bk.id); // staff trả cọc HỘ khách (canTouch)
+  assert.equal(c.status, 'confirmed');
+  assert.equal(c.depositPaid, true);
+  assert.ok(c.depositPaidAt);
+
   await assert.rejects(
-    () => api.bookings.create({ seatId: 'A4', date: '2030-06-04', time: '10:00' }),
+    () => cust.bookings.checkIn(bk.id), // checkIn là việc nội bộ — khách gọi bị FORBIDDEN
+    (e) => e.code === 'FORBIDDEN'
+  );
+  assert.equal((await staff.bookings.checkIn(bk.id)).status, 'seated');
+
+  setClock('2026-10-30T23:00:00');
+  assert.equal((await staff.bookings.getById(bk.id)).status, 'seated'); // seated giữ KHÔNG giới hạn — sweep không đụng
+  const done = await staff.bookings.complete(bk.id);
+  assert.equal(done.status, 'completed');
+});
+
+test('bookings sweep v1.3: hết 15\' chưa trả cọc → expired · confirmed quá +30\' → no_show + noShowCount++ · nhả bàn', async () => {
+  setClock('2026-10-29T12:00:00'); // reset giờ — mỗi test bắt đầu 12:00 ngày 29/10
+  const store = fresh();
+  const boot = mkAt({ storage: store });
+  const uid = (await boot.users.create({ name: 'K', phone: '0901010101', password: 'cappan123' })).id;
+  const api = mkAt({ storage: store, identity: () => uid });
+
+  const b1 = await api.bookings.create(BK({ seatId: 'A1', guests: 2 })); // pending — sẽ để quá hạn cọc
+  const b2 = await api.bookings.create(BK({ seatId: 'B1', date: '2026-10-29', time: '19:00' })); // pending — sẽ trả cọc
+  await api.bookings.payDeposit(b2.id);
+
+  setClock('2026-10-30T19:31:00'); // b1 quá hạn cọc từ 12:15 · b2 quá +30' từ 19:30
+  const rows = await api.bookings.getAll(); // sweep chạy ngầm lần đọc đầu
+  assert.equal(rows.find((x) => x.id === b1.id).status, 'expired');
+  assert.equal(rows.find((x) => x.id === b1.id).closedReason, 'deposit_timeout');
+  assert.equal(rows.find((x) => x.id === b2.id).status, 'no_show');
+  assert.equal(rows.find((x) => x.id === b2.id).closedReason, 'auto_cancel_30m');
+  await assert.rejects(
+    () => api.bookings.payDeposit(b1.id), // hết khung chờ cọc — muộn
     (e) => e.code === 'CONFLICT'
   );
+  assert.equal((await api.users.getById(uid)).noShowCount, 1); // no_show bị đếm lên user
 
-  /* stranger: identity khác không sửa được booking người khác */
-  const store2 = fresh();
-  const owner = createApi({ storage: store2, seed: SEED, identity: () => 'U001' });
-  const bk = await owner.bookings.create({ seatId: 'A1', date: '2030-01-05', time: '09:00' });
-  const sneaky = createApi({ storage: store2, seed: SEED, identity: () => 'U999' });
+  const map = await api.seats.getMap('2026-10-30'); // nhả cả 2 bàn
+  assert.equal(map.find((s) => s.id === 'A1').status, 'available');
+  assert.equal(map.find((s) => s.id === 'B1').status, 'available');
+});
+
+test('bookings.cancel v1.3: trước 00:00 hoàn cọc 100% · từ 00:00 mất · hủy hộ seated → CONFLICT', async () => {
+  setClock('2026-10-29T12:00:00'); // reset giờ — mỗi test bắt đầu 12:00 ngày 29/10
+  const store = fresh();
+  const boot = mkAt({ storage: store });
+  await boot.users.seedDemo();
+  const staffId = (await boot.users.getAll()).find((u) => u.phone === '0900000002').id;
+  const staff = mkAt({ storage: store, identity: () => staffId });
+  const uid = (await boot.users.create({ name: 'K', phone: '0902020202', password: 'cappan123' })).id;
+  const cust = mkAt({ storage: store, identity: () => uid });
+
+  /* trước 00:00 ngày D: hoàn 100% (đang 12:00 ngày 29 < 00:00 ngày 30) */
+  const b1 = await cust.bookings.create(BK());
+  await staff.bookings.payDeposit(b1.id);
+  const c1 = await cust.bookings.cancel(b1.id);
+  assert.equal(c1.status, 'cancelled');
+  assert.equal(c1.refundAmount, 35000);
+  assert.equal(c1.cancelledBy, uid);
+
+  /* từ 00:00 ngày D: mất cọc */
+  const b2 = await cust.bookings.create(BK()); // bàn A1 đã nhả sau hủy — đặt lại được
+  await staff.bookings.payDeposit(b2.id);
+  setClock('2026-10-30T00:00:00');
+  const c2 = await cust.bookings.cancel(b2.id);
+  assert.equal(c2.refundAmount, 0);
+
+  /* seated → cancel CONFLICT (dùng complete) */
+  const b3 = await cust.bookings.create(BK({ seatId: 'A2', date: '2026-10-30', time: '19:00' }));
+  await staff.bookings.payDeposit(b3.id);
+  await staff.bookings.checkIn(b3.id);
+  await assert.rejects(
+    () => cust.bookings.cancel(b3.id),
+    (e) => e.code === 'CONFLICT' && /đang ngồi/.test(e.message)
+  );
+});
+
+test('seats.getMap v1.3: reserved trước 00:00 ngày D · booked từ 00:00 · nhả bàn sau no_show', async () => {
+  setClock('2026-10-29T12:00:00'); // reset giờ — mỗi test bắt đầu 12:00 ngày 29/10
+  const api = mkAt();
+  const b = await api.bookings.create(BK({ time: '19:00' })); // pending — đang giữ bàn từ lúc đặt
+  let m = await api.seats.getMap('2026-10-30');
+  assert.equal(m.find((s) => s.id === 'A1').status, 'reserved'); // 12:00 ngày 29 < 00:00 ngày 30
+  assert.equal(m.find((s) => s.id === 'A1').bookingId, b.id);
+  m = await api.seats.getMap('2026-10-31');
+  assert.equal(m.find((s) => s.id === 'A1').status, 'available'); // ngày khác trống
+
+  await api.bookings.payDeposit(b.id);
+  setClock('2026-10-30T00:00:00');
+  assert.equal((await api.seats.getMap('2026-10-30')).find((s) => s.id === 'A1').status, 'booked'); // từ 00:00
+  setClock('2026-10-30T19:31:00'); // không ai đến
+  assert.equal(
+    (await api.seats.getMap('2026-10-30')).find((s) => s.id === 'A1').status,
+    'available'
+  );
+});
+
+test('bookings v1.3: giới hạn 3 hiệu lực/user · stranger FORBIDDEN · guest đặt & hủy được booking guest', async () => {
+  setClock('2026-10-29T12:00:00'); // reset giờ — mỗi test bắt đầu 12:00 ngày 29/10
+  const api = mkAt({ identity: () => 'U001' });
+  for (const dt of ['2026-10-30', '2026-10-31', '2026-11-01'])
+    await api.bookings.create(BK({ seatId: 'A2', date: dt, time: '10:00' }));
+  await assert.rejects(
+    () => api.bookings.create(BK({ seatId: 'A3', date: '2026-11-02', time: '10:00' })),
+    (e) => e.code === 'CONFLICT' && /hiệu lực/.test(e.message)
+  );
+
+  /* stranger: identity khác không được hủy booking người khác */
+  const store = fresh();
+  const owner = mkAt({ storage: store, identity: () => 'U001' });
+  const bk = await owner.bookings.create(BK());
+  const sneaky = mkAt({ storage: store, identity: () => 'U999' });
   await assert.rejects(
     () => sneaky.bookings.cancel(bk.id),
     (e) => e.code === 'FORBIDDEN'
   );
+  const c = await owner.bookings.cancel(bk.id); // chủ hủy được
+  assert.equal(c.status, 'cancelled');
+
+  /* guest: đặt được (userId=null) và hủy được booking guest của mình */
+  const guest = mkAt({ storage: store, identity: () => null });
+  const g = await guest.bookings.create(BK({ seatId: 'A4' }));
+  assert.equal(g.userId, null);
+  assert.equal((await guest.bookings.cancel(g.id)).status, 'cancelled');
+});
+
+test('bookings.getLateCards v1.3: thẻ trễ giữa +15\'..+30\' · guest chỉ xem thẻ của mình', async () => {
+  setClock('2026-10-29T12:00:00'); // reset giờ — mỗi test bắt đầu 12:00 ngày 29/10
+  const api = mkAt({ identity: () => 'U-LT' });
+  const b = await api.bookings.create(BK());
+  await api.bookings.payDeposit(b.id);
+
+  setClock('2026-10-30T19:10:00');
+  assert.deepEqual(await api.bookings.getLateCards('U-LT'), []); // chưa trễ
+  setClock('2026-10-30T19:16:00');
+  const cards = await api.bookings.getLateCards('U-LT');
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].type, 'booking-late');
+  assert.equal(cards[0].data.bookingId, b.id);
+  assert.equal(cards[0].data.autoCancelAt, '19:30');
+  assert.equal(cards[0].data.minutesLate, 16);
+  assert.equal(cards[0].data.depositLostOnCancel, 35000);
+  assert.deepEqual(cards[0].data.actions, ['cancel']);
+  setClock('2026-10-30T19:31:00'); // quá +30 — tự hủy, không còn thẻ
+  assert.deepEqual(await api.bookings.getLateCards('U-LT'), []);
+
+  /* người lạ không xem được thẻ của người khác */
+  setClock('2026-10-30T19:16:00');
+  const other = await api.bookings.create(BK({ seatId: 'B2', date: '2026-10-31', time: '19:00' })); // ngày mai — không rơi vào thẻ trễ hôm nay
+  await api.bookings.payDeposit(other.id);
+  const stranger = mkAt({ identity: () => 'U-NG' });
   await assert.rejects(
-    () => sneaky.bookings.update(bk.id, { time: '11:00' }),
+    () => stranger.bookings.getLateCards('U-LT'),
     (e) => e.code === 'FORBIDDEN'
   );
-
-  /* cancel → ghế trả lại available */
-  const c = await owner.bookings.cancel(bk.id);
-  assert.equal(c.status, 'cancelled');
-  assert.equal((await owner.seats.getById('A1')).status, 'available');
-
-  /* complete → ghế rảnh */
-  const bk2 = await owner.bookings.create({ seatId: 'A1', date: '2030-01-05', time: '15:00' });
-  const done = await owner.bookings.complete(bk2.id);
-  assert.equal(done.status, 'completed');
-  assert.equal((await owner.seats.getById('A1')).status, 'available');
 });
 
-test('bookings._sweepPast: confirmed quá hạn → completed + trả ghế', async () => {
-  const store = fresh();
-  const api = mk({ identity: () => 'U001', storage: store });
-  const fakePast = {
-    id: 'bk-old',
-    userId: 'U001',
-    seatId: 'A2',
-    floorId: 'F1',
-    date: '2020-01-01',
-    time: '10:00',
-    guests: 2,
-    note: '',
-    status: 'confirmed',
-    createdAt: '2020-01-01T00:00:00.000Z'
-  };
-  const rows = (await store.get('bookings')) || [];
-  rows.push(fakePast);
-  await store.set('bookings', rows);
-
-  await api.seats.book('A2');
-  const swept = await api.bookings.getAll(); // sweep giải phóng A2
-  const old = swept.find((b) => b.id === 'bk-old');
-  assert.equal(old.status, 'completed');
-  assert.equal((await api.seats.getById('A2')).status, 'available');
-});
-
-test('bookings.update: dời giờ có clash CONFLICT · sửa note/guests OK', async () => {
-  const api = mk({ identity: () => 'U001' });
-  const a = await api.bookings.create({ seatId: 'C1', date: '2030-03-01', time: '08:00' }); // C1 chứa tối đa 4
-  await api.bookings.create({ seatId: 'C1', date: '2030-03-01', time: '10:00' });
-  await assert.rejects(
-    () => api.bookings.update(a.id, { time: '10:00' }),
-    (e) => e.code === 'CONFLICT'
-  );
-  const u = await api.bookings.update(a.id, { time: '09:30', guests: 4, note: 'gần cửa sổ' });
-  assert.equal(u.time, '09:30');
-  assert.equal(u.guests, 4);
-  assert.equal(u.note, 'gần cửa sổ');
-});
 
 /* ======================= export/import không rò secret dễ sửa ======================= */
 test('exportAll v1.1 có chứa users đã hash — KHÔNG plaintext password', async () => {
   const api = mk();
   await api.users.seedDemo();
   const snap = await api.exportAll();
-  assert.equal(snap.contract, '1.2');
+  assert.equal(snap.contract, '1.3');
   const dump = JSON.stringify(snap);
   assert.equal(dump.includes('cappan123'), false); // legacy từng có password "123" gõ sạch trong localStorage
   assert.ok(snap.data.users[0].passwordHash.length >= 40);

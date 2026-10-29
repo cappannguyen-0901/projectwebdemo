@@ -11,6 +11,13 @@ import { Storage, memoryDriver } from '../src/core/storage.js';
 import { ApiError } from '../src/core/errors.js';
 import { SEED } from '../src/data/seed.js';
 
+/* ngày trong tương lai gần (≤30 ngày theo luật v1.3) — test chạy bất kỳ lúc nào */
+const soon = (d = 3) => {
+  const t = new Date(Date.now() + d * 86400000);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
+};
+
 const fresh = () => new Storage(memoryDriver());
 const mk = ({ identity = () => null, storage = fresh(), now } = {}) =>
   createApi({ storage, seed: SEED, identity, ...(now ? { now } : {}) });
@@ -34,11 +41,10 @@ test('#1a staff được hủy HỘ đơn + booking của khách (trước đây
   const c = await staff.orders.cancel(o.id); // staff hủy hộ — phải thành công
   assert.equal(c.status, 'cancelled');
 
-  const bk = await cust.bookings.create({ seatId: 'A1', date: '2031-01-01', time: '10:00' });
-  assert.equal(bk.status, 'confirmed');
-  const cb = await staff.bookings.cancel(bk.id);
-  assert.equal(cb.status, 'cancelled');
-  assert.equal((await staff.seats.getById('A1')).status, 'available'); // vẫn trả ghế như contract
+  const bk = await cust.bookings.create({ seatId: 'A1', date: soon(), time: '19:00', guests: 2 });
+  assert.equal(bk.status, 'pending_deposit'); // v1.3: đặt → chờ cọc (cả hai pha đều hủy được)
+  const cb = await staff.bookings.cancel(bk.id); // staff hủy hộ — phải thành công
+  assert.equal(cb.status, 'cancelled'); // nhả bàn xảy ra qua mapStatus (không còn cờ ghế)
 });
 
 test('#1b guest (chưa login) KHÔNG hủy được đơn/booking có chủ — chặn lọt guard cũ', async () => {
@@ -59,28 +65,24 @@ test('#1b guest (chưa login) KHÔNG hủy được đơn/booking có chủ — 
     (e) => e instanceof ApiError && e.code === 'FORBIDDEN'
   );
 
-  const bk = await cust.bookings.create({ seatId: 'A2', date: '2031-01-02', time: '10:00' });
+  const bk = await cust.bookings.create({ seatId: 'A2', date: soon(5), time: '19:00', guests: 2 });
   await assert.rejects(
     () => guest.bookings.cancel(bk.id),
     (e) => e.code === 'FORBIDDEN'
   );
-  await assert.rejects(
-    () => guest.bookings.update(bk.id, { time: '11:00' }),
-    (e) => e.code === 'FORBIDDEN'
-  );
   // dữ liệu không rơi vãi: đơn + booking vẫn nguyên trạng
   assert.equal((await cust.orders.getById(o.id)).status, 'pending');
-  assert.equal((await cust.bookings.getById(bk.id)).status, 'confirmed');
+  assert.equal((await cust.bookings.getById(bk.id)).status, 'pending_deposit');
 });
 
 test('#1c guest vẫn hủy được DỮ LIỆU GUEST của mình (userId=null — không có chủ DNA)', async () => {
   const guest = mk({ identity: () => null });
   const o = await guest.orders.create({
     items: [{ itemId: 'M101', qty: 1 }],
-    address: '2 Trân Hưng Đạo',
+    address: '2 Trần Hưng Đạo',
     phone: '0917777777'
   });
-  const g = await guest.bookings.create({ seatId: 'A3', date: '2031-01-03', time: '10:00' });
+  const g = await guest.bookings.create({ seatId: 'A3', date: soon(), time: '19:00', guests: 2 });
   assert.equal((await guest.orders.cancel(o.id)).status, 'cancelled');
   assert.equal((await guest.bookings.cancel(g.id)).status, 'cancelled');
 });

@@ -81,13 +81,30 @@ async function paint(errMsg = '') {
         ${
           myBookings.length
             ? myBookings
-                .map(
-                  (b) => `
+                .map((b) => {
+                  const phase = api.bookings.phase(b);
+                  const LABEL = {
+                    pending_deposit: 'Chờ trả cọc',
+                    deposit_expired: 'Hết hạn cọc',
+                    upcoming: 'Hiệu lực',
+                    late: '⚠ Đã trễ',
+                    no_show: 'Không đến',
+                    seated: 'Đang ngồi',
+                    completed: 'Đã dùng',
+                    cancelled: 'Đã hủy',
+                    expired: 'Hết hạn cọc'
+                  };
+                  const canCancel = ['pending_deposit', 'upcoming', 'late'].includes(phase);
+                  return `
           <div class="hist-row">
-            <div><b>${esc(b.seatId)}</b> · ${esc(b.date)} ${esc(b.time)} · ${b.guests} khách <span class="pill ${esc(b.status)}">${b.status === 'confirmed' ? 'Hiệu lực' : b.status === 'completed' ? 'Đã dùng' : 'Đã hủy'}</span></div>
-            ${b.status === 'confirmed' ? `<button class="btn danger small" data-bcancel="${esc(b.id)}">Hủy</button>` : ''}
-          </div>`
-                )
+            <div><b>${esc(b.seatId)}</b> · ${esc(b.date)} ${esc(b.time)} · ${b.guests} khách <span class="pill ${esc(b.status)}">${LABEL[phase] || esc(b.status)}</span>
+            ${b.refundAmount !== undefined ? `<div class="det">Hoàn cọc: ${api.utils.formatVND(b.refundAmount)}</div>` : ''}</div>
+            <div style="display:flex;gap:6px">
+              ${phase === 'pending_deposit' ? `<button class="btn small" data-bpay="${esc(b.id)}">Trả cọc</button>` : ''}
+              ${canCancel ? `<button class="btn danger small" data-bcancel="${esc(b.id)}">Hủy</button>` : ''}
+            </div>
+          </div>`;
+                })
                 .join('')
             : '<p class="muted-empty">Chưa có đặt chỗ. <a href="booking.html">Đặt bàn</a>!</p>'
         }
@@ -138,8 +155,19 @@ function bind() {
     b.addEventListener('click', async () => {
       if (!confirm('Hủy đặt chỗ này?')) return;
       try {
-        await api.bookings.cancel(b.dataset.bcancel);
-        toast('Đã hủy đặt chỗ');
+        const c = await api.bookings.cancel(b.dataset.bcancel);
+        toast(c.refundAmount ? `Đã hủy — hoàn cọc ${api.utils.formatVND(c.refundAmount)}` : 'Đã hủy đặt chỗ');
+        paint();
+      } catch (e) {
+        toast(e.message, 'err');
+      }
+    })
+  );
+  main.querySelectorAll('[data-bpay]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      try {
+        await api.bookings.payDeposit(b.dataset.bpay); // DEMO: giả lập cọc
+        toast('✓ Đã nhận cọc — bàn giữ cả ngày');
         paint();
       } catch (e) {
         toast(e.message, 'err');

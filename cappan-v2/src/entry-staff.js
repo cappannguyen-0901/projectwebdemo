@@ -44,7 +44,7 @@ async function paint(tab = 'orders') {
     return;
   }
   try {
-    const [statsToday, occ, byStatus, orders, bookings, menu, staffList, shiftDefs, schedule] =
+    const [statsToday, occ, byStatus, orders, bookings, menu, staffList, shiftDefs, schedule, lateCards] =
       await Promise.all([
         api.stats.today(),
         api.stats.occupancyRate(),
@@ -54,14 +54,15 @@ async function paint(tab = 'orders') {
         api.menu.getAll(),
         api.staff.getAll(),
         api.shifts.getAll(),
-        api.shifts.getSchedule()
+        api.shifts.getSchedule(),
+        api.bookings.getLateCards() // staff — xem tất cả thẻ trễ
       ]);
     renderHeader(document.getElementById('hdr'), { user });
     const active = orders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled');
 
     const sec = {
       orders: panelOrders(active, orders),
-      tables: panelTables(bookings, occ),
+      tables: panelTables(bookings, occ, lateCards),
       menu: panelMenu(menu),
       shifts: panelShifts(next7(), shiftDefs, schedule, staffList)
     };
@@ -76,7 +77,7 @@ async function paint(tab = 'orders') {
       </div>
       <div class="tabs">
         <button data-tab="orders" class="${tab === 'orders' ? 'active' : ''}">🧾 Đơn (${active.length})</button>
-        <button data-tab="tables" class="${tab === 'tables' ? 'active' : ''}">🪑 Bàn & đặt chỗ</button>
+        <button data-tab="tables" class="${tab === 'tables' ? 'active' : ''}">🪑 Bàn & đặt chỗ${lateCards.length ? ` (${lateCards.length} trễ)` : ''}</button>
         <button data-tab="menu" class="${tab === 'menu' ? 'active' : ''}">☕ Menu (hết món)</button>
         <button data-tab="shifts" class="${tab === 'shifts' ? 'active' : ''}">📅 Lịch ca</button>
       </div>
@@ -120,22 +121,89 @@ async function paint(tab = 'orders') {
     }</div>`;
   }
 
-  function panelTables(bookings, occ) {
-    const confirmed = bookings.filter((b) => b.status === 'confirmed');
-    return `<div class="panel"><h3>🪑 Đặt chỗ hiệu lực (${confirmed.length} · ghế bận ${occ}%)</h3>${
-      confirmed.length
-        ? confirmed
-            .map(
-              (b) => `<div class="hist-row">
-          <div><b>${esc(b.seatId)}</b> · ${esc(b.date)} ${esc(b.time)} · ${b.guests} khách ${b.userId ? `· user ${esc(b.userId.slice(0, 6))}` : ''}</div>
-          <div style="display:flex;gap:6px">
-            <button class="btn small" data-bdone="${esc(b.id)}">Khách đến rồi</button>
-            <button class="btn danger small" data-bcancel="${esc(b.id)}">Hủy</button>
-          </div></div>`
-            )
-            .join('')
-        : '<p class="muted-empty">Chưa có đặt chỗ nào hiệu lực.</p>'
-    }</div>`;
+  /* v1.3: nhóm theo PHA tại now — chờ cọc · xác nhận · trễ · đang ngồi */
+  function panelTables(all, occ, lateCards) {
+    const phaseOf = (b) => api.bookings.phase(b);
+    const pendingDep = all.filter((b) => phaseOf(b) === 'pending_deposit');
+    const waiting = all.filter((b) => phaseOf(b) === 'upcoming');
+    const seated = all.filter((b) => phaseOf(b) === 'seated');
+    const auto = all
+      .filter((b) => ['expired', 'no_show'].includes(b.status))
+      .slice(0, 8); // hôm nay/đã chốt gần đây (demo: hiện 8 mục cuối)
+
+    const row = (b, actions) => `
+      <div class="hist-row">
+        <div><b>${esc(b.seatId)}</b> · ${esc(b.date)} ${esc(b.time)} · ${b.guests} khách ${b.userId ? `· user ${esc(b.userId.slice(0, 6))}` : '· khách vãng lai'}
+          ${b.depositPaid ? `<div class="det">Đã cọc ${api.utils.formatVND(b.depositAmount || 0)}</div>` : `<div class="det">Chưa cọc ${api.utils.formatVND(b.depositAmount || 0)}${b.depositExpiresAt ? ` — hết hạn ${esc(b.depositExpiresAt.slice(11, 16))}` : ''}</div>`}
+        </div>
+        <div style="display:flex;gap:6px">${actions}</div>
+      </div>`;
+
+    return `
+      <div class="panel"><h3>🪑 Ghế hôm nay: ${occ}% bận</h3>${
+        lateCards.length
+          ? lateCards
+              .map(
+                (card) => `
+          <div class="late-card">
+            <div><b>⚠ ${esc(card.data.seat.id)} — trễ ${card.data.minutesLate}'</b>
+            <div class="det">Tự nhả bàn lúc ${esc(card.data.autoCancelAt)}</div></div>
+            <button class="btn small" data-bcheckin="${esc(card.data.bookingId)}">Khách đến</button>
+            <button class="btn danger small" data-bcancel="${esc(card.data.bookingId)}">Hủy (mất cọc)</button>
+          </div>`
+              )
+              .join('')
+          : '<p class="muted-empty">Không có đặt chỗ nào đang trễ.</p>'
+      }</div>
+
+      <div class="panel"><h3>Đang ngồi (${seated.length})</h3>${
+        seated.length
+          ? seated
+              .map((b) =>
+                row(
+                  b,
+                  `<button class="btn small" data-bdone="${esc(b.id)}">Hoàn tất — nhả bàn</button>`
+                )
+              )
+              .join('')
+          : '<p class="muted-empty">Chưa có bàn nào khách đang ngồi.</p>'
+      }</div>
+
+      <div class="panel"><h3>Đã xác nhận — chờ khách đến (${waiting.length})</h3>${
+        waiting.length
+          ? waiting
+              .map((b) =>
+                row(
+                  b,
+                  `<button class="btn small" data-bcheckin="${esc(b.id)}">Check-in</button>
+                   <button class="btn danger small" data-bcancel="${esc(b.id)}">Hủy hộ</button>`
+                )
+              )
+              .join('')
+          : '<p class="muted-empty">Chưa có đặt chỗ nào đã trả cọc.</p>'
+      }</div>
+
+      <div class="panel"><h3>Chờ trả cọc (${pendingDep.length}) — quá 15' bị nhả</h3>${
+        pendingDep.length
+          ? pendingDep
+              .map((b) =>
+                row(b, `<button class="btn danger small" data-bcancel="${esc(b.id)}">Hủy hộ</button>`)
+              )
+              .join('')
+          : '<p class="muted-empty">Không có booking chờ cọc.</p>'
+      }</div>
+
+      ${
+        auto.length
+          ? `<div class="panel"><h3>Đã nhả tự động / chốt</h3>${auto
+              .map(
+                (b) => `
+          <div class="book-row"><div><b>${esc(b.seatId)}</b> · ${esc(b.date)} ${esc(b.time)}
+            <span class="pill ${esc(b.status)}">${b.status === 'no_show' ? 'Không đến' : 'Hết hạn cọc'}</span></div></div>`
+              )
+              .join('')}</div>`
+          : ''
+      }`;
   }
 
   function panelMenu(menu) {
@@ -200,8 +268,19 @@ async function paint(tab = 'orders') {
     main.querySelectorAll('[data-bdone]').forEach((b) =>
       b.addEventListener('click', async () => {
         try {
-          await api.bookings.complete(b.dataset.bdone);
-          toast('✓ Đã hoàn tất đặt chỗ, ghế được trả');
+          await api.bookings.complete(b.dataset.bdone); // staff — seated/confirmed → completed
+          toast('✓ Đã hoàn tất đặt chỗ, bàn được nhả');
+          paint('tables');
+        } catch (e) {
+          toast(e.message, 'err');
+        }
+      })
+    );
+    main.querySelectorAll('[data-bcheckin]').forEach((b) =>
+      b.addEventListener('click', async () => {
+        try {
+          await api.bookings.checkIn(b.dataset.bcheckin); // confirmed (upcoming/late) → seated
+          toast('✓ Khách đã vào ngồi — giữ bàn không giới hạn');
           paint('tables');
         } catch (e) {
           toast(e.message, 'err');
@@ -210,9 +289,14 @@ async function paint(tab = 'orders') {
     );
     main.querySelectorAll('[data-bcancel]').forEach((b) =>
       b.addEventListener('click', async () => {
+        if (!confirm('Hủy hộ khách? Khách có thể mất cọc theo luật (trễ / từ 00:00 ngày D).')) return;
         try {
-          await api.bookings.cancel(b.dataset.bcancel);
-          toast('Đã hủy đặt chỗ');
+          const c = await api.bookings.cancel(b.dataset.bcancel);
+          toast(
+            c.refundAmount
+              ? `Đã hủy hộ — hoàn cọc ${api.utils.formatVND(c.refundAmount)} cho khách`
+              : 'Đã hủy hộ — khách mất cọc theo luật'
+          );
           paint('tables');
         } catch (e) {
           toast(e.message, 'err');

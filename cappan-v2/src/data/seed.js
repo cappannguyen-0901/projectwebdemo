@@ -274,7 +274,6 @@ export const SEED_SEATS = [
     floorId: 'F1',
     zone: 'window',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=500',
     description: 'Bàn 2 người cạnh cửa sổ, view phố'
   },
@@ -283,7 +282,6 @@ export const SEED_SEATS = [
     floorId: 'F1',
     zone: 'window',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=500',
     description: 'Bàn 2 người cạnh cửa sổ'
   },
@@ -292,7 +290,6 @@ export const SEED_SEATS = [
     floorId: 'F1',
     zone: 'center',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1445116572660-236099ec97a0?w=500',
     description: 'Bàn 2 người khu trung tâm'
   },
@@ -301,7 +298,6 @@ export const SEED_SEATS = [
     floorId: 'F1',
     zone: 'center',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1445116572660-236099ec97a0?w=500',
     description: 'Bàn 2 người gần quầy bar'
   },
@@ -310,7 +306,6 @@ export const SEED_SEATS = [
     floorId: 'F1',
     zone: 'center',
     capacity: 4,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=500',
     description: 'Bàn 4 người khu trung tâm'
   },
@@ -319,7 +314,6 @@ export const SEED_SEATS = [
     floorId: 'F1',
     zone: 'center',
     capacity: 4,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=500',
     description: 'Bàn 4 người khu trung tâm'
   },
@@ -328,7 +322,6 @@ export const SEED_SEATS = [
     floorId: 'F1',
     zone: 'window',
     capacity: 4,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1445116572660-236099ec97a0?w=500',
     description: 'Bàn 4 người view phố'
   },
@@ -337,7 +330,6 @@ export const SEED_SEATS = [
     floorId: 'F1',
     zone: 'center',
     capacity: 6,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=500',
     description: 'Bàn 6 người, phù hợp nhóm'
   },
@@ -347,7 +339,6 @@ export const SEED_SEATS = [
     floorId: 'F2',
     zone: 'quiet',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=500',
     description: 'Bàn 2 người cạnh cửa sổ, có ổ cắm'
   },
@@ -356,7 +347,6 @@ export const SEED_SEATS = [
     floorId: 'F2',
     zone: 'quiet',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=500',
     description: 'Bàn 2 người yên tĩnh'
   },
@@ -365,7 +355,6 @@ export const SEED_SEATS = [
     floorId: 'F2',
     zone: 'quiet',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=500',
     description: 'Bàn 2 người góc yên tĩnh'
   },
@@ -374,7 +363,6 @@ export const SEED_SEATS = [
     floorId: 'F2',
     zone: 'quiet',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=500',
     description: 'Bàn 2 người cạnh kệ sách'
   },
@@ -383,7 +371,6 @@ export const SEED_SEATS = [
     floorId: 'F2',
     zone: 'quiet',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=500',
     description: 'Bàn 2 người view cây xanh'
   },
@@ -392,7 +379,6 @@ export const SEED_SEATS = [
     floorId: 'F2',
     zone: 'quiet',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=500',
     description: 'Bàn 2 người góc làm việc'
   },
@@ -401,7 +387,6 @@ export const SEED_SEATS = [
     floorId: 'F2',
     zone: 'quiet',
     capacity: 4,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=500',
     description: 'Bàn 4 người, nhóm học tập nhỏ'
   },
@@ -410,7 +395,6 @@ export const SEED_SEATS = [
     floorId: 'F2',
     zone: 'quiet',
     capacity: 4,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=500',
     description: 'Bàn 4 người, nhóm học tập nhỏ'
   },
@@ -419,7 +403,6 @@ export const SEED_SEATS = [
     floorId: 'F2',
     zone: 'quiet',
     capacity: 4,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=500',
     description: 'Bàn 4 người, nhóm học tập nhỏ'
   },
@@ -428,7 +411,6 @@ export const SEED_SEATS = [
     floorId: 'F2',
     zone: 'quiet',
     capacity: 6,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=500',
     description: 'Bàn 6 người, khu yên tĩnh'
   },
@@ -438,7 +420,6 @@ export const SEED_SEATS = [
     floorId: 'F3',
     zone: 'group',
     capacity: 4,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=500',
     description: 'Phòng nhỏ 4 người, cách âm'
   },
@@ -447,7 +428,6 @@ export const SEED_SEATS = [
     floorId: 'F3',
     zone: 'group',
     capacity: 4,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=500',
     description: 'Phòng nhỏ 4 người, cách âm'
   },
@@ -456,7 +436,6 @@ export const SEED_SEATS = [
     floorId: 'F3',
     zone: 'group',
     capacity: 4,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=500',
     description: 'Phòng nhỏ 4 người, cách âm'
   },
@@ -465,7 +444,6 @@ export const SEED_SEATS = [
     floorId: 'F3',
     zone: 'group',
     capacity: 4,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=500',
     description: 'Phòng nhỏ 4 người, cách âm'
   },
@@ -474,7 +452,6 @@ export const SEED_SEATS = [
     floorId: 'F3',
     zone: 'group',
     capacity: 8,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=500',
     description: 'Phòng lớn 8 người, có máy chiếu'
   },
@@ -483,7 +460,6 @@ export const SEED_SEATS = [
     floorId: 'F3',
     zone: 'group',
     capacity: 8,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=500',
     description: 'Phòng lớn 8 người, có máy chiếu'
   },
@@ -493,7 +469,6 @@ export const SEED_SEATS = [
     floorId: 'F4',
     zone: 'window',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=500',
     description: 'Bàn 2 người, view thành phố'
   },
@@ -502,7 +477,6 @@ export const SEED_SEATS = [
     floorId: 'F4',
     zone: 'window',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=500',
     description: 'Bàn 2 người, view thành phố'
   },
@@ -511,7 +485,6 @@ export const SEED_SEATS = [
     floorId: 'F4',
     zone: 'window',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=500',
     description: 'Bàn 2 người, ngoài trời'
   },
@@ -520,7 +493,6 @@ export const SEED_SEATS = [
     floorId: 'F4',
     zone: 'window',
     capacity: 2,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=500',
     description: 'Bàn 2 người, ngoài trời'
   },
@@ -529,7 +501,6 @@ export const SEED_SEATS = [
     floorId: 'F4',
     zone: 'group',
     capacity: 4,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?w=500',
     description: 'Bàn 4 người, có mái che'
   },
@@ -538,7 +509,6 @@ export const SEED_SEATS = [
     floorId: 'F4',
     zone: 'group',
     capacity: 4,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?w=500',
     description: 'Bàn 4 người, có mái che'
   },
@@ -547,7 +517,6 @@ export const SEED_SEATS = [
     floorId: 'F4',
     zone: 'group',
     capacity: 4,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?w=500',
     description: 'Bàn 4 người, có mái che'
   },
@@ -556,7 +525,6 @@ export const SEED_SEATS = [
     floorId: 'F4',
     zone: 'window',
     capacity: 6,
-    status: 'available',
     img: 'https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?w=500',
     description: '⭐ Bàn dài 6 người dọc lan can, view đẹp'
   }

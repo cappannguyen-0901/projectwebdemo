@@ -42,12 +42,14 @@ test('menu flip stock + mutator throw NOT_FOUND', async () => {
   );
 });
 
-test('categories/floors/seats: seed đúng + tầng lạ NOT_FOUND (ghế mutation đã P2 — test ở phase2)', async () => {
+test('categories/floors/seats: seed đúng + tầng lạ NOT_FOUND · getMap trả 32 ghế available (v1.3)', async () => {
   const api = mk();
   assert.equal((await api.categories.getAll())[0].id, 'coffee');
   assert.equal((await api.floors.getById('F2'))?.name, 'Lầu 1');
   assert.equal((await api.seats.getByFloor('F2')).length, 10);
-  assert.equal((await api.seats.getAvailable()).length, 32);
+  const map = await api.seats.getMap(); // v1.3: trạng thái TÍNH từ bookings — không còn cờ lưu cứng
+  assert.equal(map.length, 32);
+  assert.ok(map.every((s) => s.status === 'available'));
   await assert.rejects(
     () => api.seats.getByFloor('F9'),
     (e) => e.code === 'NOT_FOUND'
@@ -264,7 +266,7 @@ test('exportAll → importAll 1-1 (dump chuẩn prep-backend, §4)', async () =>
 
   const snap = await apiA.exportAll();
   assert.equal(snap.format, 'cappan-snapshot');
-  assert.equal(snap.contract, '1.2');
+  assert.equal(snap.contract, '1.3');
   assert.ok(snap.data.orders.some((x) => x.id === o.id));
 
   /* "chuyển máy khác" = memory store riêng — đúng kịch bản RESTORE/backup */

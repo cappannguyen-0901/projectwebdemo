@@ -224,6 +224,19 @@ input:focus {
   color: var(--muted);
 }
 
+/* Thẻ "đã trễ 15'" (v1.3) — booking.html + staff.html dùng chung */
+.late-card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  background: #fdecea;
+  border: 1px solid #f5c6bd;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+
 /* Toast */
 .toast {
   position: fixed;

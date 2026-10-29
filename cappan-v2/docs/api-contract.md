@@ -110,14 +110,18 @@ Giai đoạn: **P1 = implement ngay bước này**, **P2 = chốt chữ ký, cod
 
 | `getAll()` → `Floor[]` · `getById(id)` → `Floor \| null` | P1 |
 
-### 3.4 `api.seats` _(mutation ghế do bookings điều phối)_
+### 3.4 `api.seats` _( trạng thái ghế TÍNH từ danh sách booking tại `now` — v1.3 ✅)_
 
-| Method                                                                                                 |
-| ------------------------------------------------------------------------------------------------------ |
-| `getAll()` · `getByFloor(floorId)` · `getById(id)` · `getAvailable()` — P1/P2 read-only ✅             |
-| `book(id)` · `release(id)` · `resetAll()` — **P2 ✅ thực thi v1.1** (sự thật nguồn: `bookings` govern) |
+| Method                                                            | Tham số           | Trả về                                  | Lỗi        |
+| ----------------------------------------------------------------- | ----------------- | --------------------------------------- | ---------- |
+| `getAll()` · `getByFloor(floorId)` · `getById(id)`                 | –                 | `Seat[]` / `Seat \| null` (chỉ thuộc tính vật lý) | `NOT_FOUND` (getByFloor tầng lạ) |
+| `getMap(date?, floorId?)`                                         | `YYYY-MM-DD`, tầng | `Seat[]` mỗi ghế kèm `status: 'available'\|'reserved'\|'booked'`, `bookingId`, `phase`; `reserved` = đã có người đặt cho ngày D nhưng CHƯA tới 00:00 — từ 00:00 → `booked`; tự sweep trước khi tính | |
 
-`syncFromBookings()` của legacy bị thay bằng nội bộ `bookings._sweepPast()` (quét quá hạn → completed + trả ghế).
+| BỎ (v1.3)                                    | Lý do                                                                                        |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `book(id)` / `release(id)` / `resetAll()` / `getAvailable()` | Trạng thái ghế không còn là cờ lưu cứng — hóa đơn giữ bàn sống trong `bookings`, `getMap` suy ra mỗi lần đọc |
+
+`syncFromBookings()` của legacy đã bị thay bằng nội bộ `bookings._sweep()` (v1.3: quét expired/no_show/day-closed, không đụng cờ ghế).
 
 ### 3.5 `api.cart` _(giỏ theo identity: `cart:<uid>` hoặc `cart:guest`)_
 
@@ -157,11 +161,31 @@ Ghép item: cùng `itemId + size + JSON(toppings)` → tăng `qty`.
 
 ### 3.8 `api.promotions` / `api.bookings` / `api.staff` / `api.shifts` / `api.stats`
 
-- `bookings.create/getAll/getById/getByUser/getActiveBySeat/complete/cancel/update` — **P2 ✅ thực thi v1.1**:
-  kỹ thuật: `create` khóa ghế ngay (`seats.book`), conflict trùng seat+date+time → `CONFLICT`,
-  giới hạn 3 đặt chỗ hiệu lực/user, quá hạn tự `_sweepPast` (completed + trả ghế).
-  v1.2.1: `cancel`/`update` guard = chủ booking **hoặc staff** (staff hủy hộ khách, trước đây bị `FORBIDDEN`
-  dù trang staff gọi); guest không hủy/sửa booking có chủ (trước đây lọt qua guard).
+- `bookings.*` — **v1.3 ✅ LUẬT ĐẶT CHỖ MỚI** (hợp đồng kèm `docs/booking-policy-v1.3.md` · code thuần ở `src/domain/booking-rules.js`):
+  - **Bản chất:** đặt chỗ = giữ chỗ. Mỗi bàn tối đa **1 booking hiệu lực MỖI NGÀY** (khóa cả ngày, không có
+    thời lượng). `time` chỉ là giờ khách DỰ KIẾN đến (mốc +15'/+30'), KHÔNG dùng chống trùng.
+  - **Máy trạng thái:** `pending_deposit --payDeposit→ confirmed --checkIn→ seated --complete→ completed`
+    · `pending_deposit` quá 15' không trả cọc → `expired` (nhả bàn) · `confirmed` quá giờ đặt +30' chưa check-in
+    → `no_show` (nhả bàn, `noShowCount++`, mất cọc) · `seated` qua ngày (quét) → `completed` ·
+    `pending_deposit/confirmed/late --cancel→ cancelled`. `upcoming`/`late` là **pha tính từ `now`** (`bookings.phase`), không lưu.
+  - **Cọc:** `ceil(capacity/2)` ly × `RULES.DEPOSIT_PER_DRINK` (35000 VND/ly, giá trị tạm — câu hỏi mở cố định hay theo menu);
+    lưu VND tại thời điểm đặt. Phải trả cọc mới giữ được bàn; chờ tối đa 15' (`depositExpiresAt`) → `expired`.
+  - **Hoàn cọc:** hủy trước 00:00 ngày D = 100%; từ 00:00 ngày D = `LATE_REFUND_RATE` (0%); hủy ở thẻ trễ / no-show = mất cọc. Trả booking kèm `refundAmount`.
+  - **Trễ:** giờ đặt +15' → thẻ "đã trễ" (`bookings.getLateCards(userId?)` → `{type:'booking-late', data}` — UI tự vẽ; hủy ở thẻ mất cọc); +30' chưa check-in → tự hủy `no_show`, `noShowCount++` trên user.
+  - **Seated:** giữ bàn KHÔNG giới hạn; chỉ khách hoặc nhân viên nhả (`complete`/`cancel` — seated → cancel bị `CONFLICT`).
+  - **Giới hạn:** giờ mở `07:00–22:30` (`R.RULES.OPEN/CLOSE`) · đặt trước tối đa 30 ngày (`MAX_ADVANCE_DAYS`) · tối đa 3 booking hiệu lực/user (`MAX_ACTIVE_PER_USER`).
+  - **Chữ ký (quyền theo §v1.3):**
+    - `bookings.create({seatId,date,time,guests,note?})` → booking `pending_deposit` + `depositAmount` + `depositExpiresAt`. Lỗi: `VALIDATION` (ngày/giờ/khách), `CONFLICT` (bàn đã có booking ngày đó; quá `MAX_ACTIVE_PER_USER`). Guest tạo được (booking `userId=null` — demo).
+    - `bookings.payDeposit(id)` — chủ booking hoặc staff; `pending_deposit` → `confirmed` (+`depositPaid`). **DEMO: giả lập, chưa phải thanh toán thật (cần gateway + server ở pha backend).**
+    - `bookings.checkIn(id)` — staff; `confirmed` (upcoming/late) → `seated` (+`seatedAt`).
+    - `bookings.complete(id)` — staff; `seated`/`confirmed` → `completed` (+`completedAt`), nhả bàn.
+    - `bookings.cancel(id)` — chủ booking hoặc staff; trả booking có `refundAmount` (tính trước khi đổi status); `seated` → `CONFLICT` (dùng `complete`); hủy ở phase `late`/`no_show` mất cọc.
+    - `bookings.phase(b)` → `upcoming|late|...` tại `now()` (deterministic cho test).
+    - `bookings.getLateCards(userId?)` → thẻ trễ đang hiệu lực (giữa +15' và +30').
+    - `getAll/getById/getByUser` vẫn trả list — `_sweep()` chạy trước, đoán trạng thái chốt từ rooms đã quét.
+  - **Booking shape bổ sung:** `depositAmount`, `depositPaid`, `depositPaidAt?`, `depositExpiresAt`, `refundAmount?`, `closedReason?`, `cancelledBy?`.
+  - **Sự kiện (chờ lớp event trang sau):** `booking.created | deposit_paid | late | auto_cancelled | cancelled | seated | completed`.
+  - **BỎ so v1.2:** `bookings.update` (đổi giờ/note — luật 1 booking/ngày làm dời giờ vô nghĩa; muốn khác giờ thì hủy đặt lại) · `getActiveBySeat` (suy ra từ `getMap`) · `seats.book/release/resetAll`.
 - `promotions.getAll/getByCode/status/getActive/evaluate/create/remove` — **v1.2 ✅ thực thi**:
   - `status(p, today?)` → `'active' | 'upcoming' | 'expired' | 'off'` (`off` = `active:false`).
   - `evaluate(code, subtotal, shipping, userId)` → `{ ok:true, discount, promo }` hoặc `{ ok:false, error }` (PROMISE-style như legacy, KHÔNG throw — caller tự quyết). Luật copy legacy: minOrder · mã "đầu tiên" (terms chứa "đầu tiên" + đã có đơn không-hủy; **v1.2.1: guest cũng bị giới hạn** — đếm đơn `userId=null`, trước đây khách vãng lai dùng WELCOME10 vô hạn) · `%` có cap `maxDiscount` · mã ship/giao hàng (FREESHIP) giảm tối đa = `shipping` · clamp `0..subtotal+shipping`.
@@ -174,18 +198,23 @@ Ghép item: cùng `itemId + size + JSON(toppings)` → tăng `qty`.
   - `removeStaffFromShift(date, shiftId, staffId)` → schedule mới (idempotent khi không có).
 - `stats.today/thisWeek/thisMonth/ordersByStatus/topItems/bookingsByStatus/occupancyRate` — **v1.2 ✅**:
   - `today()/thisWeek()/thisMonth()` → `{ total, count, completedCount, pendingCount }` — doanh thu **chỉ đếm đơn step≥4** (giữ FIX của legacy). **v1.2.1: doanh thu + completedCount tính theo `completedAt` (ngày HOÀN TẤT)** — trước đây theo `createdAt`, đơn đặt tối qua hoàn tất sáng nay bị bỏ sót khỏi "hôm nay". `count`/`pendingCount` vẫn theo ngày tạo.
-  - `ordersByStatus` → `{pending,preparing,shipping,completed,cancelled}`; `topItems(limit=5)` → `[{name,qty,revenue}]`; `bookingsByStatus`; `occupancyRate` → % ghế booked.
+  - `ordersByStatus` → `{pending,preparing,shipping,completed,cancelled}`; `topItems(limit=5)` → `[{name,qty,revenue}]`.
+  - **v1.3:** `bookingsByStatus` → `{ pendingDeposit, confirmed, seated, completed, cancelled, expired, noShow }` (đếm theo `status` LƯU — sweep chạy trước); `occupancyRate` → % ghế `booked` của `seats.getMap()` tháng ngày (trạng thái tính từ bookings, không còn cờ lưu cứng).
   - "Hôm nay/tuần/tháng" theo `now()` inject của facade (deterministic cho test).
 
 Tất cả method chưa đến pha: throw `ApiError('NOT_IMPLEMENTED', '<ns>.<method> hẹn pha P2/P3 — xem docs/api-contract.md')`.
 
 ### 3.9 `api.utils`
 
-| Method         | Trả về                                                       |
-| -------------- | ------------------------------------------------------------ |
-| `today()`      | `YYYY-MM-DD` giờ local                                       |
-| `formatVND(n)` | `n.toLocaleString('vi-VN') + 'đ'`                            |
-| `SHIPPING_FEE` | const `15000` (VND) — **đọc từ đây, không hard-code bên UI** |
+| Method             | Trả về                                                       |
+| ------------------ | ------------------------------------------------------------ |
+| `today()`          | `YYYY-MM-DD` giờ local                                       |
+| `formatVND(n)`     | `n.toLocaleString('vi-VN') + 'đ'`                            |
+| `SHIPPING_FEE`     | const `15000` (VND) — **đọc từ đây, không hard-code bên UI**  |
+| `depositAmount(capacity)` — **v1.3** | VND cọc = `ceil(capacity/2)` ly × `DEPOSIT_PER_DRINK`, từ luật thuần (`R.depositAmount`) — UI (web/chat) đọc từ đây, không tự nhân giá |
+| `DEPOSIT_PER_DRINK` — **v1.3** | const `35000` (VND/ly, giá trị tạm — câu hỏi mở: cố định hay theo menu). Cùng nguồn `R.RULES` |
+
+> — `utils.depositAmount` là đường UI DUY NHẤT biết giá cọc; đổi giá cọc chỉ sửa `RULES.DEPOSIT_PER_DRINK` trong `src/domain/booking-rules.js`.
 
 ### 3.10 `api.auth` — **P2 ✅ thực thi v1.1**
 
@@ -244,3 +273,4 @@ cappan-v2/
 | 1.1     | 2026-10-29 | **P2 thực thi:** identity sync (lib/identity) + `api.auth` (login/current/logout, PBKDF2) + `users.*` (hash, whitelist update, đóng setCurrent) + `bookings.*` (khóa ghế, conflict, sweep quá hạn) + `seats.book/release/resetAll`. Mở trang: menu/cart/auth. 4 mô-đun promotions/staff/shifts/stats vẫn NOT_IMPLEMENTED                                                                                                                                                  |
 | 1.2     | 2026-10-29 | **P3 thực thi:** `promotions.*` (getAll/getByCode/status/getActive/evaluate/create/remove — luật legacy WELCOME10/FREESHIP/CAFE20) + `orders.create(promoCode)` tự trừ discount khi tính lại giá + `staff.*` (getAll/getById; addFromUser NOT_IMPLEMENTED chờ P3-admin) + `shifts.*` (schedule 7 ngày, CONFLICT 2 ca/ngày) + `stats.*` (today/thisWeek/thisMonth/ordersByStatus/topItems/bookingsByStatus/occupancyRate — doanh thu chỉ step≥4). Mở trang: cart(promo)/staff |
 | 1.2.1   | 2026-10-29 | **Vá 8 bug (vòng mới trước khi lên v1.3):** chính sách hủy tập trung (`staff` hủy hộ khách — orders/bookings; guest chỉ với dữ liệu guest; trước đây staff bị `FORBIDDEN`, guest lọt guard) · `ensureSeeded`/`seedDemo` chống chạy song song (memo promise) · WELCOME10 "đầu tiên" áp cả guest (đếm đơn `userId=null`) · `stats` doanh thu/hoàn tất theo `completedAt` |
+| 1.3     | 2026-10-29 | **Luật đặt chỗ v1.3:** đặt chỗ = giữ chỗ — 1 bàn 1 booking/ngày (khóa cả ngày); `pending_deposit` (cọc `ceil(capacity/2)` ly × 35k, chờ 15') → `confirmed` → `seated` → `completed`; mốc 00:00 ngày D = ranh giới hoàn cọc (100% → 0%) + `reserved`→`booked` trên sơ đồ; +15' thẻ trễ, +30' tự hủy `no_show` + `noShowCount++`; giờ mở 07:00–22:30, đặt trước ≤30 ngày, ≤3 booking hiệu lực/user; luật thuần `src/domain/booking-rules.js`; **bỏ `bookings.update`/`getActiveBySeat`/`seats.book|release|resetAll`, thêm `payDeposit/checkIn/phase/getLateCards/seats.getMap(date)`** |

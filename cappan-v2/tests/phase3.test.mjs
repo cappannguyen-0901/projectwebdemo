@@ -260,11 +260,14 @@ test('stats: ordersByStatus · topItems · bookingsByStatus · occupancyRate', a
     ['Bạc Xỉu', 'Cà Phê Sữa Đá']
   );
 
-  await api.bookings.create({ seatId: 'A1', date: '2030-01-01', time: '10:00', guests: 2 });
-  await api.bookings.create({ seatId: 'A2', date: '2030-01-01', time: '10:00', guests: 2 });
+  /* v1.3: create → pending_deposit; trả cọc → confirmed; occ tính từ getMap HÔM NAY */
+  await api.bookings.create({ seatId: 'A1', date: '2026-10-30', time: '19:00', guests: 2 }); // ngày mai — chưa chạm sơ đồ hôm nay
+  const b2 = await api.bookings.create({ seatId: 'A2', date: '2026-10-29', time: '19:00', guests: 2 }); // hôm nay
+  await api.bookings.payDeposit(b2.id);
   const bs = await api.stats.bookingsByStatus();
-  assert.equal(bs.confirmed, 2);
-  /* occupancy: có bao nhiều ghế booked — seed có ghế nhiều tầng; 2 booked nhỏ hơn tổng */
+  assert.equal(bs.pendingDeposit, 1);
+  assert.equal(bs.confirmed, 1);
+  /* occupancy: ghế hôm nay có booking hiệu lực (b2) → booked > 0 */
   const occ = await api.stats.occupancyRate();
   assert.ok(occ > 0 && occ <= 100);
 });

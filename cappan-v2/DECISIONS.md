@@ -24,6 +24,7 @@
 | 2026-10-29 | **v1.2.1 CSS class dùng chéo về `base.css`** (`.grid`, `.qty`, `.pill` + variant, `.hist-row`, `.det`); bỏ `profile.css` (rỗng — profile chỉ còn base) | Per-page split làm trang staff/order/booking đứt style; "mỗi trang nạp phần nó cần" không phủ class chung |
 | 2026-10-29 | **v1.2.1 `ensureSeeded` + `users.seedDemo` chống chạy song song** (memo promise, lỗi thì xóa memo cho chạy lại) | Promise.all trong paint() gây hai lần seed chen nhau → nhân đôi user demo                      |
 | 2026-10-29 | **v1.2.1 UI guard đúng thứ tự:** profile dừng render sau redirect login; cart giữ tên user sau đặt đơn (renderHeader `{user,0}`); nút "bỏ hết" ca staff có try/catch | Lỗi nhỏ nhưng làm rơi trải nghiệm ngay luồng chính                                             |
+| 2026-10-29 | Đặt chỗ = giữ chỗ, khóa cả ngày, mốc 00:00 là ranh giới hoàn cọc; luật nằm ở `src/domain/booking-rules.js` thuần | Bàn là tài nguyên theo ngày; quán đóng 00:00 nên mốc này không ảnh hưởng vận hành; hàm thuần test được mọi mốc |
 
 ## ⚠️ CẢNH BÁO BẢO MẬT (hiện trạng P2 — chưa production-safe)
 

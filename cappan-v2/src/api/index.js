@@ -14,8 +14,9 @@
 import { ApiError } from '../core/errors.js';
 import { ORDER_EXPRESS, CANCEL_MAX_STEP, SHIPPING_FEE, ID_PREFIX } from '../data/schema.js';
 import { hashPassword, verifyPassword } from '../core/hash.js';
+import * as R from '../domain/booking-rules.js'; // v1.3 — luật đặt chỗ thuần
 
-const CONTRACT_VERSION = '1.2';
+const CONTRACT_VERSION = '1.3';
 const KEYS = {
   seeded: 'meta:seeded',
   contract: 'meta:contract',
@@ -79,6 +80,9 @@ export function createApi({
     return (await list(KEYS.users)).find((u) => u.id === id)?.role === 'staff';
   };
   const canTouch = async (row) => !row.userId || row.userId === identity() || (await isStaff());
+  const requireStaff = async () => {
+    if (!(await isStaff())) throw new ApiError('FORBIDDEN', 'Chỉ nhân viên được thao tác này');
+  };
 
   let seedDemoRun = null; /* memo promise chạy seedDemo — dùng trong users.seedDemo (bug #6) */
 
@@ -245,31 +249,14 @@ export function createApi({
         throw new ApiError('NOT_FOUND', `Tầng "${floorId}" không tồn tại`);
       return (await seats.getAll()).filter((s) => s.floorId === floorId);
     },
-    async getAvailable() {
-      return (await seats.getAll()).filter((s) => s.status === 'available');
-    },
-    /* mutation ghế — P2 ✅ (§3.4): quản lý state bởi bookings {@link bookings} */
-    async _setStatus(id, status) {
-      await ensureSeeded();
-      const rows = await list(KEYS.seats);
-      const s = rows.find((r) => r.id === id);
-      if (!s) throw new ApiError('NOT_FOUND', `Ghế "${id}" không tồn tại`);
-      s.status = status;
-      await storage.set(KEYS.seats, rows);
-      return s;
-    },
-    async book(id) {
-      return seats._setStatus(id, 'booked');
-    },
-    async release(id) {
-      return seats._setStatus(id, 'available');
-    },
-    async resetAll() {
-      await ensureSeeded();
-      const rows = await list(KEYS.seats);
-      rows.forEach((s) => (s.status = 'available'));
-      await storage.set(KEYS.seats, rows);
-      return rows;
+    /* v1.3: trạng thái ghế TÍNH từ danh sách booking tại now() — cờ lưu cứng (book/release)
+       đã bỏ. `reserved` = đã có người đặt cho ngày D nhưng chưa tới 00:00; từ 00:00 → `booked`. */
+    async getMap(date, floorId) {
+      const theDate = date || today();
+      await bookings._sweep();
+      const base = floorId ? await seats.getByFloor(floorId) : await seats.getAll();
+      const rows = await list(KEYS.bookings);
+      return base.map((s) => ({ ...s, ...R.mapStatus(s.id, theDate, rows, now()) }));
     }
   };
 
@@ -491,99 +478,84 @@ export function createApi({
     } /* hook P2 */
   };
 
-  /* ---------- bookings (P2 — §3.8, thực thi v1.1) ---------- */
-  const BK_LIMIT = { maxActive: 3 }; // giữ luật legacy: tối đa 3 đặt chỗ hiệu lực mỗi user
+  /* ---------- bookings (v1.3 — LUẬT ĐẶT CHỎ MỚI: đặt chỗ = giữ chỗ) ----------
+     Luật thuần: src/domain/booking-rules.js (mọi mốc test bằng now() inject).
+     1 bàn 1 booking/ngày · cọc ceil(capacity/2) ly · mốc 00:00 ngày D là ranh giới hoàn cọc
+     · +15' thẻ trễ · +30' tự hủy no_show + noShowCount++ · seated giữ không giới hạn. */
   const bookings = {
-    /* quét quá hạn: confirmed đã qua hôm nay → completed + trả ghế */
-    async _sweepPast() {
+    /* quét theo SÁO THUẨN (sweepPlan): expired (hết 15' chưa trả cọc) ·
+       no_show (confirmed quá +30') · completed (seated qua ngày) */
+    async _sweep() {
       await ensureSeeded();
-      const t = today();
       const rows = await list(KEYS.bookings);
-      let changed = false;
-      const freed = new Set();
-      for (const b of rows) {
-        if (b.status === 'confirmed' && b.date < t) {
-          b.status = 'completed';
-          b.completedAt = iso();
-          freed.add(b.seatId);
-          changed = true;
-        }
+      const plan = R.sweepPlan(rows, now());
+      if (!plan.length) return;
+      const byId = new Map(rows.map((b) => [b.id, b]));
+      const noShows = {};
+      for (const { id, to, reason } of plan) {
+        const b = byId.get(id);
+        b.status = to;
+        b.closedReason = reason; // 'deposit_timeout' | 'auto_cancel_30m' | 'day_closed'
+        b.closedAt = iso();
+        if (to === 'no_show' && b.userId) noShows[b.userId] = (noShows[b.userId] || 0) + 1;
       }
-      if (changed) {
-        await storage.set(KEYS.bookings, rows);
-        const seatRows = await list(KEYS.seats);
-        for (const s of seatRows)
-          if (freed.has(s.id) && s.status === 'booked') s.status = 'available';
-        await storage.set(KEYS.seats, seatRows);
+      await storage.set(KEYS.bookings, rows);
+      if (Object.keys(noShows).length) {
+        const us = await list(KEYS.users);
+        for (const u of us) if (noShows[u.id]) u.noShowCount = (u.noShowCount || 0) + noShows[u.id];
+        await storage.set(KEYS.users, us);
       }
     },
     async create(data) {
-      await bookings._sweepPast();
+      await bookings._sweep();
       const input = data || {};
       const seat = await seats.getById(input.seatId);
       if (!seat) throw new ApiError('NOT_FOUND', `Ghế "${input.seatId}" không tồn tại`);
-      const guests = Math.floor(Number(input.guests === undefined ? 2 : input.guests)); // legacy mặc định 2 khách
-      if (!Number.isInteger(guests) || guests < 1 || guests > 20) {
-        throw new ApiError('VALIDATION', 'Số khách phải nguyên 1..20', {
-          field: 'guests',
-          guests: input.guests
+      const guests = Math.floor(Number(input.guests === undefined ? 2 : input.guests));
+      if (!Number.isInteger(guests) || guests < 1 || guests > seat.capacity)
+        throw new ApiError('VALIDATION', `Số khách 1..${seat.capacity} cho bàn ${seat.id}`, {
+          field: 'guests'
         });
-      }
-      if (guests > seat.capacity) {
-        throw new ApiError('VALIDATION', `Bàn ${seat.id} chỉ chứa tối đa ${seat.capacity} khách`, {
-          field: 'guests',
-          capacity: seat.capacity
-        });
-      }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(input.date || ''))) {
-        throw new ApiError('VALIDATION', 'Ngày phải dạng YYYY-MM-DD', { field: 'date' });
-      }
-      if (input.date < today())
-        throw new ApiError('VALIDATION', 'Không đặt chỗ cho ngày quá khứ', { field: 'date' });
-      if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(String(input.time || ''))) {
-        throw new ApiError('VALIDATION', 'Giờ phải dạng HH:MM', { field: 'time' });
-      }
-      const clash = (await bookings.getAll()).some(
-        (b) =>
-          b.seatId === input.seatId &&
-          b.date === input.date &&
-          b.time === input.time &&
-          b.status === 'confirmed'
-      );
-      if (clash)
+      const bad = R.validateSlot(input.date, input.time, now());
+      if (bad) throw new ApiError('VALIDATION', bad.message, { field: bad.field });
+
+      const rows = await list(KEYS.bookings);
+      if (R.holderOf(seat.id, input.date, rows, now()))
+        throw new ApiError('CONFLICT', `Bàn ${seat.id} đã có người đặt ngày ${input.date}`); // chặn NGAY — kể cả đặt trước nhiều ngày
+      const uidv = identity();
+      if (
+        uidv &&
+        rows.filter((b) => b.userId === uidv && R.isHolding(b, now())).length >=
+          R.RULES.MAX_ACTIVE_PER_USER
+      )
         throw new ApiError(
           'CONFLICT',
-          `Bàn ${seat.id} khung giờ ${input.time} ngày ${input.date} đã có người đặt`
+          `Tối đa ${R.RULES.MAX_ACTIVE_PER_USER} đặt chỗ đang hiệu lực mỗi người`
         );
-      const uidv = identity();
-      if (uidv) {
-        const mine = (await bookings.getByUser(uidv)).filter((b) => b.status === 'confirmed');
-        if (mine.length >= BK_LIMIT.maxActive)
-          throw new ApiError(
-            'CONFLICT',
-            `Tối đa ${BK_LIMIT.maxActive} đặt chỗ đang hiệu lực mỗi người`
-          );
-      }
+
       const bk = {
         id: newId(ID_PREFIX.booking),
-        userId: uidv,
+        userId: uidv, // guest (chưa login) cũng đặt được — userId=null
         seatId: seat.id,
         floorId: seat.floorId,
         date: input.date,
         time: input.time,
         guests,
         note: input.note ? String(input.note).trim() : '',
-        status: 'confirmed',
+        status: 'pending_deposit', // phải trả cọc mới GIỮ được bàn
+        depositAmount: R.depositAmount(seat.capacity), // lưu VND tại thời điểm đặt, không lưu "số ly"
+        depositPaid: false,
+        depositExpiresAt: new Date(
+          now().getTime() + R.RULES.DEPOSIT_HOLD_MIN * 60000
+        ).toISOString(),
         createdAt: iso()
       };
-      const rows = await list(KEYS.bookings);
       rows.push(bk);
       await storage.set(KEYS.bookings, rows);
-      await seats.book(seat.id);
       return bk;
     },
     async getAll() {
-      await bookings._sweepPast();
+      await bookings._sweep();
       return (await list(KEYS.bookings)).sort((a, b) =>
         (a.date + a.time).localeCompare(b.date + b.time)
       );
@@ -594,20 +566,31 @@ export function createApi({
     async getByUser(userId) {
       return (await bookings.getAll()).filter((b) => b.userId === userId);
     },
-    async getActiveBySeat(seatId) {
-      const t = today();
-      return (
-        (await bookings.getAll()).find(
-          (b) => b.seatId === seatId && b.status === 'confirmed' && b.date >= t
-        ) || null
-      );
+    /* pha TÍNH tại now — upcoming | late | deposit_expired | no_show …: KHÔNG lưu (§2 máy trạng thái) */
+    phase: (b) => R.phase(b, now()),
+    /* thẻ "đã trễ 15'" — engine trả `{type:'booking-late', data}`, UI (web/chat/voice) tự vẽ.
+       Quyền: staff xem tất cả; người khác chỉ xem thẻ của chính mình (lọc theo identity). */
+    async getLateCards(userId) {
+      let filterId = userId || null;
+      if (!(await isStaff())) {
+        if (filterId && filterId !== identity())
+          throw new ApiError('FORBIDDEN', 'Đặt chỗ của người khác');
+        filterId = identity(); // guest tự hạn chế thẻ của mình
+      }
+      const out = [];
+      for (const b of await bookings.getAll()) {
+        if (filterId && b.userId !== filterId) continue;
+        const card = R.lateCard(b, await seats.getById(b.seatId), now());
+        if (card) out.push(card);
+      }
+      return out;
     },
     async _must(id) {
       const b = await bookings.getById(id);
       if (!b) throw new ApiError('NOT_FOUND', `Đặt chỗ "${id}" không tồn tại`);
       return b;
     },
-    async _saveRow(row) {
+    async _save(row) {
       const rows = await list(KEYS.bookings);
       const i = rows.findIndex((r) => r.id === row.id);
       if (i < 0) throw new ApiError('NOT_FOUND', `Đặt chỗ "${row.id}" không tồn tại`);
@@ -615,67 +598,47 @@ export function createApi({
       await storage.set(KEYS.bookings, rows);
       return row;
     },
-    async complete(id) {
+    async payDeposit(id) {
       const b = await bookings._must(id);
-      if (b.status !== 'confirmed')
-        throw new ApiError('CONFLICT', `Đặt chỗ ${id} không ở trạng thái confirmed`);
+      if (!(await canTouch(b))) throw new ApiError('FORBIDDEN', 'Đặt chỗ của người khác');
+      if (R.phase(b, now()) !== 'pending_deposit')
+        throw new ApiError('CONFLICT', `Đặt chỗ ${id} không còn chờ cọc`);
+      b.status = 'confirmed';
+      b.depositPaid = true;
+      b.depositPaidAt = iso();
+      return bookings._save(b);
+    },
+    async checkIn(id) {
+      await requireStaff();
+      const b = await bookings._must(id);
+      if (!['upcoming', 'late'].includes(R.phase(b, now())))
+        throw new ApiError('CONFLICT', `Đặt chỗ ${id} không thể check-in lúc này`);
+      b.status = 'seated';
+      b.seatedAt = iso();
+      return bookings._save(b);
+    },
+    async complete(id) {
+      await requireStaff();
+      const b = await bookings._must(id);
+      if (!['seated', 'upcoming', 'late'].includes(R.phase(b, now())))
+        throw new ApiError('CONFLICT', `Đặt chỗ ${id} không ở trạng thái hoàn tất được`);
       b.status = 'completed';
       b.completedAt = iso();
-      await bookings._saveRow(b);
-      await seats.release(b.seatId);
-      return b;
+      return bookings._save(b);
     },
     async cancel(id) {
       const b = await bookings._must(id);
-      if (!(await canTouch(b))) {
-        throw new ApiError('FORBIDDEN', 'Đặt chỗ này của người dùng khác'); // staff được hủy hộ; guest chỉ hủy được booking guest
-      }
-      if (b.status !== 'confirmed')
+      if (!(await canTouch(b))) throw new ApiError('FORBIDDEN', 'Đặt chỗ của người khác');
+      const p = R.phase(b, now());
+      if (p === 'seated')
+        throw new ApiError('CONFLICT', 'Khách đang ngồi — dùng "hoàn tất" để nhả bàn');
+      if (!['pending_deposit', 'upcoming', 'late'].includes(p))
         throw new ApiError('CONFLICT', `Đặt chỗ ${id} không còn hiệu lực`);
+      b.refundAmount = R.refundAmount(b, now()); // tính TRƯỚC khi đổi status (phase phụ thuộc status)
       b.status = 'cancelled';
       b.cancelledAt = iso();
-      await bookings._saveRow(b);
-      await seats.release(b.seatId);
-      return b;
-    },
-    async update(id, patch) {
-      const b = await bookings._must(id);
-      if (b.status !== 'confirmed')
-        throw new ApiError('CONFLICT', `Đặt chỗ ${id} không còn hiệu lực`);
-      if (!(await canTouch(b)))
-        throw new ApiError('FORBIDDEN', 'Đặt chỗ này của người dùng khác'); // staff được sửa hộ; guest chỉ với booking guest
-      const input = patch || {};
-      if (input.time !== undefined) {
-        if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(String(input.time))) {
-          throw new ApiError('VALIDATION', 'Giờ phải dạng HH:MM', { field: 'time' });
-        }
-        const clash = (await bookings.getAll()).some(
-          (x) =>
-            x.seatId === b.seatId &&
-            x.date === b.date &&
-            x.time === input.time &&
-            x.status === 'confirmed' &&
-            x.id !== b.id
-        );
-        if (clash)
-          throw new ApiError('CONFLICT', `Bàn ${b.seatId} khung giờ ${input.time} đã có người đặt`);
-        b.time = input.time;
-      }
-      if (input.guests !== undefined) {
-        const seat = await seats.getById(b.seatId);
-        const g = Math.floor(Number(input.guests));
-        if (!Number.isInteger(g) || g < 1 || g > 20)
-          throw new ApiError('VALIDATION', 'Số khách 1..20', { field: 'guests' });
-        if (g > seat.capacity)
-          throw new ApiError(
-            'VALIDATION',
-            `Bàn ${b.seatId} chỉ chứa tối đa ${seat.capacity} khách`,
-            { field: 'guests' }
-          );
-        b.guests = g;
-      }
-      if (input.note !== undefined) b.note = String(input.note).trim();
-      return bookings._saveRow(b);
+      b.cancelledBy = identity() || 'guest';
+      return bookings._save(b);
     }
   };
 
@@ -1063,17 +1026,23 @@ export function createApi({
       return [...map.values()].sort((a, b) => b.qty - a.qty).slice(0, limit);
     },
     async bookingsByStatus() {
-      const rows = await bookings.getAll();
+      const rows = await bookings.getAll(); // đã sweep — status lưu là chốt
+      const c = (s) => rows.filter((b) => b.status === s).length;
       return {
-        confirmed: rows.filter((b) => b.status === 'confirmed').length,
-        completed: rows.filter((b) => b.status === 'completed').length,
-        cancelled: rows.filter((b) => b.status === 'cancelled').length
+        pendingDeposit: c('pending_deposit'),
+        confirmed: c('confirmed'),
+        seated: c('seated'),
+        completed: c('completed'),
+        cancelled: c('cancelled'),
+        expired: c('expired'),
+        noShow: c('no_show')
       };
     },
     async occupancyRate() {
-      const rows = await seats.getAll();
-      const booked = rows.filter((s) => s.status === 'booked').length;
-      return rows.length ? Math.round((booked / rows.length) * 100) : 0;
+      /* v1.3: % ghế booked HÔM NAY tính từ getMap (trạng thái suy ra từ bookings) */
+      const map = await seats.getMap();
+      const booked = map.filter((s) => s.status === 'booked').length;
+      return map.length ? Math.round((booked / map.length) * 100) : 0;
     }
   };
 
@@ -1092,7 +1061,14 @@ export function createApi({
     staff,
     shifts,
     stats,
-    utils: { today, formatVND: (n) => `${Number(n || 0).toLocaleString('vi-VN')}đ`, SHIPPING_FEE },
+    utils: {
+    today,
+    formatVND: (n) => `${Number(n || 0).toLocaleString('vi-VN')}đ`,
+    SHIPPING_FEE,
+    /* v1.3: cọc — UI không tự nhân giá (chống lệch với facade khi đổi RULES) */
+    DEPOSIT_PER_DRINK: R.RULES.DEPOSIT_PER_DRINK,
+    depositAmount: (capacity) => R.depositAmount(capacity)
+  },
     /* §4 — snapshot: "dump chuẩn" prep-backend */
     async exportAll() {
       await ensureSeeded();
