@@ -262,7 +262,12 @@ test('stats: ordersByStatus · topItems · bookingsByStatus · occupancyRate', a
 
   /* v1.3: create → pending_deposit; trả cọc → confirmed; occ tính từ getMap HÔM NAY */
   await api.bookings.create({ seatId: 'A1', date: '2026-10-30', time: '19:00', guests: 2 }); // ngày mai — chưa chạm sơ đồ hôm nay
-  const b2 = await api.bookings.create({ seatId: 'A2', date: '2026-10-29', time: '19:00', guests: 2 }); // hôm nay
+  const b2 = await api.bookings.create({
+    seatId: 'A2',
+    date: '2026-10-29',
+    time: '19:00',
+    guests: 2
+  }); // hôm nay
   await api.bookings.payDeposit(b2.id);
   const bs = await api.stats.bookingsByStatus();
   assert.equal(bs.pendingDeposit, 1);

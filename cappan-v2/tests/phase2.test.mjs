@@ -260,7 +260,7 @@ test('bookings.cancel v1.3: trước 00:00 hoàn cọc 100% · từ 00:00 mất 
 
 test('seats.getMap v1.3: reserved trước 00:00 ngày D · booked từ 00:00 · nhả bàn sau no_show', async () => {
   setClock('2026-10-29T12:00:00'); // reset giờ — mỗi test bắt đầu 12:00 ngày 29/10
-  const api = mkAt();
+  const api = mkAt({ identity: () => 'U001' });
   const b = await api.bookings.create(BK({ time: '19:00' })); // pending — đang giữ bàn từ lúc đặt
   let m = await api.seats.getMap('2026-10-30');
   assert.equal(m.find((s) => s.id === 'A1').status, 'reserved'); // 12:00 ngày 29 < 00:00 ngày 30
@@ -278,7 +278,7 @@ test('seats.getMap v1.3: reserved trước 00:00 ngày D · booked từ 00:00 ·
   );
 });
 
-test('bookings v1.3: giới hạn 3 hiệu lực/user · stranger FORBIDDEN · guest đặt & hủy được booking guest', async () => {
+test('bookings v1.3: giới hạn 3 hiệu lực/user · stranger FORBIDDEN · guest UNAUTHORIZED', async () => {
   setClock('2026-10-29T12:00:00'); // reset giờ — mỗi test bắt đầu 12:00 ngày 29/10
   const api = mkAt({ identity: () => 'U001' });
   for (const dt of ['2026-10-30', '2026-10-31', '2026-11-01'])
@@ -300,11 +300,12 @@ test('bookings v1.3: giới hạn 3 hiệu lực/user · stranger FORBIDDEN · g
   const c = await owner.bookings.cancel(bk.id); // chủ hủy được
   assert.equal(c.status, 'cancelled');
 
-  /* guest: đặt được (userId=null) và hủy được booking guest của mình */
+  /* v1.3.1: guest không đặt / hủy được */
   const guest = mkAt({ storage: store, identity: () => null });
-  const g = await guest.bookings.create(BK({ seatId: 'A4' }));
-  assert.equal(g.userId, null);
-  assert.equal((await guest.bookings.cancel(g.id)).status, 'cancelled');
+  await assert.rejects(
+    () => guest.bookings.create(BK({ seatId: 'A4' })),
+    (e) => e.code === 'UNAUTHORIZED'
+  );
 });
 
 test('bookings.getLateCards v1.3: thẻ trễ giữa +15\'..+30\' · guest chỉ xem thẻ của mình', async () => {

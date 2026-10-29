@@ -77,11 +77,16 @@ export function createApi({
   const isStaff = async () => {
     const id = identity();
     if (!id) return false;
-    return (await list(KEYS.users)).find((u) => u.id === id)?.role === 'staff';
+    const role = (await list(KEYS.users)).find((u) => u.id === id)?.role;
+    return role === 'staff' || role === 'owner';
   };
   const canTouch = async (row) => !row.userId || row.userId === identity() || (await isStaff());
   const requireStaff = async () => {
     if (!(await isStaff())) throw new ApiError('FORBIDDEN', 'Chỉ nhân viên được thao tác này');
+  };
+  /* v1.3.1: đặt chỗ bắt buộc đăng nhập — guest xem sơ đồ, không tạo/hủy/trả cọc/check-in */
+  const requireLoginForBooking = () => {
+    if (!identity()) throw new ApiError('UNAUTHORIZED', 'Cần đăng nhập để đặt chỗ');
   };
 
   let seedDemoRun = null; /* memo promise chạy seedDemo — dùng trong users.seedDemo (bug #6) */
@@ -507,6 +512,7 @@ export function createApi({
       }
     },
     async create(data) {
+      requireLoginForBooking();
       await bookings._sweep();
       const input = data || {};
       const seat = await seats.getById(input.seatId);
@@ -535,7 +541,7 @@ export function createApi({
 
       const bk = {
         id: newId(ID_PREFIX.booking),
-        userId: uidv, // guest (chưa login) cũng đặt được — userId=null
+        userId: uidv, // v1.3.1: đã qua requireLoginForBooking — luôn có userId
         seatId: seat.id,
         floorId: seat.floorId,
         date: input.date,
@@ -599,6 +605,7 @@ export function createApi({
       return row;
     },
     async payDeposit(id) {
+      requireLoginForBooking();
       const b = await bookings._must(id);
       if (!(await canTouch(b))) throw new ApiError('FORBIDDEN', 'Đặt chỗ của người khác');
       if (R.phase(b, now()) !== 'pending_deposit')
@@ -609,6 +616,7 @@ export function createApi({
       return bookings._save(b);
     },
     async checkIn(id) {
+      requireLoginForBooking();
       await requireStaff();
       const b = await bookings._must(id);
       if (!['upcoming', 'late'].includes(R.phase(b, now())))
@@ -618,6 +626,7 @@ export function createApi({
       return bookings._save(b);
     },
     async complete(id) {
+      requireLoginForBooking();
       await requireStaff();
       const b = await bookings._must(id);
       if (!['seated', 'upcoming', 'late'].includes(R.phase(b, now())))
@@ -627,6 +636,7 @@ export function createApi({
       return bookings._save(b);
     },
     async cancel(id) {
+      requireLoginForBooking();
       const b = await bookings._must(id);
       if (!(await canTouch(b))) throw new ApiError('FORBIDDEN', 'Đặt chỗ của người khác');
       const p = R.phase(b, now());
@@ -827,12 +837,10 @@ export function createApi({
         };
       }
       if (/đầu tiên/i.test(p.terms || '')) {
-        /* bug #7: guest (userId null) cũng bị giới hạn — trước đây mệnh đề `&& userId`
-           cho phép khách vãng lai dùng WELCOME10 vô hạn. Lịch sử guest = mọi đơn
-           userId=null trong store (demo: store là của 1 trình duyệt). */
-        const uidv = userId || null;
+        /* v1.3.1: mã "đầu tiên" cần hồ sơ khách — guest không dùng (tránh đếm đơn userId=null dùng chung). */
+        if (!userId) return { ok: false, error: 'Cần đăng nhập để dùng mã này' };
         const history = (await list(KEYS.orders)).filter(
-          (o) => o.status !== 'cancelled' && (uidv ? o.userId === uidv : !o.userId)
+          (o) => o.status !== 'cancelled' && o.userId === userId
         );
         if (history.length) return { ok: false, error: 'Mã chỉ dành cho đơn hàng đầu tiên' };
       }

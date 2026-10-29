@@ -2,7 +2,7 @@
 
 > **Đây là tài liệu BINDING.** Mọi thay đổi chữ ký (tên hàm, tham số, giá trị trả về, cách báo lỗi)
 > PHẢI cập nhật tài liệu này + mục Changelog §7 **trước** khi sửa code.
-> Test trong `tests/` là dạng chạy được của hợp đồng (executable specification) — con tract đổi mà test không theo là sai hợp đồng.
+> Test trong `tests/` là dạng chạy được của hợp đồng (executable specification) — hợp đồng đổi mà test không theo là sai hợp đồng.
 
 ---
 
@@ -73,8 +73,8 @@ class StorageError extends Error {
 | `VALIDATION`      | 400                   | Input sai shape / thiếu field bắt buộc               |
 | `NOT_FOUND`       | 404                   | Entity mutation không tồn tại (xem quy tắc đọc §3.0) |
 | `CONFLICT`        | 409                   | State hiện tại cấm thao tác (VD hủy đơn đang giao)   |
-| `FORBIDDEN`       | 403                   | Giao crossing-identity (đơn/booking của người khác). Ngoại lệ **staff được thao tác hộ khách**; guest (chưa đăng nhập) chỉ chạm được dữ liệu không có chủ (`userId=null`) |
-| `UNAUTHORIZED`    | 401                   | Cần đăng nhập (P2)                                   |
+| `FORBIDDEN`       | 403                   | Crossing-identity (đơn/booking của người khác). Ngoại lệ **staff/owner được thao tác hộ khách**. Guest không còn được chạm booking. |
+| `UNAUTHORIZED`    | 401                   | Cần đăng nhập. **v1.3.1:** đặt chỗ (`bookings.create/payDeposit/cancel/checkIn/complete`) bắt buộc đăng nhập. |
 | `NOT_IMPLEMENTED` | 501                   | Chữ ký đã chốt theo §3 nhưng chưa đến pha build      |
 | `STORAGE`         | 500                   | Driver lỗi (quota, JSON hỏng...)                     |
 | `UNEXPECTED`      | 500                   | Mọi thứ còn lại                                      |
@@ -146,7 +146,7 @@ Ghép item: cùng `itemId + size + JSON(toppings)` → tăng `qty`.
 | `getByUser(userId)`                                                 | –                                       | `Order[]` (mới nhất cuối)                   | —                                                                                  | P1                                                                                                         |
 | `getAll()`                                                          | –                                       | `Order[]`                                   | —                                                                                  | P1 (staff-filter P2)                                                                                       |
 | `getActive()`                                                       | –                                       | `Order[]` status ∉ {completed, cancelled}   | —                                                                                  | P1                                                                                                         |
-| `cancel(id)`                                                        | –                                       | `Order`                                     | `NOT_FOUND` · `CONFLICT` (đang giao: step≥2) · `FORBIDDEN` (đơn của người khác — **staff được hủy hộ**; guest chỉ hủy được đơn guest) | P1 · **vá bug legacy ai-cancel step≥2 (signoff #6)** · v1.2.1 chốt chính sách hủy |
+| `cancel(id)`                                                        | –                                       | `Order`                                     | `NOT_FOUND` · `CONFLICT` (đang giao: step≥2) · `FORBIDDEN` (đơn của người khác — **staff/owner được hủy hộ**; guest chỉ hủy được đơn guest `userId=null`) | P1 · **vá bug legacy ai-cancel step≥2 (signoff #6)** · v1.2.1 chốt chính sách hủy |
 | `updateStep(id, nextStep)`                                          | 0..4                                    | `Order`                                     | `NOT_FOUND` · `VALIDATION` (ngoài 0..4) · `CONFLICT` (lùi bước)                    | P1 · step 4 tự set completed                                                                               |
 | `cancel_staff(...)`/bulk                                            | —                                       | —                                           | —                                                                                  | P2                                                                                                         |
 
@@ -175,11 +175,11 @@ Ghép item: cùng `itemId + size + JSON(toppings)` → tăng `qty`.
   - **Seated:** giữ bàn KHÔNG giới hạn; chỉ khách hoặc nhân viên nhả (`complete`/`cancel` — seated → cancel bị `CONFLICT`).
   - **Giới hạn:** giờ mở `07:00–22:30` (`R.RULES.OPEN/CLOSE`) · đặt trước tối đa 30 ngày (`MAX_ADVANCE_DAYS`) · tối đa 3 booking hiệu lực/user (`MAX_ACTIVE_PER_USER`).
   - **Chữ ký (quyền theo §v1.3):**
-    - `bookings.create({seatId,date,time,guests,note?})` → booking `pending_deposit` + `depositAmount` + `depositExpiresAt`. Lỗi: `VALIDATION` (ngày/giờ/khách), `CONFLICT` (bàn đã có booking ngày đó; quá `MAX_ACTIVE_PER_USER`). Guest tạo được (booking `userId=null` — demo).
-    - `bookings.payDeposit(id)` — chủ booking hoặc staff; `pending_deposit` → `confirmed` (+`depositPaid`). **DEMO: giả lập, chưa phải thanh toán thật (cần gateway + server ở pha backend).**
-    - `bookings.checkIn(id)` — staff; `confirmed` (upcoming/late) → `seated` (+`seatedAt`).
-    - `bookings.complete(id)` — staff; `seated`/`confirmed` → `completed` (+`completedAt`), nhả bàn.
-    - `bookings.cancel(id)` — chủ booking hoặc staff; trả booking có `refundAmount` (tính trước khi đổi status); `seated` → `CONFLICT` (dùng `complete`); hủy ở phase `late`/`no_show` mất cọc.
+    - `bookings.create({seatId,date,time,guests,note?})` → booking `pending_deposit` + `depositAmount` + `depositExpiresAt`. Lỗi: `VALIDATION` (ngày/giờ/khách), `CONFLICT` (bàn đã có booking ngày đó; quá `MAX_ACTIVE_PER_USER`), **`UNAUTHORIZED` nếu chưa đăng nhập (v1.3.1 — đặt chỗ bắt buộc tài khoản; guest chỉ xem `seats.getMap`)**.
+    - `bookings.payDeposit(id)` — chủ booking hoặc staff/owner; `pending_deposit` → `confirmed` (+`depositPaid`). Guest → `UNAUTHORIZED`. **DEMO: giả lập, chưa phải thanh toán thật (cần gateway + server ở pha backend).**
+    - `bookings.checkIn(id)` — staff/owner; `confirmed` (upcoming/late) → `seated` (+`seatedAt`). Guest → `UNAUTHORIZED`; khách đã login không phải staff → `FORBIDDEN`.
+    - `bookings.complete(id)` — staff/owner; `seated`/`confirmed` → `completed` (+`completedAt`), nhả bàn. Guest → `UNAUTHORIZED`.
+    - `bookings.cancel(id)` — chủ booking hoặc staff/owner; trả booking có `refundAmount` (tính trước khi đổi status); `seated` → `CONFLICT` (dùng `complete`); hủy ở phase `late`/`no_show` mất cọc. Guest → `UNAUTHORIZED` (không hủy hộ, không hủy booking vô danh).
     - `bookings.phase(b)` → `upcoming|late|...` tại `now()` (deterministic cho test).
     - `bookings.getLateCards(userId?)` → thẻ trễ đang hiệu lực (giữa +15' và +30').
     - `getAll/getById/getByUser` vẫn trả list — `_sweep()` chạy trước, đoán trạng thái chốt từ rooms đã quét.
@@ -188,7 +188,7 @@ Ghép item: cùng `itemId + size + JSON(toppings)` → tăng `qty`.
   - **BỎ so v1.2:** `bookings.update` (đổi giờ/note — luật 1 booking/ngày làm dời giờ vô nghĩa; muốn khác giờ thì hủy đặt lại) · `getActiveBySeat` (suy ra từ `getMap`) · `seats.book/release/resetAll`.
 - `promotions.getAll/getByCode/status/getActive/evaluate/create/remove` — **v1.2 ✅ thực thi**:
   - `status(p, today?)` → `'active' | 'upcoming' | 'expired' | 'off'` (`off` = `active:false`).
-  - `evaluate(code, subtotal, shipping, userId)` → `{ ok:true, discount, promo }` hoặc `{ ok:false, error }` (PROMISE-style như legacy, KHÔNG throw — caller tự quyết). Luật copy legacy: minOrder · mã "đầu tiên" (terms chứa "đầu tiên" + đã có đơn không-hủy; **v1.2.1: guest cũng bị giới hạn** — đếm đơn `userId=null`, trước đây khách vãng lai dùng WELCOME10 vô hạn) · `%` có cap `maxDiscount` · mã ship/giao hàng (FREESHIP) giảm tối đa = `shipping` · clamp `0..subtotal+shipping`.
+  - `evaluate(code, subtotal, shipping, userId)` → `{ ok:true, discount, promo }` hoặc `{ ok:false, error }` (PROMISE-style như legacy, KHÔNG throw — caller tự quyết). Luật: minOrder · mã "đầu tiên" (terms chứa "đầu tiên"): **v1.3.1 bắt buộc `userId` — thiếu/rỗng → `{ok:false, error:'Cần đăng nhập để dùng mã này'}`** (hết đếm đơn `userId=null` dùng chung); đã login thì đếm đơn không-hủy của đúng user · `%` có cap `maxDiscount` · mã ship/giao hàng (FREESHIP) giảm tối đa = `shipping` · clamp `0..subtotal+shipping`. Mã không có điều kiện "đầu tiên" (vd FREESHIP) guest vẫn dùng được.
   - `create(data)` / `remove(code)` — `VALIDATION` (mã/format sai), `CONFLICT` (trùng mã).
 - `orders.create` nhận thêm `promoCode?` — **facade tự evaluate + trừ vào total khi tính lại giá** (order lưu `discount`, `promoCode`; total = subtotal + shipping − discount). Mã lỗi → `VALIDATION` với message user-facing của evaluate.
 - `staff.getAll/getById` — **v1.2 ✅** (đọc seed `staff`, shape `{id,name,role,phone,avatar}`). `staff.addFromUser` — **vẫn NOT_IMPLEMENTED** (cần quyền admin, P3).
@@ -199,7 +199,7 @@ Ghép item: cùng `itemId + size + JSON(toppings)` → tăng `qty`.
 - `stats.today/thisWeek/thisMonth/ordersByStatus/topItems/bookingsByStatus/occupancyRate` — **v1.2 ✅**:
   - `today()/thisWeek()/thisMonth()` → `{ total, count, completedCount, pendingCount }` — doanh thu **chỉ đếm đơn step≥4** (giữ FIX của legacy). **v1.2.1: doanh thu + completedCount tính theo `completedAt` (ngày HOÀN TẤT)** — trước đây theo `createdAt`, đơn đặt tối qua hoàn tất sáng nay bị bỏ sót khỏi "hôm nay". `count`/`pendingCount` vẫn theo ngày tạo.
   - `ordersByStatus` → `{pending,preparing,shipping,completed,cancelled}`; `topItems(limit=5)` → `[{name,qty,revenue}]`.
-  - **v1.3:** `bookingsByStatus` → `{ pendingDeposit, confirmed, seated, completed, cancelled, expired, noShow }` (đếm theo `status` LƯU — sweep chạy trước); `occupancyRate` → % ghế `booked` của `seats.getMap()` tháng ngày (trạng thái tính từ bookings, không còn cờ lưu cứng).
+  - **v1.3:** `bookingsByStatus` → `{ pendingDeposit, confirmed, seated, completed, cancelled, expired, noShow }` (đếm theo `status` LƯU — sweep chạy trước); `occupancyRate` → % ghế `booked` của `seats.getMap()` hôm nay (trạng thái tính từ bookings, không còn cờ lưu cứng).
   - "Hôm nay/tuần/tháng" theo `now()` inject của facade (deterministic cho test).
 
 Tất cả method chưa đến pha: throw `ApiError('NOT_IMPLEMENTED', '<ns>.<method> hẹn pha P2/P3 — xem docs/api-contract.md')`.
@@ -274,3 +274,4 @@ cappan-v2/
 | 1.2     | 2026-10-29 | **P3 thực thi:** `promotions.*` (getAll/getByCode/status/getActive/evaluate/create/remove — luật legacy WELCOME10/FREESHIP/CAFE20) + `orders.create(promoCode)` tự trừ discount khi tính lại giá + `staff.*` (getAll/getById; addFromUser NOT_IMPLEMENTED chờ P3-admin) + `shifts.*` (schedule 7 ngày, CONFLICT 2 ca/ngày) + `stats.*` (today/thisWeek/thisMonth/ordersByStatus/topItems/bookingsByStatus/occupancyRate — doanh thu chỉ step≥4). Mở trang: cart(promo)/staff |
 | 1.2.1   | 2026-10-29 | **Vá 8 bug (vòng mới trước khi lên v1.3):** chính sách hủy tập trung (`staff` hủy hộ khách — orders/bookings; guest chỉ với dữ liệu guest; trước đây staff bị `FORBIDDEN`, guest lọt guard) · `ensureSeeded`/`seedDemo` chống chạy song song (memo promise) · WELCOME10 "đầu tiên" áp cả guest (đếm đơn `userId=null`) · `stats` doanh thu/hoàn tất theo `completedAt` |
 | 1.3     | 2026-10-29 | **Luật đặt chỗ v1.3:** đặt chỗ = giữ chỗ — 1 bàn 1 booking/ngày (khóa cả ngày); `pending_deposit` (cọc `ceil(capacity/2)` ly × 35k, chờ 15') → `confirmed` → `seated` → `completed`; mốc 00:00 ngày D = ranh giới hoàn cọc (100% → 0%) + `reserved`→`booked` trên sơ đồ; +15' thẻ trễ, +30' tự hủy `no_show` + `noShowCount++`; giờ mở 07:00–22:30, đặt trước ≤30 ngày, ≤3 booking hiệu lực/user; luật thuần `src/domain/booking-rules.js`; **bỏ `bookings.update`/`getActiveBySeat`/`seats.book|release|resetAll`, thêm `payDeposit/checkIn/phase/getLateCards/seats.getMap(date)`** |
+| 1.3.1   | 2026-10-29 | **Vá guest:** đặt chỗ bắt buộc đăng nhập — `bookings.create/payDeposit/cancel/checkIn/complete` khi `identity=null` → `UNAUTHORIZED`; guest vẫn xem `seats.getMap`. Mã khuyến mãi điều kiện "đầu tiên" + `userId` rỗng → `{ok:false, error:'Cần đăng nhập để dùng mã này'}`. UI booking: sơ đồ xem được + lời mời đăng nhập, ẩn form đặt. |

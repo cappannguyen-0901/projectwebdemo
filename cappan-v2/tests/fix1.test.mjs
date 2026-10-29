@@ -68,23 +68,25 @@ test('#1b guest (chưa login) KHÔNG hủy được đơn/booking có chủ — 
   const bk = await cust.bookings.create({ seatId: 'A2', date: soon(5), time: '19:00', guests: 2 });
   await assert.rejects(
     () => guest.bookings.cancel(bk.id),
-    (e) => e.code === 'FORBIDDEN'
+    (e) => e.code === 'UNAUTHORIZED' // v1.3.1: guest phải đăng nhập trước khi đụng booking
   );
   // dữ liệu không rơi vãi: đơn + booking vẫn nguyên trạng
   assert.equal((await cust.orders.getById(o.id)).status, 'pending');
   assert.equal((await cust.bookings.getById(bk.id)).status, 'pending_deposit');
 });
 
-test('#1c guest vẫn hủy được DỮ LIỆU GUEST của mình (userId=null — không có chủ DNA)', async () => {
+test('#1c guest vẫn hủy được ĐƠN GUEST của mình (userId=null); đặt chỗ thì không', async () => {
   const guest = mk({ identity: () => null });
   const o = await guest.orders.create({
     items: [{ itemId: 'M101', qty: 1 }],
     address: '2 Trần Hưng Đạo',
     phone: '0917777777'
   });
-  const g = await guest.bookings.create({ seatId: 'A3', date: soon(), time: '19:00', guests: 2 });
   assert.equal((await guest.orders.cancel(o.id)).status, 'cancelled');
-  assert.equal((await guest.bookings.cancel(g.id)).status, 'cancelled');
+  await assert.rejects(
+    () => guest.bookings.create({ seatId: 'A3', date: soon(), time: '19:00', guests: 2 }),
+    (e) => e.code === 'UNAUTHORIZED'
+  );
 });
 
 /* ---------- #6 — chống chạy song song seed ---------- */
@@ -109,37 +111,32 @@ test('#6 seedDemo gọi đồng thời không nhân đôi user demo; readers son
 });
 
 /* ---------- #7 — WELCOME10 guest chỉ dùng 1 lần ---------- */
-test('#7 guest dùng WELCOME10 đúng 1 lần — evaluate lẫn orders.create đều bị chặn sau đơn guest đầu', async () => {
+test('#7 WELCOME10 bắt buộc đăng nhập — guest nhận lỗi rõ; khách đã login dùng được 1 lần', async () => {
   const store = fresh();
   const guest = mk({ storage: store, identity: () => null });
+  const evG = await guest.promotions.evaluate('WELCOME10', 100000, 15000, null);
+  assert.equal(evG.ok, false);
+  assert.equal(evG.error, 'Cần đăng nhập để dùng mã này');
 
-  const ev1 = await guest.promotions.evaluate('WELCOME10', 100000, 15000, null);
-  assert.ok(ev1.ok); // trước đơn đầu: được dùng
-  const o = await guest.orders.create({
-    items: [{ itemId: 'M001', qty: 3 }], // 105k + ship — promoCode do facade evaluate
+  const uid = (
+    await mk({ storage: store }).users.create({
+      name: 'Mới',
+      phone: '0903000009',
+      password: 'cappan123'
+    })
+  ).id;
+  const user = mk({ storage: store, identity: () => uid });
+  assert.ok((await user.promotions.evaluate('WELCOME10', 100000, 15000, uid)).ok);
+  const o = await user.orders.create({
+    items: [{ itemId: 'M001', qty: 3 }],
     address: '3 Nguyễn Huệ',
     phone: '0916666666',
     promoCode: 'WELCOME10'
   });
-  assert.equal(o.promoCode, 'WELCOME10');
-  assert.equal(o.discount, 10500); // 10% của 105000
-
-  const ev2 = await guest.promotions.evaluate('WELCOME10', 100000, 15000, null); // BUG cũ: `&& userId` → KHÔNG đếm đơn guest
+  assert.equal(o.discount, 10500);
+  const ev2 = await user.promotions.evaluate('WELCOME10', 100000, 15000, uid);
   assert.equal(ev2.ok, false);
   assert.match(ev2.error, /đầu tiên/);
-  await assert.rejects(
-    () =>
-      guest.orders.create({
-        items: [{ itemId: 'M001', qty: 1 }],
-        address: '3 Nguyễn Huệ',
-        phone: '0916666666',
-        promoCode: 'WELCOME10'
-      }),
-    (e) => e.code === 'VALIDATION'
-  );
-  /* người đã login khác vẫn dùng được mã của riêng họ */
-  const boot2 = mk({ storage: store, identity: () => 'U-KHAC' });
-  assert.ok((await boot2.promotions.evaluate('WELCOME10', 100000, 15000, 'U-KHAC')).ok);
 });
 
 /* ---------- #8 — doanh thu theo ngày HOÀN TẤT ---------- */
