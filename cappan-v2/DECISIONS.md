@@ -14,6 +14,8 @@
 | 2026-10-29 | `ensureSeeded` tự bồi namespace v1.2 (promotions/staff/shifts/schedule) + demo migration role staff cho SĐT 0900000002, KHÔNG đụng user tự đăng ký | Storage v1.1 không bị phá khi demo cũ còn dữ liệu |
 | 2026-10-29 | Đoanh thu stats CHỈ đếm step≥4 (giữ FIX legacy diep) | Tổng chờ/đang giao đừng được tính là tiền thu được |
 | 2026-10-29 | `staff.addFromUser` vẫn NOT_IMPLEMENTED (P3-admin) — role không cấp tự do | Mirror quy tắc đóng invite-code legacy |
+| 2026-10-29 | Bước D: AI tách `src/ai/rules.js` + `guards.js` THUẦN (không DOM, menu inject qua ctx) — rule 1 shape `{id, priority, test, reply}`; chat UI riêng với pipeline guard→rule→LLM→fallback cục bộ khi proxy lỗi | Legacy brain.js 900+ dòng trộn logic/DOM/không thể test — v2 10 test thuần |
+| 2026-10-29 | LLM gọi qua proxy `cappan-proxy...` TUỲ CHỌN: fail/timeout 12s → fallback cục bộ, app không chết | "Không cứng phụ thuộc" vendor — đúng mục tiêu chống lock-in |
 
 ## ⚠️ CẢNH BÁO BẢO MẬT (hiện trạng P2 — chưa production-safe)
 

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CAPPAN v2 — Trò chuyện AI</title>
+    <link rel="stylesheet" href="/src/styles/pages.css" />
+  </head>
+  <body>
+    <header class="hd" id="hdr"></header>
+    <main class="wrap" id="main">
+      <h2>💬 Trò chuyện với CAPPAN AI</h2>
+      <div class="chat-box panel">
+        <div class="chat-log" id="log"></div>
+        <form class="chat-input" id="f">
+          <input id="q" placeholder="VD: gợi ý món ngọt · wifi · giờ mở cửa · đặt bàn" autocomplete="off" />
+          <button class="btn">Gửi</button>
+        </form>
+      </div>
+    </main>
+    <script type="module" src="/src/entry-chat.js"></script>
+  </body>
+</html>

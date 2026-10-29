@@ -20,4 +20,4 @@ Một trang "đạt" khi đủ 6 mục. Chạy tu pg trước khi commit riêng 
 | profile | 2026-10-29 | ✅ browser: guard login, update whitelist, hủy đơn/đặt chỗ |
 | cart (promo, contract v1.2) | 2026-10-29 | ✅ browser: WELCOME10 chặn "đơn hàng đầu tiên" đúng luật · CAFE20 minOrder chặn 100k · đạt min → −20k, order.total=155.000 (facade tính) |
 | staff (hub/KPI/shifts) | 2026-10-29 | ✅ browser: login 0900000002 · KPI từ stats · advance đơn → "Đang pha" · toggle hết món · xếp ca Hôm nay ca sáng (S001) |
-| chat (AI, Bước D) | | |
+| chat (AI, bước D) | 2026-10-29 | ✅ browser: wifi/gợi ý món qua rules (<1s) · injection chặn · khách hỏi doanh thu bị guard chặn · staff được qua LLM/fallback |
