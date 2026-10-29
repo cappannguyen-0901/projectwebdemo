@@ -64,9 +64,24 @@ test('cart.add: gộp dòng trùng itemId+size+toppings; size lạ → VALIDATIO
   assert.equal(rows[0].qty, 2);
   assert.equal(rows[0].price, 35000);
 
-  await assert.rejects(() => api.cart.add({ itemId: 'M001', size: 'XXL' }), (e) => e.code === 'VALIDATION');
+  await assert.rejects(() => api.cart.add({ itemId: 'M001', size: 'XXL' }), (e) => e.code === 'VALIDATION'); // món có sizes → XXL cản
   await assert.rejects(() => api.cart.add({ itemId: 'NOPE' }), (e) => e.code === 'VALIDATION');
   await assert.rejects(() => api.cart.add({ itemId: 'M101', qty: 0 }), (e) => e.code === 'VALIDATION');
+});
+
+test('regression (bug UA): món KHÔNG sizes (M101) — giỏ chỉnh sửa size "M" phải đi qua cart.set không nổ', async () => {
+  const api = mk();
+  await api.cart.add({ itemId: 'M101', qty: 1 }); // size-less → lưu nhãn 'M'
+  const rows = await api.cart.get();
+  assert.equal(rows[0].size, 'M');
+  // vòng đời sửa qty rồi set lại (chính luồng cart.html ±/−): KHÔNG được nổ VALIDATION về size
+  rows[0].qty = 3;
+  const re = await api.cart.set(rows);
+  assert.equal(re[0].qty, 3);
+  assert.equal(re[0].price, 45000); // giá vẫn thuộc catalog
+  // 'M' đối với món CÓ sizes (M001) vẫn hợp lệ như trước — đảm bảo không phá chiều ngược lại
+  const okSize = await api.cart.set([{ itemId: 'M001', size: 'M' }]);
+  assert.equal(okSize[0].price, 35000);
 });
 
 test('cart.remove/clear + mergeGuestToUser', async () => {

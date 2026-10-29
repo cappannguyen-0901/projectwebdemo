@@ -67,9 +67,14 @@ export function createApi({
 
   /* Tính giá 1 dòng từ CATALOG (§0.7 — không tin giá client) */
   function priceLine(item, input) {
+    /* món KHÔNG khai báo sizes (trà đậm đặc…) → bỏ qua validate size, nhãn chỉ để khóa dòng ghép;
+       món CÓ sizes → size gửi lên phải nằm trong danh sách, dù client gửi hay 'remembered' */
+    const hasSizes = (item.sizes || []).length > 0;
     const sizeName = input.size || (item.sizes?.[0]?.name ?? 'M');
-    const size = (item.sizes || []).find((s) => s.name === sizeName);
-    if (input.size && !size) throw new ApiError('VALIDATION', `Size "${input.size}" không tồn tại cho món ${item.id}`, { itemId: item.id, size: input.size });
+    const size = sizeName ? (item.sizes || []).find((s) => s.name === sizeName) : undefined;
+    if (hasSizes && !size) {
+      throw new ApiError('VALIDATION', `Size "${input.size}" không tồn tại cho món ${item.id}`, { itemId: item.id, size: input.size });
+    }
 
     const availableToppings = new Map((item.toppings || []).map((t) => [t.name, t]));
     const toppings = (input.toppings || []).map((tName) => {
