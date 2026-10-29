@@ -26,7 +26,7 @@ if (user) {
     await api.auth.logout();
     setIdentity(null);
     toast('Đã đăng xuất');
-    setTimeout(() => (window.location.href = 'auth.html'), 400);
+    setTimeout(() => location.assign('auth.html'), 400);
   };
 } else {
   let mode = 'login';
@@ -74,7 +74,7 @@ if (user) {
         }
         setIdentity(u.id);
         toast(`Xin chào ${u.name}!`);
-        setTimeout(() => (window.location.href = 'menu.html'), 350);
+        setTimeout(() => location.assign('menu.html'), 350);
       } catch (e) {
         paint(e.message);
       }

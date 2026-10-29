@@ -7,7 +7,7 @@ const { api, user } = await createAppApi();
 const main = document.getElementById('main');
 const state = document.getElementById('state');
 if (!user) {
-  window.location.href = 'auth.html'; // guard login — demo-grade, backend sẽ thay bằng 401 server-side
+  location.assign('auth.html'); // guard login — demo-grade, backend sẽ thay bằng 401 server-side
 }
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -92,7 +92,7 @@ function bind() {
   document.getElementById('out').onclick = async () => {
     await api.auth.logout();
     toast('Đã đăng xuất');
-    setTimeout(() => (window.location.href = 'auth.html'), 400);
+    setTimeout(() => location.assign('auth.html'), 400);
   };
   document.getElementById('pf').onsubmit = async (ev) => {
     ev.preventDefault();

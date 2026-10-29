@@ -12,10 +12,12 @@
 | 2026-10-29 | CANCEL bug legacy: AI-cancel từng tồn tại vì authorization ở client — v2 giữ authorization client (demo) | Xem cảnh báo bên dưới |
 | 2026-10-29 | Contract v1.2: `orders.create(promoCode)` — discount do facade evaluate khi tính lại giá; UI chỉ preview | Mã khuyến mãi = doanh nghiệp, client không được tự trừ tiền |
 | 2026-10-29 | `ensureSeeded` tự bồi namespace v1.2 (promotions/staff/shifts/schedule) + demo migration role staff cho SĐT 0900000002, KHÔNG đụng user tự đăng ký | Storage v1.1 không bị phá khi demo cũ còn dữ liệu |
-| 2026-10-29 | Đoanh thu stats CHỈ đếm step≥4 (giữ FIX legacy diep) | Tổng chờ/đang giao đừng được tính là tiền thu được |
+| 2026-10-29 | Đoanh thu stats CHỈ đếm step≥4 (giữ FIX legacy) | Tổng chờ/đang giao đừng được tính là tiền thu được |
 | 2026-10-29 | `staff.addFromUser` vẫn NOT_IMPLEMENTED (P3-admin) — role không cấp tự do | Mirror quy tắc đóng invite-code legacy |
 | 2026-10-29 | Bước D: AI tách `src/ai/rules.js` + `guards.js` THUẦN (không DOM, menu inject qua ctx) — rule 1 shape `{id, priority, test, reply}`; chat UI riêng với pipeline guard→rule→LLM→fallback cục bộ khi proxy lỗi | Legacy brain.js 900+ dòng trộn logic/DOM/không thể test — v2 10 test thuần |
 | 2026-10-29 | LLM gọi qua proxy `cappan-proxy...` TUỲ CHỌN: fail/timeout 12s → fallback cục bộ, app không chết | "Không cứng phụ thuộc" vendor — đúng mục tiêu chống lock-in |
+| 2026-10-29 | Bước E: CSS tách `base.css` + per-page (mỗi trang nạp đúng phần nó cần, xác nhận qua CSSOM: staff chỉ có base+staff) | Cắt dead-CSS, trước pages.css gánh toàn bộ |
+| 2026-10-29 | `window.*` gỡ bỏ cho navigation (`location.assign`); CHỈ giữ `window.localStorage` trong core/storage.js — nó là driver browser định nghĩa sẵn, không phải biến toàn cục v2 | "Xóa mọi window.*" = không có state/compat layer toàn cục; navigation là API trình duyệt chứ không phải state |
 
 ## ⚠️ CẢNH BÁO BẢO MẬT (hiện trạng P2 — chưa production-safe)
 
