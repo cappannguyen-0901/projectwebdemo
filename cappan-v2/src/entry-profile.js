@@ -8,6 +8,8 @@ const main = document.getElementById('main');
 const state = document.getElementById('state');
 if (!user) {
   location.assign('auth.html'); // guard login — demo-grade, backend sẽ thay bằng 401 server-side
+} else {
+  paint(); // bug #2: trước đây vẫn paint() tiếp sau khi điều hướng → user.id nổ TypeError ở tab chưa kịp chuyển
 }
 
 const esc = (s) =>

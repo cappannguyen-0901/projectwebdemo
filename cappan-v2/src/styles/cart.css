@@ -1,4 +1,4 @@
-/* cart.html — dòng giỏ + bảng tổng + hàng mã khuyến mãi */
+/* cart.html — dòng giỏ + bảng tổng + hàng mã khuyến mãi (.qty đã về base.css — bug #3) */
 .line {
   display: flex;
   align-items: center;
@@ -24,11 +24,6 @@
 .line .meta .s {
   font-size: 12px;
   color: var(--muted);
-}
-.qty {
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 .totals {
   display: grid;

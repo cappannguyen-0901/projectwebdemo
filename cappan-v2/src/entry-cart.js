@@ -113,7 +113,7 @@ async function paint(msg = '') {
             <p>Tổng: <strong>${api.utils.formatVND(order.total)}</strong>${order.discount ? ` (đã giảm ${api.utils.formatVND(order.discount)} bằng ${order.promoCode})` : ''} · Trạng thái: ${order.status}</p>
             <a class="btn ghost" href="menu.html">Quay menu</a>
           </div>`;
-        renderHeader(document.getElementById('hdr'), 0);
+        renderHeader(document.getElementById('hdr'), { user, count: 0 }); // bug #4: {user,0} thay `0` — giữ tên người dùng sau khi đặt đơn
       } catch (e) {
         paint(e.message || 'Không đặt được đơn');
       }

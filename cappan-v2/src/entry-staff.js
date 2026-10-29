@@ -254,12 +254,17 @@ async function paint(tab = 'orders') {
     );
     main.querySelectorAll('[data-unshift]').forEach((b) =>
       b.addEventListener('click', async () => {
-        const s = await api.shifts.getSchedule();
-        for (const id of s[b.dataset.unshift]?.[b.dataset.shift] || []) {
-          await api.shifts.removeStaffFromShift(b.dataset.unshift, b.dataset.shift, id);
+        /* bug #5: nút "bỏ hết" ca thiếu try/catch — nếu driver lỗi, lỗi dội ầm cả trang */
+        try {
+          const s = await api.shifts.getSchedule();
+          for (const id of s[b.dataset.unshift]?.[b.dataset.shift] || []) {
+            await api.shifts.removeStaffFromShift(b.dataset.unshift, b.dataset.shift, id);
+          }
+          toast('Đã bỏ lịch ca');
+          paint('shifts');
+        } catch (e) {
+          toast(e.message, 'err');
         }
-        toast('Đã bỏ lịch ca');
-        paint('shifts');
       })
     );
   }

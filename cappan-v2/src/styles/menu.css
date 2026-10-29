@@ -1,9 +1,4 @@
-/* menu.html + order.html dùng chung thẻ món */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-}
+/* menu.html + order.html dùng chung thẻ món (.grid đã về base.css — bug #3) */
 .card {
   background: var(--card);
   border: 1px solid var(--line);

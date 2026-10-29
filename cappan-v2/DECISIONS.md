@@ -2,8 +2,8 @@
 
 | Ngày       | Quyết                                                                                                                                                                                                        | Lý do                                                                                                         |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| 2026-10-29 | _contract-first_: sửa chữ ký API phải sửa `docs/api-contract.md` trước, code theo, test là dạng chạy được của hợp đồng                                                                                       | Tránh "code ms.true hòa doc" — legacy chết vì schema.js là file không ai đọc                                  |
-| 2026-10-29 | Tầng `pages → api → storage` 3 lớp; pages KHÔNG chạm storage                                                                                                                                                 | Anti-lock-in: swap backend chỉ đổi fulfil bên dưới chữ ký                                                     |
+| 2026-10-29 | _contract-first_: sửa chữ ký API phải sửa `docs/api-contract.md` trước, code theo, test là dạng chạy được của hợp đồng                                                                                       | Tránh "code chạy trước rồi vá doc" — legacy chết vì schema.js là file không ai đọc                                  |
+| 2026-10-29 | Tầng `pages → api → storage` 3 lớp; pages KHÔNG chạm storage                                                                                                                                                 | Anti-lock-in: swap backend chỉ thay phần thực thi bên dưới chữ ký                                             |
 | 2026-10-29 | Mọi mutation tính lại giá từ catalog (§0.7) — không tin giá client                                                                                                                                           | Chống spoof; khi backend ra đời dùng nguyên tắc này server-side                                               |
 | 2026-10-29 | Mật khẩu PBKDF2-SHA256 (client), session = `{userId}`                                                                                                                                                        | Thay plaintext + full-object session của legacy. Backend thật: argon2id server-side                           |
 | 2026-10-29 | Đóng invite-code staff qua register (legacy là lỗ hổng còn in trên trang)                                                                                                                                    | `role` không cấp qua form công khai                                                                           |
@@ -18,13 +18,19 @@
 | 2026-10-29 | LLM gọi qua proxy `cappan-proxy...` TUỲ CHỌN: fail/timeout 12s → fallback cục bộ, app không chết                                                                                                             | "Không cứng phụ thuộc" vendor — đúng mục tiêu chống lock-in                                                   |
 | 2026-10-29 | Bước E: CSS tách `base.css` + per-page (mỗi trang nạp đúng phần nó cần, xác nhận qua CSSOM: staff chỉ có base+staff)                                                                                         | Cắt dead-CSS, trước pages.css gánh toàn bộ                                                                    |
 | 2026-10-29 | `window.*` gỡ bỏ cho navigation (`location.assign`); CHỈ giữ `window.localStorage` trong core/storage.js — nó là driver browser định nghĩa sẵn, không phải biến toàn cục v2                                  | "Xóa mọi window.*" = không có state/compat layer toàn cục; navigation là API trình duyệt chứ không phải state |
+| 2026-10-29 | **v1.2.1 chính sách chạm dữ liệu:** chủ sở hữu hoặc staff; staff được hủy/sửa HỘ khách (orders + bookings); guest (chưa login) chỉ chạm được dữ liệu không có chủ (`userId=null`) — bug "staff bị FORBIDDEN, guest lọt guard" đã vá qua helper `canTouch` (tập trung hóa hoàn toàn ở vòng CHAT-OS) | Trang staff hủy hộ khách là nghiệp vụ thật, không phải crossing-identity; guest tuyền quyền hủy đơn người khác là lỗ hổng |
+| 2026-10-29 | **v1.2.1 WELCOME10 "đơn hàng đầu tiên" áp cả guest:** evaluate đếm đơn `userId=null` trong store khi không truyền userId — khách vãng lai không dùng vô hạn (demo: store là 1 trình duyệt, production cần server-side) | Luật mã vẫn client-side nhưng phải nhất quán guest/user                                       |
+| 2026-10-29 | **v1.2.1 doanh thu theo ngày HOÀN TẤT:** `stats.*` lọc doanh thu + completedCount theo `completedAt`; count/pendingCount vẫn theo `createdAt` | Tiền thu được hôm đó, không phải ngày khách đặt — chuẩn v1.3 yêu cầu                           |
+| 2026-10-29 | **v1.2.1 CSS class dùng chéo về `base.css`** (`.grid`, `.qty`, `.pill` + variant, `.hist-row`, `.det`); bỏ `profile.css` (rỗng — profile chỉ còn base) | Per-page split làm trang staff/order/booking đứt style; "mỗi trang nạp phần nó cần" không phủ class chung |
+| 2026-10-29 | **v1.2.1 `ensureSeeded` + `users.seedDemo` chống chạy song song** (memo promise, lỗi thì xóa memo cho chạy lại) | Promise.all trong paint() gây hai lần seed chen nhau → nhân đôi user demo                      |
+| 2026-10-29 | **v1.2.1 UI guard đúng thứ tự:** profile dừng render sau redirect login; cart giữ tên user sau đặt đơn (renderHeader `{user,0}`); nút "bỏ hết" ca staff có try/catch | Lỗi nhỏ nhưng làm rơi trải nghiệm ngay luồng chính                                             |
 
 ## ⚠️ CẢNH BÁO BẢO MẬT (hiện trạng P2 — chưa production-safe)
 
 > **Auth, phân quyền, kiểm tra giá và chỗ ngồi hiện chỉ ở client, chưa bảo mật. KHÔNG cho khách thật dùng.**
 
 - Dữ liệu nằm ở localStorage của chính trình duyệt — ai mở DevTools sửa được hết (role, session, số dư, đơn).
-- "Password hash" chạy trong browser = mọi buổi苟 đổi mã chỉ ảnh hưởng demo; backend thật phải argon2id + session server-side.
+- "Password hash" chạy trong browser = mọi thay đổi mã chỉ ảnh hưởng demo; backend thật phải argon2id + session server-side.
 - Giá tính lại từ catalog cũng chỉ có nghĩa khi catalog sống trên server.
 - Chỉ từng dùng demo/nội bộ. Ký hậu "cho khách thật" khi backend (PostgreSQL + API) đã sống và kiểm tra server-side.
 
@@ -32,3 +38,4 @@
 
 - `v2-p2-done` — P1 + P2 (identity/auth/users/bookings/seats mutation, trang menu/cart/auth) xanh 31 test.
 - `v2-1.0-freeze` — Bước E/F: contract v1.2 (promotions/orders.create(promoCode)/staff/shifts/stats) + AI v2 (rules/guards thuần + chat fallback) + CSS per-page + gỡ window.*; 52 test xanh; CHECKLIST mọi trang ✅ → **v2 là bản chính**.
+- `v2-fix1` — hợp đồng v1.2.1: vá 8 bug (chính sách hủy staff/guest, ensureSeeded song song, WELCOME10 guest, doanh thu completedAt, guard profile, CSS class chéo về base, header cart, try/catch staff) + dọn chữ rác docs; 58 test xanh.

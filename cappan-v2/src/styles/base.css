@@ -169,6 +169,61 @@ input:focus {
   font-size: 14px;
 }
 
+/* Class dùng CHÉO trang (bug #3): .grid/.qty/.pill/.hist-row/.det dùng tại ≥2 trang
+   nhưng từng định nghĩa nhầm trong per-page css → staff/order/booking bị đứt style.
+   Về base — mọi trang nạp. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.qty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pill {
+  display: inline-block;
+  background: #fdf1e7;
+  color: var(--brand-2);
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.pill.pending {
+  background: #fff7e6;
+  color: #b26a00;
+}
+.pill.preparing {
+  background: #e5f5ff;
+  color: #1068b3;
+}
+.pill.delivering {
+  background: #e8f7ec;
+  color: #1e8e5a;
+}
+.pill.completed {
+  background: #eef1f4;
+  color: #5a6672;
+}
+.pill.cancelled {
+  background: #fdecea;
+  color: var(--danger);
+}
+.hist-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+}
+.det {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 /* Toast */
 .toast {
   position: fixed;

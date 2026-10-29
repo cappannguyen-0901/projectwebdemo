@@ -52,6 +52,36 @@ export function createApi({
 
   /* ---------- helpers ---------- */
   const list = async (key, seedValue = []) => storage.get(key, seedValue) || [];
+
+  /* Chống chạy song song (bug #6): nhiều reader mở cùng Promise.all → cùng 1 lần ensureSeeded
+     trượt nhịp có thể nhân đôi dữ liệu demo. Memo promise: mọi caller chờ chung 1 lần chạy;
+     nếu lần chạy lỗi thì xóa memo để lần sau chạy lại. */
+  const once = (fn) => {
+    let p = null;
+    return (...args) => {
+      if (!p) p = Promise.resolve(fn(...args)).catch((e) => {
+        p = null;
+        throw e;
+      });
+      return p;
+    };
+  };
+
+  /* Chính sách sở hữu/khai thác (bug #1 — vá cục bộ; bước 3 sẽ tập trung hóa thành bảng vai trò×hành động cho CHAT-OS):
+     • owner: row.userId === identity() → được hủy/chỉnh.
+     • staff (users[identity].role === 'staff'): được thao tác HỘ khách — trước đây staff hủy
+       đơn/booking của khách bị FORBIDDEN dù trang staff gọi chính xác.
+     • guest (chưa đăng nhập): chỉ được chạm vào row KHÔNG có chủ (userId=null, tạo khi guest) —
+       trước đây guest "lọt" qua guard `o.userId && identity()` và hủy được đơn của người đã login. */
+  const isStaff = async () => {
+    const id = identity();
+    if (!id) return false;
+    return (await list(KEYS.users)).find((u) => u.id === id)?.role === 'staff';
+  };
+  const canTouch = async (row) => !row.userId || row.userId === identity() || (await isStaff());
+
+  let seedDemoRun = null; /* memo promise chạy seedDemo — dùng trong users.seedDemo (bug #6) */
+
   const notImplemented = (ns, method) => async () => {
     throw new ApiError(
       'NOT_IMPLEMENTED',
@@ -59,7 +89,7 @@ export function createApi({
     );
   };
 
-  async function ensureSeeded() {
+  const ensureSeeded = once(async () => {
     /* v1.2: seed bổ sung namespace MỚI ngay cả khi store đã seed từ v1.1
        (storage cũ không có promotions/staff/shifts → bồi đủ, không xóa dữ liệu người dùng) */
     if (!(await storage.get(KEYS.promotions))) {
@@ -92,7 +122,7 @@ export function createApi({
     await storage.set(KEYS.seats, seed.seats || []);
     await storage.set(KEYS.orders, []);
     await storage.set(KEYS.seeded, { at: iso(), contract: CONTRACT_VERSION });
-  }
+  });
 
   const newId = (prefix) =>
     `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -404,8 +434,8 @@ export function createApi({
 
     async cancel(id) {
       const o = await orders._must(id);
-      if (o.userId && identity() && o.userId !== identity()) {
-        throw new ApiError('FORBIDDEN', 'Đơn này của người dùng khác'); // §3.6 — vá tô-rê chéo identity legacy
+      if (!(await canTouch(o))) {
+        throw new ApiError('FORBIDDEN', 'Đơn này của người dùng khác'); // §3.6 — staff được hủy hộ; guest (chưa login) chỉ hủy được đơn guest (userId=null)
       }
       if (o.status === 'cancelled') throw new ApiError('CONFLICT', `Đơn ${id} đã hủy trước đó`);
       if (o.step > CANCEL_MAX_STEP) {
@@ -597,8 +627,8 @@ export function createApi({
     },
     async cancel(id) {
       const b = await bookings._must(id);
-      if (b.userId && identity() && b.userId !== identity()) {
-        throw new ApiError('FORBIDDEN', 'Đặt chỗ này của người dùng khác'); // mirror guard của orders.cancel
+      if (!(await canTouch(b))) {
+        throw new ApiError('FORBIDDEN', 'Đặt chỗ này của người dùng khác'); // staff được hủy hộ; guest chỉ hủy được booking guest
       }
       if (b.status !== 'confirmed')
         throw new ApiError('CONFLICT', `Đặt chỗ ${id} không còn hiệu lực`);
@@ -612,8 +642,8 @@ export function createApi({
       const b = await bookings._must(id);
       if (b.status !== 'confirmed')
         throw new ApiError('CONFLICT', `Đặt chỗ ${id} không còn hiệu lực`);
-      if (b.userId && identity() && b.userId !== identity())
-        throw new ApiError('FORBIDDEN', 'Đặt chỗ này của người dùng khác');
+      if (!(await canTouch(b)))
+        throw new ApiError('FORBIDDEN', 'Đặt chỗ này của người dùng khác'); // staff được sửa hộ; guest chỉ với booking guest
       const input = patch || {};
       if (input.time !== undefined) {
         if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(String(input.time))) {
@@ -727,22 +757,38 @@ export function createApi({
     },
     /* legacy API.users.setCurrent ngừng hỗ trợ — session do api.auth quản lý (§3.10) */
     setCurrent: notImplemented('users', 'setCurrent'),
+    /* bug #6: chống chạy song song — 2 trang cùng gọi seedDemo lọt cả hai ở lần chạy đầu
+       (cùng thấy rows rỗng → nhân đôi user demo). Memo promise trong 1 lần chạy; khi xong
+       xóa memo, lần gọi sau đếm lại và trả 0 — giữ đúng nghĩa trả về "đã tạo thêm mấy". */
     async seedDemo() {
-      await ensureSeeded();
-      const rows = await list(KEYS.users);
-      if (rows.length) return 0;
-      await users.create({ name: 'Khách Demo', phone: '0900000001', password: 'cappan123' });
-      const staffUser = await users.create({
-        name: 'Nhân viên Demo',
-        phone: '0900000002',
-        password: 'cappan123'
-      });
-      /* demo-grade: role staff cấp qua seed (+ghi DECISIONS.md) — production cấp qua backend admin */
-      const all = await list(KEYS.users);
-      const row = all.find((u) => u.id === staffUser.id);
-      row.role = 'staff';
-      await storage.set(KEYS.users, all);
-      return 2;
+      let run = seedDemoRun;
+      if (run) {
+        await run;
+        return 0; // người thắng cuộc đã tạo đủ — lượt này không tạo gì thêm
+      }
+      run = (async () => {
+        await ensureSeeded(); // nằm TRÊN lần chạy chung: seed + body không tách nhịp
+        const rows = await list(KEYS.users);
+        if (rows.length) return 0;
+        await users.create({ name: 'Khách Demo', phone: '0900000001', password: 'cappan123' });
+        const staffUser = await users.create({
+          name: 'Nhân viên Demo',
+          phone: '0900000002',
+          password: 'cappan123'
+        });
+        /* demo-grade: role staff cấp qua seed (+ghi DECISIONS.md) — production cấp qua backend admin */
+        const all = await list(KEYS.users);
+        const row = all.find((u) => u.id === staffUser.id);
+        row.role = 'staff';
+        await storage.set(KEYS.users, all);
+        return 2;
+      })();
+      seedDemoRun = run;
+      try {
+        return await run;
+      } finally {
+        seedDemoRun = null;
+      }
     }
   };
 
@@ -817,9 +863,13 @@ export function createApi({
           error: 'Đơn tối thiểu ' + p.minOrder.toLocaleString('vi-VN') + 'đ mới dùng được mã này'
         };
       }
-      if (/đầu tiên/i.test(p.terms || '') && userId) {
+      if (/đầu tiên/i.test(p.terms || '')) {
+        /* bug #7: guest (userId null) cũng bị giới hạn — trước đây mệnh đề `&& userId`
+           cho phép khách vãng lai dùng WELCOME10 vô hạn. Lịch sử guest = mọi đơn
+           userId=null trong store (demo: store là của 1 trình duyệt). */
+        const uidv = userId || null;
         const history = (await list(KEYS.orders)).filter(
-          (o) => o.userId === userId && o.status !== 'cancelled'
+          (o) => o.status !== 'cancelled' && (uidv ? o.userId === uidv : !o.userId)
         );
         if (history.length) return { ok: false, error: 'Mã chỉ dành cho đơn hàng đầu tiên' };
       }
@@ -950,17 +1000,22 @@ export function createApi({
   /* ---------- stats (P3 — v1.2): doanh thu CHỈ tính đơn step≥4 (giữ FIX legacy) ---------- */
   const stats = {
     async _revenueInRange(fromTs, toTs) {
-      const all = (await list(KEYS.orders)).filter((o) => {
-        if (o.status === 'cancelled') return false;
-        const t = new Date(o.createdAt).getTime();
-        return t >= fromTs && t <= toTs;
-      });
-      const completed = all.filter((o) => o.step >= 4);
+      const inRange = (t) => t >= fromTs && t <= toTs;
+      const rows = await list(KEYS.orders);
+      /* tạo (không hủy) trong khoảng → count + pending */
+      const created = rows.filter(
+        (o) => o.status !== 'cancelled' && inRange(new Date(o.createdAt).getTime())
+      );
+      /* bug #8: doanh thu/hoàn tất tính theo NGÀY HOÀN TẤT (completedAt), không phải createdAt —
+         đơn đặt 23:59 tối qua, hoàn tất 00:05 sáng nay phải vào doanh thu HÔM NAY (doanh thu = tiền thu được hôm đó) */
+      const completed = rows.filter(
+        (o) => o.step >= 4 && o.completedAt && inRange(new Date(o.completedAt).getTime())
+      );
       return {
         total: completed.reduce((s, o) => s + o.total, 0),
-        count: all.length,
+        count: created.length,
         completedCount: completed.length,
-        pendingCount: all.length - completed.length
+        pendingCount: created.filter((o) => o.step < 4).length
       };
     },
     _dayStart(d) {

@@ -1,6 +1,6 @@
 # CHECKLIST.md — tiêu chuẩn nghiệm thu từng trang v2
 
-Một trang "đạt" khi đủ 6 mục. Chạy tu pg trước khi commit riêng từng trang.
+Một trang "đạt" khi đủ 6 mục. Chạy `npm test` + `npm run lint` trước khi commit riêng từng trang.
 
 - [ ] **ENTRY**: code nằm ở `src/entry-<page>.js`, HTML chỉ giữ skeleton + `<script type="module">`
 - [ ] **ASYNC-ONLY**: mọi dữ liệu qua `await api.*`; KHÔNG `API.` sync legacy; KHÔNG chạm `localStorage`/`document` ngoài render
