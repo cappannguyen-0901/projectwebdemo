@@ -1,0 +1,10 @@
+/* order.html — chip size/topping + mini cart dưới đáy */
+.opt-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line); background: var(--card); padding: 6px 12px; border-radius: 999px; cursor: pointer; font-size: 13px; }
+.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+.mini-cart {
+  position: sticky; bottom: 0; z-index: 4;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--ink); color: #fff; padding: 10px 16px;
+  border-radius: 14px 14px 0 0; margin-top: 14px;
+}
