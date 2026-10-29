@@ -19,8 +19,14 @@ test('menu.getAll: đủ seed, sort theo category.order, reader trả null (§3.
   assert.equal(all[0].categoryId, 'coffee');
   assert.equal((await api.menu.getById('M503'))?.id, 'M503');
   assert.equal(await api.menu.getById('M999'), null);
-  assert.deepEqual((await api.menu.getByCategory('tea')).map((m) => m.id), ['M101', 'M102', 'M103', 'M104']);
-  await assert.rejects(() => api.menu.getByCategory('nope'), (e) => e instanceof ApiError && e.code === 'NOT_FOUND');
+  assert.deepEqual(
+    (await api.menu.getByCategory('tea')).map((m) => m.id),
+    ['M101', 'M102', 'M103', 'M104']
+  );
+  await assert.rejects(
+    () => api.menu.getByCategory('nope'),
+    (e) => e instanceof ApiError && e.code === 'NOT_FOUND'
+  );
 });
 
 test('menu flip stock + mutator throw NOT_FOUND', async () => {
@@ -30,7 +36,10 @@ test('menu flip stock + mutator throw NOT_FOUND', async () => {
   assert.ok((await api.menu.getOutOfStock()).some((m) => m.id === 'M104'));
   assert.ok(!(await api.menu.getAvailable()).some((m) => m.id === 'M104'));
   assert.equal((await api.menu.markInStock('M104')).inStock, true);
-  await assert.rejects(() => api.menu.markOutOfStock('M999'), (e) => e.code === 'NOT_FOUND');
+  await assert.rejects(
+    () => api.menu.markOutOfStock('M999'),
+    (e) => e.code === 'NOT_FOUND'
+  );
 });
 
 test('categories/floors/seats: seed đúng + tầng lạ NOT_FOUND (ghế mutation đã P2 — test ở phase2)', async () => {
@@ -39,13 +48,21 @@ test('categories/floors/seats: seed đúng + tầng lạ NOT_FOUND (ghế mutati
   assert.equal((await api.floors.getById('F2'))?.name, 'Lầu 1');
   assert.equal((await api.seats.getByFloor('F2')).length, 10);
   assert.equal((await api.seats.getAvailable()).length, 32);
-  await assert.rejects(() => api.seats.getByFloor('F9'), (e) => e.code === 'NOT_FOUND');
+  await assert.rejects(
+    () => api.seats.getByFloor('F9'),
+    (e) => e.code === 'NOT_FOUND'
+  );
 });
 
 /* ======================= §3.5 cart — GIÁ LUÔN TỪ CATALOG (§0.7) ======================= */
 test('cart.add: giá tính server-side (size L + 2 topping), chuẩn hóa qty', async () => {
   const api = mk();
-  const rows = await api.cart.add({ itemId: 'M001', size: 'L', toppings: ['Shot espresso', 'Kem'], qty: 2 });
+  const rows = await api.cart.add({
+    itemId: 'M001',
+    size: 'L',
+    toppings: ['Shot espresso', 'Kem'],
+    qty: 2
+  });
   // M001 35k + L 10k + (10k + 8k) = 63k/ly — KHÔNG tin giá client
   assert.equal(rows[0].price, 63000);
   assert.equal(rows[0].size, 'L');
@@ -64,9 +81,18 @@ test('cart.add: gộp dòng trùng itemId+size+toppings; size lạ → VALIDATIO
   assert.equal(rows[0].qty, 2);
   assert.equal(rows[0].price, 35000);
 
-  await assert.rejects(() => api.cart.add({ itemId: 'M001', size: 'XXL' }), (e) => e.code === 'VALIDATION'); // món có sizes → XXL cản
-  await assert.rejects(() => api.cart.add({ itemId: 'NOPE' }), (e) => e.code === 'VALIDATION');
-  await assert.rejects(() => api.cart.add({ itemId: 'M101', qty: 0 }), (e) => e.code === 'VALIDATION');
+  await assert.rejects(
+    () => api.cart.add({ itemId: 'M001', size: 'XXL' }),
+    (e) => e.code === 'VALIDATION'
+  ); // món có sizes → XXL cản
+  await assert.rejects(
+    () => api.cart.add({ itemId: 'NOPE' }),
+    (e) => e.code === 'VALIDATION'
+  );
+  await assert.rejects(
+    () => api.cart.add({ itemId: 'M101', qty: 0 }),
+    (e) => e.code === 'VALIDATION'
+  );
 });
 
 test('regression (bug UA): món KHÔNG sizes (M101) — giỏ chỉnh sửa size "M" phải đi qua cart.set không nổ', async () => {
@@ -113,12 +139,18 @@ test('orders.create: TÍNH LẠI GIÁ + TỔNG từ catalog, KHÔNG tin client (
   assert.equal(order.total, 105000);
   assert.equal(order.status, 'pending');
   assert.ok(order.id.startsWith('od-'));
-  assert.deepEqual((await api.orders.getActive()).map((o) => o.id), [order.id]);
+  assert.deepEqual(
+    (await api.orders.getActive()).map((o) => o.id),
+    [order.id]
+  );
 });
 
 test('orders.create: VALIDATION — items rỗng / thiếu địa chỉ / SĐT sai', async () => {
   const api = mk();
-  await assert.rejects(() => api.orders.create({ items: [], address: 'a', phone: '0901234567' }), (e) => e.code === 'VALIDATION');
+  await assert.rejects(
+    () => api.orders.create({ items: [], address: 'a', phone: '0901234567' }),
+    (e) => e.code === 'VALIDATION'
+  );
   await assert.rejects(
     () => api.orders.create({ items: [{ itemId: 'M101' }], address: '', phone: '0901234567' }),
     (e) => e.code === 'VALIDATION' && Boolean(e.extra?.address)
@@ -133,40 +165,75 @@ test('orders guard: hủy đơn người khác FORBIDDEN — hủy đơn đang g
   /* identity khớp: owner hủy được đơn step 0 */
   const store = fresh();
   const owner = createApi({ storage: store, seed: SEED, identity: () => 'U777' });
-  const o = await owner.orders.create({ items: [{ itemId: 'M101' }], address: 'A', phone: '0911111111' });
+  const o = await owner.orders.create({
+    items: [{ itemId: 'M101' }],
+    address: 'A',
+    phone: '0911111111'
+  });
   const stranger = createApi({ storage: store, seed: SEED, identity: () => 'U999' });
-  await assert.rejects(() => stranger.orders.cancel(o.id), (e) => e.code === 'FORBIDDEN');
+  await assert.rejects(
+    () => stranger.orders.cancel(o.id),
+    (e) => e.code === 'FORBIDDEN'
+  );
   assert.equal((await owner.orders.cancel(o.id)).status, 'cancelled');
 
   /* step ≥ 2 (shipper đã lấy): cả owner cũng KHÔNG hủy được */
   const store2 = fresh();
   const own2 = createApi({ storage: store2, seed: SEED, identity: () => 'U001' });
-  const o2 = await own2.orders.create({ items: [{ itemId: 'M102' }], address: 'B', phone: '0912222222' });
+  const o2 = await own2.orders.create({
+    items: [{ itemId: 'M102' }],
+    address: 'B',
+    phone: '0912222222'
+  });
   await own2.orders.updateStep(o2.id, 2);
-  await assert.rejects(() => own2.orders.cancel(o2.id), (e) => e.code === 'CONFLICT');
+  await assert.rejects(
+    () => own2.orders.cancel(o2.id),
+    (e) => e.code === 'CONFLICT'
+  );
 });
 
 test('orders: cancel bước 0-1 OK + step lùi bị cấm + đơn hủy rồi CONFLICT', async () => {
   const api = mk();
-  const o = await api.orders.create({ items: [{ itemId: 'M003' }], address: 'B', phone: '0913333333' });
+  const o = await api.orders.create({
+    items: [{ itemId: 'M003' }],
+    address: 'B',
+    phone: '0913333333'
+  });
   await api.orders.updateStep(o.id, 1);
   const c = await api.orders.cancel(o.id);
   assert.equal(c.status, 'cancelled');
   assert.ok(c.cancelledAt);
-  await assert.rejects(() => api.orders.updateStep(o.id, 3), (e) => e.code === 'CONFLICT');
+  await assert.rejects(
+    () => api.orders.updateStep(o.id, 3),
+    (e) => e.code === 'CONFLICT'
+  );
 
-  const o2 = await api.orders.create({ items: [{ itemId: 'M004' }], address: 'B', phone: '0913333333' });
+  const o2 = await api.orders.create({
+    items: [{ itemId: 'M004' }],
+    address: 'B',
+    phone: '0913333333'
+  });
   await api.orders.updateStep(o2.id, 2);
-  await assert.rejects(() => api.orders.updateStep(o2.id, 1), (e) => e.code === 'VALIDATION'); // lùi bước
+  await assert.rejects(
+    () => api.orders.updateStep(o2.id, 1),
+    (e) => e.code === 'VALIDATION'
+  ); // lùi bước
 });
 
 test('orders.current: setCurrent/getCurrent, id lạ NOT_FOUND, null OK', async () => {
   const api = mk();
   assert.equal(await api.orders.getCurrent(), null);
-  const o = await api.orders.create({ items: [{ itemId: 'M101' }], address: 'C', phone: '0914444444' });
+  const o = await api.orders.create({
+    items: [{ itemId: 'M101' }],
+    address: 'C',
+    phone: '0914444444'
+  });
   await api.orders.setCurrent(o.id);
   assert.equal((await api.orders.getCurrent()).id, o.id);
-  await assert.rejects(() => api.orders.setCurrent('od-nope'), (e) => e.code === 'NOT_FOUND');
+  await assert.rejects(
+    () => api.orders.setCurrent('od-nope'),
+    (e) => e.code === 'NOT_FOUND'
+  );
   await api.orders.setCurrent(null);
   assert.equal(await api.orders.getCurrent(), null);
 });
@@ -174,15 +241,25 @@ test('orders.current: setCurrent/getCurrent, id lạ NOT_FOUND, null OK', async 
 /* ======================= §3.7/3.8 — phần CHƯA implement đúng hợp đồng v1.2 ======================= */
 test('Chưa implement đúng hợp đồng v1.2: users.setCurrent · staff.addFromUser (menu mutations P3-admin)', async () => {
   const api = mk();
-  await assert.rejects(() => api.users.setCurrent(null), (e) => e.code === 'NOT_IMPLEMENTED'); // ngoại lệ đã chốt trong §3.7
-  await assert.rejects(() => api.staff.addFromUser({ id: 'U1', role: 'staff' }), (e) => e.code === 'NOT_IMPLEMENTED'); // P3-admin
+  await assert.rejects(
+    () => api.users.setCurrent(null),
+    (e) => e.code === 'NOT_IMPLEMENTED'
+  ); // ngoại lệ đã chốt trong §3.7
+  await assert.rejects(
+    () => api.staff.addFromUser({ id: 'U1', role: 'staff' }),
+    (e) => e.code === 'NOT_IMPLEMENTED'
+  ); // P3-admin
   assert.equal((await api.users.getAll()).length, 0); // users đã P2, trống vì chưa seedDemo
 });
 
 /* ======================= §4 — export/import end-to-end ======================= */
 test('exportAll → importAll 1-1 (dump chuẩn prep-backend, §4)', async () => {
   const apiA = mk();
-  const o = await apiA.orders.create({ items: [{ itemId: 'M101', qty: 2 }], address: 'D', phone: '0915555555' });
+  const o = await apiA.orders.create({
+    items: [{ itemId: 'M101', qty: 2 }],
+    address: 'D',
+    phone: '0915555555'
+  });
   await apiA.cart.add({ itemId: 'M001', size: 'L' });
 
   const snap = await apiA.exportAll();
@@ -196,5 +273,8 @@ test('exportAll → importAll 1-1 (dump chuẩn prep-backend, §4)', async () =>
   assert.ok(n > 0);
   assert.equal((await apiB.orders.getById(o.id)).total, o.total); // money không drift
   assert.equal((await apiB.cart.get())[0].size, 'L');
-  await assert.rejects(() => apiB.importAll({ broken: 1 }), (e) => e.name === 'StorageError');
+  await assert.rejects(
+    () => apiB.importAll({ broken: 1 }),
+    (e) => e.name === 'StorageError'
+  );
 });

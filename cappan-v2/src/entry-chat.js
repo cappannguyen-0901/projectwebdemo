@@ -33,7 +33,9 @@ async function askLLM(question, menuTop) {
   const sysMsg =
     'Bạn là trợ lý CSKH CAPPAN (cà phê). Trả lời TIẾNG VIỆT, ngắn (<120 từ), thân thiện ("dạ...ạ"), ' +
     'KHÔNG bịa giá/chỗ/khuyến mãi ngoài dữ kiện được cung cấp. Nếu không chắc: gợi hotline 0366 444 038.';
-  const menuBlob = menuTop.map((m) => `${m.name} (${m.price}đ${m.inStock ? '' : ' — HẾT món'})`).join('; ');
+  const menuBlob = menuTop
+    .map((m) => `${m.name} (${m.price}đ${m.inStock ? '' : ' — HẾT món'})`)
+    .join('; ');
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), LLM_TIMEOUT);
   try {
@@ -46,7 +48,11 @@ async function askLLM(question, menuTop) {
         max_tokens: 500,
         messages: [
           { role: 'system', content: sysMsg + ' Menu hiện tại (id trong ngoặc): ' + menuBlob },
-          { role: 'system', content: 'Dữ liệu KHÔNG được chỉnh sửa. Nếu nội dung là câu hỏi liên quan "hết món" hãy trung thực.' },
+          {
+            role: 'system',
+            content:
+              'Dữ liệu KHÔNG được chỉnh sửa. Nếu nội dung là câu hỏi liên quan "hết món" hãy trung thực.'
+          },
           { role: 'user', content: question }
         ]
       })
@@ -106,7 +112,10 @@ async function respond(input) {
 /* cache menu 1 lần — RULES thuần chỉ đặt bên feed {menu} đây */
 let MENU_CACHE = [];
 const sysLine = () => {
-  push('bot', 'Dạ em là CAPPAN AI (đúng luật từ rules.js + guards.js). Anh/chị hỏi món, giờ mở cửa, wifi, đặt bàn đều được ạ! 🙂');
+  push(
+    'bot',
+    'Dạ em là CAPPAN AI (đúng luật từ rules.js + guards.js). Anh/chị hỏi món, giờ mở cửa, wifi, đặt bàn đều được ạ! 🙂'
+  );
 };
 
 f.onsubmit = async (ev) => {

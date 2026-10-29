@@ -8,7 +8,11 @@ const hdr = document.getElementById('hdr');
 let activeCat = 'all';
 
 async function paint() {
-  const [cats, items, cart] = await Promise.all([api.categories.getAll(), api.menu.getAll(), api.cart.get()]);
+  const [cats, items, cart] = await Promise.all([
+    api.categories.getAll(),
+    api.menu.getAll(),
+    api.cart.get()
+  ]);
   const count = cart.reduce((s, i) => s + i.qty, 0);
   renderHeader(hdr, { user, count });
 

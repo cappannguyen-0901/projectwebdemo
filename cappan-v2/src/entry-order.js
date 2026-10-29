@@ -10,12 +10,23 @@ let activeCat = 'all';
 let picked = null; // món đang chuẩn bị
 let opts = { size: null, toppings: new Set(), qty: 1 };
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = (s) =>
+  String(s ?? '').replace(
+    /[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
+  );
 
 async function paint(errMsg = '') {
   try {
-    const [cats, items, cart] = await Promise.all([api.categories.getAll(), api.menu.getAll(), api.cart.get()]);
-    renderHeader(document.getElementById('hdr'), { user, count: cart.reduce((s, i) => s + i.qty, 0) });
+    const [cats, items, cart] = await Promise.all([
+      api.categories.getAll(),
+      api.menu.getAll(),
+      api.cart.get()
+    ]);
+    renderHeader(document.getElementById('hdr'), {
+      user,
+      count: cart.reduce((s, i) => s + i.qty, 0)
+    });
     const count = cart.reduce((s, i) => s + i.qty, 0);
     const total = await api.cart.subtotal();
 
@@ -113,7 +124,7 @@ function bind() {
   );
   const cx = document.getElementById('cx');
   if (cx) {
-    cx.onclick = () => (picked = null, paint());
+    cx.onclick = () => ((picked = null), paint());
     main.querySelectorAll('[data-size]').forEach((c) =>
       c.addEventListener('click', () => {
         main.querySelectorAll('[data-size]').forEach((x) => x.classList.remove('on'));
@@ -124,12 +135,23 @@ function bind() {
     main.querySelectorAll('[data-top]').forEach((c) =>
       c.addEventListener('click', () => {
         const t = c.dataset.top;
-        if (opts.toppings.has(t)) { opts.toppings.delete(t); c.classList.remove('on'); }
-        else { opts.toppings.add(t); c.classList.add('on'); }
+        if (opts.toppings.has(t)) {
+          opts.toppings.delete(t);
+          c.classList.remove('on');
+        } else {
+          opts.toppings.add(t);
+          c.classList.add('on');
+        }
       })
     );
-    document.getElementById('q-del').onclick = () => (opts.qty = Math.max(1, opts.qty - 1), document.getElementById('qv').textContent = opts.qty);
-    document.getElementById('q-add').onclick = () => (opts.qty = Math.min(99, opts.qty + 1), document.getElementById('qv').textContent = opts.qty);
+    document.getElementById('q-del').onclick = () => (
+      (opts.qty = Math.max(1, opts.qty - 1)),
+      (document.getElementById('qv').textContent = opts.qty)
+    );
+    document.getElementById('q-add').onclick = () => (
+      (opts.qty = Math.min(99, opts.qty + 1)),
+      (document.getElementById('qv').textContent = opts.qty)
+    );
     document.getElementById('cfg').onsubmit = async (ev) => {
       ev.preventDefault();
       try {
@@ -149,7 +171,11 @@ function bind() {
     };
   }
   const mc = document.getElementById('mc');
-  if (mc) mc.onclick = async () => { await api.cart.clear(); paint(); };
+  if (mc)
+    mc.onclick = async () => {
+      await api.cart.clear();
+      paint();
+    };
 }
 
 paint();

@@ -8,7 +8,12 @@ import { SEED } from '../src/data/seed.js';
 const NOW = new Date('2026-10-29T12:00:00'); /* "hôm nay" cố định — Thursday 2026-10-29 */
 const fresh = () => new Storage(memoryDriver());
 const mk = (opts = {}) =>
-  createApi({ storage: opts.storage || fresh(), seed: SEED, identity: opts.identity || (() => null), now: () => NOW });
+  createApi({
+    storage: opts.storage || fresh(),
+    seed: SEED,
+    identity: opts.identity || (() => null),
+    now: () => NOW
+  });
 
 /* helper: 1 đơn COMPLETED ở "hôm nay" (step 4) bằng updateStep */
 const completeOrder = async (api, input) => {
@@ -21,7 +26,10 @@ const completeOrder = async (api, input) => {
 test('promotions: seed đúng 3 mã legacy · status active/off · getActive', async () => {
   const api = mk();
   const all = await api.promotions.getAll();
-  assert.deepEqual(all.map((p) => p.code), ['WELCOME10', 'FREESHIP', 'CAFE20']);
+  assert.deepEqual(
+    all.map((p) => p.code),
+    ['WELCOME10', 'FREESHIP', 'CAFE20']
+  );
 
   assert.equal(await api.promotions.status(all[0]), 'active'); // 2026-10-29 trong 2026-01-01..2027-12-31
   assert.equal(await api.promotions.status({ ...all[0], active: false }), 'off');
@@ -37,7 +45,10 @@ test('promotions.evaluate: 10% cap 30k · minOrder chặn · mã không tồn t�
   assert.equal(w.ok, true);
   assert.equal(w.discount, 25000);
   /* cap 10% của 500.000 = 50.000 → bị cắt còn maxDiscount 30.000 */
-  assert.equal((await api.promotions.evaluate('WELCOME10', 500000, 15000, 'U-new')).discount, 30000);
+  assert.equal(
+    (await api.promotions.evaluate('WELCOME10', 500000, 15000, 'U-new')).discount,
+    30000
+  );
 
   /* minOrder: FREESHIP cần 100.000 — đơn 90k sai → chặn */
   const f = await api.promotions.evaluate('FREESHIP', 90000, 15000, 'U-new');
@@ -47,7 +58,12 @@ test('promotions.evaluate: 10% cap 30k · minOrder chặn · mã không tồn t�
   /* mã lạ + hết hạn */
   assert.equal((await api.promotions.evaluate('NOPE', 100, 0)).ok, false);
   /*Expired simulation: tự đặt endDate quá khứ*/
-  await api.promotions.create({ code: 'OLDCODE', name: 'Cũ', discount: '5%', endDate: '2020-01-01' });
+  await api.promotions.create({
+    code: 'OLDCODE',
+    name: 'Cũ',
+    discount: '5%',
+    endDate: '2020-01-01'
+  });
   const oldEv = await api.promotions.evaluate('OLDCODE', 100000, 15000);
   assert.equal(oldEv.ok, false);
   assert.match(oldEv.error, /hết hạn/);
@@ -75,21 +91,45 @@ test('promotions.evaluate: WELCOME10 "đơn hàng đầu tiên" — có đơn ch
   assert.equal((await api.promotions.evaluate('WELCOME10', 130000, 15000, 'U999')).ok, true);
   /* đơn CANCELLED không tính vào lịch sử "đã mua" */
   const api2 = mk({ identity: () => 'U002' });
-  const o = await api2.orders.create({ address: 'a', phone: '0901111111', items: [{ itemId: 'M001', qty: 1 }] });
+  const o = await api2.orders.create({
+    address: 'a',
+    phone: '0901111111',
+    items: [{ itemId: 'M001', qty: 1 }]
+  });
   await api2.orders.cancel(o.id);
   assert.equal((await api2.promotions.evaluate('WELCOME10', 130000, 15000, 'U002')).ok, true);
 });
 
 test('promotions.create/remove: VALIDATION format · CONFLICT trùng mã · remove NOT_FOUND', async () => {
   const api = mk();
-  await assert.rejects(() => api.promotions.create({ code: 'x!!', name: 'Sai', discount: '10%' }), (e) => e.code === 'VALIDATION');
-  await assert.rejects(() => api.promotions.create({ code: 'HIP10', name: '', discount: '10%' }), (e) => e.code === 'VALIDATION');
-  await assert.rejects(() => api.promotions.create({ code: 'HIP10', name: 'n', discount: '', minOrder: 0 }), (e) => e.code === 'VALIDATION');
-  await assert.rejects(() => api.promotions.create({ code: 'WELCOME10', name: 'Trùng', discount: '10%' }), (e) => e.code === 'CONFLICT');
-  const p = await api.promotions.create({ code: 'HIP10', name: 'Mới', discount: '10%', maxDiscount: 10000 });
+  await assert.rejects(
+    () => api.promotions.create({ code: 'x!!', name: 'Sai', discount: '10%' }),
+    (e) => e.code === 'VALIDATION'
+  );
+  await assert.rejects(
+    () => api.promotions.create({ code: 'HIP10', name: '', discount: '10%' }),
+    (e) => e.code === 'VALIDATION'
+  );
+  await assert.rejects(
+    () => api.promotions.create({ code: 'HIP10', name: 'n', discount: '', minOrder: 0 }),
+    (e) => e.code === 'VALIDATION'
+  );
+  await assert.rejects(
+    () => api.promotions.create({ code: 'WELCOME10', name: 'Trùng', discount: '10%' }),
+    (e) => e.code === 'CONFLICT'
+  );
+  const p = await api.promotions.create({
+    code: 'HIP10',
+    name: 'Mới',
+    discount: '10%',
+    maxDiscount: 10000
+  });
   assert.equal(p.maxDiscount, 10000);
   assert.equal(await api.promotions.remove('HIP10'), true);
-  await assert.rejects(() => api.promotions.remove('HIP10'), (e) => e.code === 'NOT_FOUND');
+  await assert.rejects(
+    () => api.promotions.remove('HIP10'),
+    (e) => e.code === 'NOT_FOUND'
+  );
 });
 
 /* ======================= orders.create(promoCode) — giảm giá do facade tính ======================= */
@@ -108,15 +148,31 @@ test('orders.create + promoCode: total giảm đúng 10% cap · mã lỗi → VA
 
   /* mã không minOrder theomons → VALIDATION bọc message thân tình */
   await assert.rejects(
-    () => api.orders.create({ items: [{ itemId: 'M001', qty: 1 }], address: 'a', phone: '0901111111', promoCode: 'FREESHIP' }),
+    () =>
+      api.orders.create({
+        items: [{ itemId: 'M001', qty: 1 }],
+        address: 'a',
+        phone: '0901111111',
+        promoCode: 'FREESHIP'
+      }),
     (e) => e.code === 'VALIDATION'
   );
   await assert.rejects(
-    () => api.orders.create({ items: [{ itemId: 'M001', qty: 1 }], address: 'a', phone: '0901111111', promoCode: 'GHOST' }),
+    () =>
+      api.orders.create({
+        items: [{ itemId: 'M001', qty: 1 }],
+        address: 'a',
+        phone: '0901111111',
+        promoCode: 'GHOST'
+      }),
     (e) => e.code === 'VALIDATION'
   );
   /* KHÔNG truyền promoCode → total nguyên lệch như P1 */
-  const raw = await api.orders.create({ items: [{ itemId: 'M001', qty: 1 }], address: 'a', phone: '0901111111' });
+  const raw = await api.orders.create({
+    items: [{ itemId: 'M001', qty: 1 }],
+    address: 'a',
+    phone: '0901111111'
+  });
   assert.equal(raw.total, 50000); // 35k + 15k ship
   assert.equal(raw.discount, 0);
   assert.equal(raw.promoCode, '');
@@ -127,7 +183,11 @@ test('stats: today/thisWeek/thisMonth — completed chỉ step4, pending không 
   const api = mk({ identity: () => 'U001' });
   await completeOrder(api, { items: [{ itemId: 'M001', qty: 4 }] }); // 140k + 15k = 155k
   await completeOrder(api, { items: [{ itemId: 'M101', qty: 2 }] }); // 90k + 15k = 105k
-  await api.orders.create({ items: [{ itemId: 'M002', qty: 5 }], address: 'a', phone: '0901111111' }); // pending → count có, revenue KHÔNG
+  await api.orders.create({
+    items: [{ itemId: 'M002', qty: 5 }],
+    address: 'a',
+    phone: '0901111111'
+  }); // pending → count có, revenue KHÔNG
 
   const t = await api.stats.today();
   assert.equal(t.total, 260000); // 155k + 105k
@@ -136,7 +196,11 @@ test('stats: today/thisWeek/thisMonth — completed chỉ step4, pending không 
   assert.equal(t.count, 3);
 
   /* cancelled loại hoàn toàn khỏi count */
-  const o = await api.orders.create({ items: [{ itemId: 'M002', qty: 1 }], address: 'a', phone: '0901111111' });
+  const o = await api.orders.create({
+    items: [{ itemId: 'M002', qty: 1 }],
+    address: 'a',
+    phone: '0901111111'
+  });
   await api.orders.cancel(o.id);
   assert.equal((await api.stats.today()).count, 3);
 
@@ -144,7 +208,11 @@ test('stats: today/thisWeek/thisMonth — completed chỉ step4, pending không 
   const wk = await api.stats.thisWeek();
   assert.ok(wk.total >= t.total);
   /* đơn step<4 (preparing) không vào doanh thu */
-  const prep = await api.orders.create({ items: [{ itemId: 'M001', qty: 10 }], address: 'a', phone: '0901111111' });
+  const prep = await api.orders.create({
+    items: [{ itemId: 'M001', qty: 10 }],
+    address: 'a',
+    phone: '0901111111'
+  });
   await api.orders.updateStep(prep.id, 1);
   assert.equal((await api.stats.today()).total, 260000);
   assert.equal((await api.stats.today()).pendingCount, 2);
@@ -152,12 +220,29 @@ test('stats: today/thisWeek/thisMonth — completed chỉ step4, pending không 
 
 test('stats: ordersByStatus · topItems · bookingsByStatus · occupancyRate', async () => {
   const api = mk({ identity: () => 'U001' });
-  await completeOrder(api, { items: [{ itemId: 'M001', qty: 2 }, { itemId: 'M002', qty: 1 }] }); // 140k+15k
-  const o2 = await api.orders.create({ items: [{ itemId: 'M002', qty: 3 }], address: 'a', phone: '0901111111' });
+  await completeOrder(api, {
+    items: [
+      { itemId: 'M001', qty: 2 },
+      { itemId: 'M002', qty: 1 }
+    ]
+  }); // 140k+15k
+  const o2 = await api.orders.create({
+    items: [{ itemId: 'M002', qty: 3 }],
+    address: 'a',
+    phone: '0901111111'
+  });
   await api.orders.updateStep(o2.id, 1); // preparing
-  const o3 = await api.orders.create({ items: [{ itemId: 'M001', qty: 1 }], address: 'a', phone: '0901111111' });
+  const o3 = await api.orders.create({
+    items: [{ itemId: 'M001', qty: 1 }],
+    address: 'a',
+    phone: '0901111111'
+  });
   await api.orders.cancel(o3.id); // hủy ở step 0 (step≥2 cấm hủy — đúng guard facade)
-  const o4 = await api.orders.create({ items: [{ itemId: 'M001', qty: 1 }], address: 'a', phone: '0901111111' });
+  const o4 = await api.orders.create({
+    items: [{ itemId: 'M001', qty: 1 }],
+    address: 'a',
+    phone: '0901111111'
+  });
   await api.orders.updateStep(o4.id, 3); // shipping
 
   const st = await api.stats.ordersByStatus();
@@ -191,7 +276,10 @@ test('staff: getAll seed 6 người · getById · addFromUser vẫn NOT_IMPLEMEN
   assert.equal(all.length, 6);
   assert.equal((await api.staff.getById('S001')).name, 'Nguyễn Văn An');
   assert.equal(await api.staff.getById('NOPE'), null);
-  await assert.rejects(() => api.staff.addFromUser({ id: 'U1', role: 'staff' }), (e) => e.code === 'NOT_IMPLEMENTED');
+  await assert.rejects(
+    () => api.staff.addFromUser({ id: 'U1', role: 'staff' }),
+    (e) => e.code === 'NOT_IMPLEMENTED'
+  );
 });
 
 test('shifts: schedule thêm/xóa · CONFLICT 2 ca cùng ngày · VALIDATION/NOT_FOUND', async () => {
@@ -204,9 +292,15 @@ test('shifts: schedule thêm/xóa · CONFLICT 2 ca cùng ngày · VALIDATION/NOT
   /* thêm thêm người vào cùng ca */
   await api.shifts.addStaffToShift('2026-10-30', 'morning', 'S002');
   /* CONFLICT: đã có ca khác ngày đó (P2-6 legacy) */
-  await assert.rejects(() => api.shifts.addStaffToShift('2026-10-30', 'evening', 'S001'), (e) => e.code === 'CONFLICT');
+  await assert.rejects(
+    () => api.shifts.addStaffToShift('2026-10-30', 'evening', 'S001'),
+    (e) => e.code === 'CONFLICT'
+  );
   /* CONFLICT: trùng chính ca này */
-  await assert.rejects(() => api.shifts.addStaffToShift('2026-10-30', 'morning', 'S001'), (e) => e.code === 'CONFLICT');
+  await assert.rejects(
+    () => api.shifts.addStaffToShift('2026-10-30', 'morning', 'S001'),
+    (e) => e.code === 'CONFLICT'
+  );
   /* ngày khác thì được */
   await api.shifts.addStaffToShift('2026-10-31', 'morning', 'S001');
   /* removeStaffFromShift: idempotent */
@@ -216,7 +310,16 @@ test('shifts: schedule thêm/xóa · CONFLICT 2 ca cùng ngày · VALIDATION/NOT
   assert.deepEqual(s['2026-10-30'].morning, ['S002']);
   assert.deepEqual(s['2026-10-31'].morning, ['S001']);
 
-  await assert.rejects(() => api.shifts.addStaffToShift('30-10-2026', 'morning', 'S001'), (e) => e.code === 'VALIDATION');
-  await assert.rejects(() => api.shifts.addStaffToShift('2026-10-30', 'nope', 'S001'), (e) => e.code === 'NOT_FOUND');
-  await assert.rejects(() => api.shifts.addStaffToShift('2026-11-01', 'morning', 'NOPE'), (e) => e.code === 'NOT_FOUND');
+  await assert.rejects(
+    () => api.shifts.addStaffToShift('30-10-2026', 'morning', 'S001'),
+    (e) => e.code === 'VALIDATION'
+  );
+  await assert.rejects(
+    () => api.shifts.addStaffToShift('2026-10-30', 'nope', 'S001'),
+    (e) => e.code === 'NOT_FOUND'
+  );
+  await assert.rejects(
+    () => api.shifts.addStaffToShift('2026-11-01', 'morning', 'NOPE'),
+    (e) => e.code === 'NOT_FOUND'
+  );
 });

@@ -76,8 +76,12 @@ async function paint(msg = '') {
       await api.cart.clear();
       paint();
     };
-    document.querySelectorAll('[data-minus]').forEach((b) => b.addEventListener('click', () => adjust(Number(b.dataset.minus), -1)));
-    document.querySelectorAll('[data-plus]').forEach((b) => b.addEventListener('click', () => adjust(Number(b.dataset.plus), +1)));
+    document
+      .querySelectorAll('[data-minus]')
+      .forEach((b) => b.addEventListener('click', () => adjust(Number(b.dataset.minus), -1)));
+    document
+      .querySelectorAll('[data-plus]')
+      .forEach((b) => b.addEventListener('click', () => adjust(Number(b.dataset.plus), +1)));
     document.getElementById('promo').onsubmit = (ev) => {
       ev.preventDefault();
       const next = document.getElementById('pc').value.toUpperCase().trim();
@@ -88,7 +92,12 @@ async function paint(msg = '') {
       ev.preventDefault();
       try {
         const order = await api.orders.create({
-          items: cart.map((l) => ({ itemId: l.itemId, size: l.size, toppings: l.toppings.map((t) => t.name), qty: l.qty })),
+          items: cart.map((l) => ({
+            itemId: l.itemId,
+            size: l.size,
+            toppings: l.toppings.map((t) => t.name),
+            qty: l.qty
+          })),
           address: document.getElementById('ad').value,
           phone: document.getElementById('ph').value,
           note: document.getElementById('nt').value,
@@ -112,7 +121,11 @@ async function paint(msg = '') {
   }
 }
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = (s) =>
+  String(s ?? '').replace(
+    /[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
+  );
 const line = (i, l) => `
   <div class="line" style="margin-bottom:8px">
     <img src="${esc(l.img)}" alt="" />

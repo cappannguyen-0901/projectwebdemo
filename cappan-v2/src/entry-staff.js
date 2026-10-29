@@ -7,7 +7,11 @@ const { api, user } = await createAppApi();
 const main = document.getElementById('main');
 const state = document.getElementById('state');
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = (s) =>
+  String(s ?? '').replace(
+    /[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
+  );
 const STEP_LABEL = ['Chờ xử lý', 'Đang pha', 'Lên xe', 'Đang giao', 'Hoàn tất'];
 
 /* 7 ngày tới cho lịch ca: YYYY-MM-DD + nhãn Thứ/n-ngày */
@@ -40,17 +44,18 @@ async function paint(tab = 'orders') {
     return;
   }
   try {
-    const [statsToday, occ, byStatus, orders, bookings, menu, staffList, shiftDefs, schedule] = await Promise.all([
-      api.stats.today(),
-      api.stats.occupancyRate(),
-      api.stats.ordersByStatus(),
-      api.orders.getAll(),
-      api.bookings.getAll(),
-      api.menu.getAll(),
-      api.staff.getAll(),
-      api.shifts.getAll(),
-      api.shifts.getSchedule()
-    ]);
+    const [statsToday, occ, byStatus, orders, bookings, menu, staffList, shiftDefs, schedule] =
+      await Promise.all([
+        api.stats.today(),
+        api.stats.occupancyRate(),
+        api.stats.ordersByStatus(),
+        api.orders.getAll(),
+        api.bookings.getAll(),
+        api.menu.getAll(),
+        api.staff.getAll(),
+        api.shifts.getAll(),
+        api.shifts.getSchedule()
+      ]);
     renderHeader(document.getElementById('hdr'), { user });
     const active = orders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled');
 
@@ -78,7 +83,9 @@ async function paint(tab = 'orders') {
       ${sec[tab]}`;
 
     state.remove();
-    main.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => paint(b.dataset.tab)));
+    main
+      .querySelectorAll('[data-tab]')
+      .forEach((b) => b.addEventListener('click', () => paint(b.dataset.tab)));
     bindOrders(active);
     bindTables(bookings);
     bindMenu();
@@ -244,7 +251,8 @@ async function paint(tab = 'orders') {
           toast(e.message, 'err');
         }
       })
-    );    main.querySelectorAll('[data-unshift]').forEach((b) =>
+    );
+    main.querySelectorAll('[data-unshift]').forEach((b) =>
       b.addEventListener('click', async () => {
         const s = await api.shifts.getSchedule();
         for (const id of s[b.dataset.unshift]?.[b.dataset.shift] || []) {

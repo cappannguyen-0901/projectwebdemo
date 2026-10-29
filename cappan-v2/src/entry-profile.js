@@ -10,8 +10,18 @@ if (!user) {
   location.assign('auth.html'); // guard login — demo-grade, backend sẽ thay bằng 401 server-side
 }
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const STATUS_LABEL = { pending: 'Chờ xử lý', preparing: 'Đang pha', delivering: 'Đang giao', completed: 'Hoàn tất', cancelled: 'Đã hủy' };
+const esc = (s) =>
+  String(s ?? '').replace(
+    /[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
+  );
+const STATUS_LABEL = {
+  pending: 'Chờ xử lý',
+  preparing: 'Đang pha',
+  delivering: 'Đang giao',
+  completed: 'Hoàn tất',
+  cancelled: 'Đã hủy'
+};
 
 async function paint(errMsg = '') {
   try {

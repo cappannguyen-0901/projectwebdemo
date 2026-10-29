@@ -33,7 +33,11 @@ async function render() {
     render();
   };
   document.getElementById('exportAll').onclick = async () => {
-    document.getElementById('dump').textContent = JSON.stringify(await api.exportAll(), null, 2).slice(0, 2000);
+    document.getElementById('dump').textContent = JSON.stringify(
+      await api.exportAll(),
+      null,
+      2
+    ).slice(0, 2000);
   };
 }
 

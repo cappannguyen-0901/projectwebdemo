@@ -36,9 +36,23 @@ test('clear(prefix) chỉ xóa đúng dải — không đụng key khác', async
 });
 
 test('driver lỗi ( quota ) THẢ StorageError — không nuốt như legacy', async () => {
-  const boom = { async get() { return null; }, async set() { throw new Error('QuotaExceededError'); }, async delete() {}, async keys() { return []; } };
+  const boom = {
+    async get() {
+      return null;
+    },
+    async set() {
+      throw new Error('QuotaExceededError');
+    },
+    async delete() {},
+    async keys() {
+      return [];
+    }
+  };
   const s = new Storage(boom);
-  await assert.rejects(() => s.set('orders', []), (e) => e instanceof StorageError && /Quota/.test(e.message));
+  await assert.rejects(
+    () => s.set('orders', []),
+    (e) => e instanceof StorageError && /Quota/.test(e.message)
+  );
 });
 
 test('exportAll → format cappan-snapshot v1; importAll replace + merge', async () => {
@@ -53,14 +67,14 @@ test('exportAll → format cappan-snapshot v1; importAll replace + merge', async
   assert.equal(snap.data.menu[0].id, 'M001');
 
   const b = await mk();
-  await b.set('menu', [{ id: 'OLD' }]);           // sẽ bị thay vì replace=true
+  await b.set('menu', [{ id: 'OLD' }]); // sẽ bị thay vì replace=true
   await b.set('orders', [{ id: 'od-x' }]);
   assert.equal(await b.importAll(snap), 2);
   assert.equal((await b.get('menu'))[0].id, 'M001');
   assert.equal(await b.get('orders'), null);
 
   const c = await mk();
-  await c.set('menu', [{ id: 'OLD' }]);           // merge: giữ key có sẵn
+  await c.set('menu', [{ id: 'OLD' }]); // merge: giữ key có sẵn
   await c.importAll(snap, { replace: false });
   assert.equal((await c.get('menu'))[0].id, 'M001'); // snapshot mới thắng nếu key chỉ có ở snapshot
 });

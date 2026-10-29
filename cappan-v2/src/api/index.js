@@ -53,7 +53,10 @@ export function createApi({
   /* ---------- helpers ---------- */
   const list = async (key, seedValue = []) => storage.get(key, seedValue) || [];
   const notImplemented = (ns, method) => async () => {
-    throw new ApiError('NOT_IMPLEMENTED', `${ns}.${method} — hẹn pha P2/P3, xem docs/api-contract.md`);
+    throw new ApiError(
+      'NOT_IMPLEMENTED',
+      `${ns}.${method} — hẹn pha P2/P3, xem docs/api-contract.md`
+    );
   };
 
   async function ensureSeeded() {
@@ -68,7 +71,10 @@ export function createApi({
     if (!(await storage.get(KEYS.shifts))) {
       await storage.set(KEYS.shifts, seed.shifts || []);
     }
-    if ((await storage.get(KEYS.schedule)) === null || (await storage.get(KEYS.schedule)) === undefined) {
+    if (
+      (await storage.get(KEYS.schedule)) === null ||
+      (await storage.get(KEYS.schedule)) === undefined
+    ) {
       await storage.set(KEYS.schedule, {});
     }
     /* v1.2 demo migration: tài khoản seed "Nhân viên Demo" (0900000002) create từ v1.1 mang role
@@ -99,19 +105,29 @@ export function createApi({
     const sizeName = input.size || (item.sizes?.[0]?.name ?? 'M');
     const size = sizeName ? (item.sizes || []).find((s) => s.name === sizeName) : undefined;
     if (hasSizes && !size) {
-      throw new ApiError('VALIDATION', `Size "${input.size}" không tồn tại cho món ${item.id}`, { itemId: item.id, size: input.size });
+      throw new ApiError('VALIDATION', `Size "${input.size}" không tồn tại cho món ${item.id}`, {
+        itemId: item.id,
+        size: input.size
+      });
     }
 
     const availableToppings = new Map((item.toppings || []).map((t) => [t.name, t]));
     const toppings = (input.toppings || []).map((tName) => {
       const t = availableToppings.get(tName);
-      if (!t) throw new ApiError('VALIDATION', `Topping "${tName}" không tồn tại cho món ${item.id}`, { itemId: item.id, topping: tName });
+      if (!t)
+        throw new ApiError('VALIDATION', `Topping "${tName}" không tồn tại cho món ${item.id}`, {
+          itemId: item.id,
+          topping: tName
+        });
       return { name: t.name, price: t.price };
     });
 
     const qty = Math.floor(Number(input.qty === undefined ? 1 : input.qty));
     if (!Number.isInteger(qty) || qty < 1 || qty > 99) {
-      throw new ApiError('VALIDATION', `Qty không hợp lệ: ${input.qty}`, { itemId: item.id, qty: input.qty });
+      throw new ApiError('VALIDATION', `Qty không hợp lệ: ${input.qty}`, {
+        itemId: item.id,
+        qty: input.qty
+      });
     }
 
     const sizeExtra = size?.extraPrice || 0;
@@ -134,7 +150,9 @@ export function createApi({
       await ensureSeeded();
       const rows = await list(KEYS.menu);
       const catOrder = new Map((await list(KEYS.categories)).map((c) => [c.id, c.order]));
-      return rows.sort((a, b) => (catOrder.get(a.categoryId) ?? 99) - (catOrder.get(b.categoryId) ?? 99));
+      return rows.sort(
+        (a, b) => (catOrder.get(a.categoryId) ?? 99) - (catOrder.get(b.categoryId) ?? 99)
+      );
     },
     async getById(id) {
       return (await list(KEYS.menu)).find((m) => m.id === id) || null;
@@ -168,20 +186,38 @@ export function createApi({
     }
   };
 
-  const categories = { async getAll() { await ensureSeeded(); return (await list(KEYS.categories)).sort((a, b) => a.order - b.order); } };
+  const categories = {
+    async getAll() {
+      await ensureSeeded();
+      return (await list(KEYS.categories)).sort((a, b) => a.order - b.order);
+    }
+  };
   const floors = {
-    async getAll() { await ensureSeeded(); return list(KEYS.floors); },
-    async getById(id) { return (await floors.getAll()).find((f) => f.id === id) || null; }
+    async getAll() {
+      await ensureSeeded();
+      return list(KEYS.floors);
+    },
+    async getById(id) {
+      return (await floors.getAll()).find((f) => f.id === id) || null;
+    }
   };
 
   const seats = {
-    async getAll() { await ensureSeeded(); return list(KEYS.seats); },
-    async getById(id) { return (await seats.getAll()).find((s) => s.id === id) || null; },
+    async getAll() {
+      await ensureSeeded();
+      return list(KEYS.seats);
+    },
+    async getById(id) {
+      return (await seats.getAll()).find((s) => s.id === id) || null;
+    },
     async getByFloor(floorId) {
-      if (!(await floors.getById(floorId))) throw new ApiError('NOT_FOUND', `Tầng "${floorId}" không tồn tại`);
+      if (!(await floors.getById(floorId)))
+        throw new ApiError('NOT_FOUND', `Tầng "${floorId}" không tồn tại`);
       return (await seats.getAll()).filter((s) => s.floorId === floorId);
     },
-    async getAvailable() { return (await seats.getAll()).filter((s) => s.status === 'available'); },
+    async getAvailable() {
+      return (await seats.getAll()).filter((s) => s.status === 'available');
+    },
     /* mutation ghế — P2 ✅ (§3.4): quản lý state bởi bookings {@link bookings} */
     async _setStatus(id, status) {
       await ensureSeeded();
@@ -210,18 +246,25 @@ export function createApi({
   /* ---------- cart (theo identity: cart:<uid> | cart:guest) ---------- */
   const cartKey = () => `cart:${uid()}`;
   const cart = {
-    async get() { await ensureSeeded(); return list(cartKey()); },
+    async get() {
+      await ensureSeeded();
+      return list(cartKey());
+    },
     async add(input) {
       await ensureSeeded();
       const item = await menu.getById(input?.itemId);
-      if (!item) throw new ApiError('VALIDATION', `Món "${input?.itemId}" không tồn tại`, { itemId: input?.itemId });
+      if (!item)
+        throw new ApiError('VALIDATION', `Món "${input?.itemId}" không tồn tại`, {
+          itemId: input?.itemId
+        });
       const line = priceLine(item, input || {});
 
       const rows = await cart.get();
       const same = (l) =>
         l.itemId === line.itemId &&
         l.size === line.size &&
-        JSON.stringify(l.toppings.map((t) => t.name)) === JSON.stringify(line.toppings.map((t) => t.name));
+        JSON.stringify(l.toppings.map((t) => t.name)) ===
+          JSON.stringify(line.toppings.map((t) => t.name));
       const dup = rows.find(same);
       if (dup) dup.qty += line.qty;
       else rows.push(line);
@@ -241,7 +284,9 @@ export function createApi({
       return rows;
     },
     async remove(itemId, size) {
-      const rows = (await cart.get()).filter((l) => !(l.itemId === itemId && (size === undefined || l.size === size)));
+      const rows = (await cart.get()).filter(
+        (l) => !(l.itemId === itemId && (size === undefined || l.size === size))
+      );
       await storage.set(cartKey(), rows);
       return rows;
     },
@@ -258,7 +303,11 @@ export function createApi({
       const merged = [...(await list(`cart:${userId}`))];
       for (const g of guestRows) {
         const dup = merged.find(
-          (l) => l.itemId === g.itemId && l.size === g.size && JSON.stringify(l.toppings.map((t) => t.name)) === JSON.stringify(g.toppings.map((t) => t.name))
+          (l) =>
+            l.itemId === g.itemId &&
+            l.size === g.size &&
+            JSON.stringify(l.toppings.map((t) => t.name)) ===
+              JSON.stringify(g.toppings.map((t) => t.name))
         );
         if (dup) dup.qty += g.qty;
         else merged.push({ ...g });
@@ -279,8 +328,10 @@ export function createApi({
       }
       const issues = {};
       if (!input.address || !String(input.address).trim()) issues.address = 'Bắt buộc';
-      if (!input.phone || !/^[0-9+\s.-]{8,15}$/.test(String(input.phone))) issues.phone = 'SĐT không hợp lệ (VD 0901234567)';
-      if (Object.keys(issues).length) throw new ApiError('VALIDATION', 'Đơn thiếu thông tin giao hàng', issues);
+      if (!input.phone || !/^[0-9+\s.-]{8,15}$/.test(String(input.phone)))
+        issues.phone = 'SĐT không hợp lệ (VD 0901234567)';
+      if (Object.keys(issues).length)
+        throw new ApiError('VALIDATION', 'Đơn thiếu thông tin giao hàng', issues);
 
       const items = [];
       for (const it of input.items) {
@@ -324,13 +375,21 @@ export function createApi({
       return order;
     },
 
-    async getById(id) { return (await list(KEYS.orders)).find((o) => o.id === id) || null; },
-    async getByUser(userId) {
-      return (await list(KEYS.orders)).filter((o) => o.userId === userId).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    async getById(id) {
+      return (await list(KEYS.orders)).find((o) => o.id === id) || null;
     },
-    async getAll() { return list(KEYS.orders); },
+    async getByUser(userId) {
+      return (await list(KEYS.orders))
+        .filter((o) => o.userId === userId)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    },
+    async getAll() {
+      return list(KEYS.orders);
+    },
     async getActive() {
-      return (await orders.getAll()).filter((o) => o.status !== 'completed' && o.status !== 'cancelled');
+      return (await orders.getAll()).filter(
+        (o) => o.status !== 'completed' && o.status !== 'cancelled'
+      );
     },
     async getCurrent() {
       return (await storage.get(KEYS.currentOrder)) || null;
@@ -351,7 +410,10 @@ export function createApi({
       if (o.status === 'cancelled') throw new ApiError('CONFLICT', `Đơn ${id} đã hủy trước đó`);
       if (o.step > CANCEL_MAX_STEP) {
         // BUG legacy (docs/signoff-report.md #6): khách hủy được đơn đang giao. Cấm step > CANCEL_MAX_STEP (=1).
-        throw new ApiError('CONFLICT', `Đơn ${id} bước "${ORDER_EXPRESS.steps[o.step]}" — không hủy được, gọi hotline để can thiệp`);
+        throw new ApiError(
+          'CONFLICT',
+          `Đơn ${id} bước "${ORDER_EXPRESS.steps[o.step]}" — không hủy được, gọi hotline để can thiệp`
+        );
       }
       o.status = 'cancelled';
       o.step = -1;
@@ -364,7 +426,10 @@ export function createApi({
       const o = await orders._must(id);
       const step = Number(nextStep);
       if (!Number.isInteger(step) || step < 0 || step > 4 || (o.step >= 0 && step < o.step)) {
-        throw new ApiError('VALIDATION', `Step phải nguyên 0..4 và KHÔNG lùi (hiện ${o.step})`, { current: o.step, next: step });
+        throw new ApiError('VALIDATION', `Step phải nguyên 0..4 và KHÔNG lùi (hiện ${o.step})`, {
+          current: o.step,
+          next: step
+        });
       }
       if (o.status === 'cancelled') throw new ApiError('CONFLICT', `Đơn ${id} đã hủy`);
       o.step = step;
@@ -387,10 +452,13 @@ export function createApi({
       if (i < 0) throw new ApiError('NOT_FOUND', `Đơn "${row.id}" không tồn tại`);
       rows[i] = row;
       await storage.set(KEYS.orders, rows);
-      if ((await storage.get(KEYS.currentOrder))?.id === row.id) await storage.set(KEYS.currentOrder, row);
+      if ((await storage.get(KEYS.currentOrder))?.id === row.id)
+        await storage.set(KEYS.currentOrder, row);
       return row;
     },
-    async _completeBookings() { return null; } /* hook P2 */
+    async _completeBookings() {
+      return null;
+    } /* hook P2 */
   };
 
   /* ---------- bookings (P2 — §3.8, thực thi v1.1) ---------- */
@@ -414,7 +482,8 @@ export function createApi({
       if (changed) {
         await storage.set(KEYS.bookings, rows);
         const seatRows = await list(KEYS.seats);
-        for (const s of seatRows) if (freed.has(s.id) && s.status === 'booked') s.status = 'available';
+        for (const s of seatRows)
+          if (freed.has(s.id) && s.status === 'booked') s.status = 'available';
         await storage.set(KEYS.seats, seatRows);
       }
     },
@@ -425,26 +494,45 @@ export function createApi({
       if (!seat) throw new ApiError('NOT_FOUND', `Ghế "${input.seatId}" không tồn tại`);
       const guests = Math.floor(Number(input.guests === undefined ? 2 : input.guests)); // legacy mặc định 2 khách
       if (!Number.isInteger(guests) || guests < 1 || guests > 20) {
-        throw new ApiError('VALIDATION', 'Số khách phải nguyên 1..20', { field: 'guests', guests: input.guests });
+        throw new ApiError('VALIDATION', 'Số khách phải nguyên 1..20', {
+          field: 'guests',
+          guests: input.guests
+        });
       }
       if (guests > seat.capacity) {
-        throw new ApiError('VALIDATION', `Bàn ${seat.id} chỉ chứa tối đa ${seat.capacity} khách`, { field: 'guests', capacity: seat.capacity });
+        throw new ApiError('VALIDATION', `Bàn ${seat.id} chỉ chứa tối đa ${seat.capacity} khách`, {
+          field: 'guests',
+          capacity: seat.capacity
+        });
       }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(String(input.date || ''))) {
         throw new ApiError('VALIDATION', 'Ngày phải dạng YYYY-MM-DD', { field: 'date' });
       }
-      if (input.date < today()) throw new ApiError('VALIDATION', 'Không đặt chỗ cho ngày quá khứ', { field: 'date' });
+      if (input.date < today())
+        throw new ApiError('VALIDATION', 'Không đặt chỗ cho ngày quá khứ', { field: 'date' });
       if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(String(input.time || ''))) {
         throw new ApiError('VALIDATION', 'Giờ phải dạng HH:MM', { field: 'time' });
       }
       const clash = (await bookings.getAll()).some(
-        (b) => b.seatId === input.seatId && b.date === input.date && b.time === input.time && b.status === 'confirmed'
+        (b) =>
+          b.seatId === input.seatId &&
+          b.date === input.date &&
+          b.time === input.time &&
+          b.status === 'confirmed'
       );
-      if (clash) throw new ApiError('CONFLICT', `Bàn ${seat.id} khung giờ ${input.time} ngày ${input.date} đã có người đặt`);
+      if (clash)
+        throw new ApiError(
+          'CONFLICT',
+          `Bàn ${seat.id} khung giờ ${input.time} ngày ${input.date} đã có người đặt`
+        );
       const uidv = identity();
       if (uidv) {
         const mine = (await bookings.getByUser(uidv)).filter((b) => b.status === 'confirmed');
-        if (mine.length >= BK_LIMIT.maxActive) throw new ApiError('CONFLICT', `Tối đa ${BK_LIMIT.maxActive} đặt chỗ đang hiệu lực mỗi người`);
+        if (mine.length >= BK_LIMIT.maxActive)
+          throw new ApiError(
+            'CONFLICT',
+            `Tối đa ${BK_LIMIT.maxActive} đặt chỗ đang hiệu lực mỗi người`
+          );
       }
       const bk = {
         id: newId(ID_PREFIX.booking),
@@ -466,7 +554,9 @@ export function createApi({
     },
     async getAll() {
       await bookings._sweepPast();
-      return (await list(KEYS.bookings)).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+      return (await list(KEYS.bookings)).sort((a, b) =>
+        (a.date + a.time).localeCompare(b.date + b.time)
+      );
     },
     async getById(id) {
       return (await bookings.getAll()).find((b) => b.id === id) || null;
@@ -476,7 +566,11 @@ export function createApi({
     },
     async getActiveBySeat(seatId) {
       const t = today();
-      return (await bookings.getAll()).find((b) => b.seatId === seatId && b.status === 'confirmed' && b.date >= t) || null;
+      return (
+        (await bookings.getAll()).find(
+          (b) => b.seatId === seatId && b.status === 'confirmed' && b.date >= t
+        ) || null
+      );
     },
     async _must(id) {
       const b = await bookings.getById(id);
@@ -493,7 +587,8 @@ export function createApi({
     },
     async complete(id) {
       const b = await bookings._must(id);
-      if (b.status !== 'confirmed') throw new ApiError('CONFLICT', `Đặt chỗ ${id} không ở trạng thái confirmed`);
+      if (b.status !== 'confirmed')
+        throw new ApiError('CONFLICT', `Đặt chỗ ${id} không ở trạng thái confirmed`);
       b.status = 'completed';
       b.completedAt = iso();
       await bookings._saveRow(b);
@@ -505,7 +600,8 @@ export function createApi({
       if (b.userId && identity() && b.userId !== identity()) {
         throw new ApiError('FORBIDDEN', 'Đặt chỗ này của người dùng khác'); // mirror guard của orders.cancel
       }
-      if (b.status !== 'confirmed') throw new ApiError('CONFLICT', `Đặt chỗ ${id} không còn hiệu lực`);
+      if (b.status !== 'confirmed')
+        throw new ApiError('CONFLICT', `Đặt chỗ ${id} không còn hiệu lực`);
       b.status = 'cancelled';
       b.cancelledAt = iso();
       await bookings._saveRow(b);
@@ -514,24 +610,38 @@ export function createApi({
     },
     async update(id, patch) {
       const b = await bookings._must(id);
-      if (b.status !== 'confirmed') throw new ApiError('CONFLICT', `Đặt chỗ ${id} không còn hiệu lực`);
-      if (b.userId && identity() && b.userId !== identity()) throw new ApiError('FORBIDDEN', 'Đặt chỗ này của người dùng khác');
+      if (b.status !== 'confirmed')
+        throw new ApiError('CONFLICT', `Đặt chỗ ${id} không còn hiệu lực`);
+      if (b.userId && identity() && b.userId !== identity())
+        throw new ApiError('FORBIDDEN', 'Đặt chỗ này của người dùng khác');
       const input = patch || {};
       if (input.time !== undefined) {
         if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(String(input.time))) {
           throw new ApiError('VALIDATION', 'Giờ phải dạng HH:MM', { field: 'time' });
         }
         const clash = (await bookings.getAll()).some(
-          (x) => x.seatId === b.seatId && x.date === b.date && x.time === input.time && x.status === 'confirmed' && x.id !== b.id
+          (x) =>
+            x.seatId === b.seatId &&
+            x.date === b.date &&
+            x.time === input.time &&
+            x.status === 'confirmed' &&
+            x.id !== b.id
         );
-        if (clash) throw new ApiError('CONFLICT', `Bàn ${b.seatId} khung giờ ${input.time} đã có người đặt`);
+        if (clash)
+          throw new ApiError('CONFLICT', `Bàn ${b.seatId} khung giờ ${input.time} đã có người đặt`);
         b.time = input.time;
       }
       if (input.guests !== undefined) {
         const seat = await seats.getById(b.seatId);
         const g = Math.floor(Number(input.guests));
-        if (!Number.isInteger(g) || g < 1 || g > 20) throw new ApiError('VALIDATION', 'Số khách 1..20', { field: 'guests' });
-        if (g > seat.capacity) throw new ApiError('VALIDATION', `Bàn ${b.seatId} chỉ chứa tối đa ${seat.capacity} khách`, { field: 'guests' });
+        if (!Number.isInteger(g) || g < 1 || g > 20)
+          throw new ApiError('VALIDATION', 'Số khách 1..20', { field: 'guests' });
+        if (g > seat.capacity)
+          throw new ApiError(
+            'VALIDATION',
+            `Bàn ${b.seatId} chỉ chứa tối đa ${seat.capacity} khách`,
+            { field: 'guests' }
+          );
         b.guests = g;
       }
       if (input.note !== undefined) b.note = String(input.note).trim();
@@ -566,10 +676,14 @@ export function createApi({
       const input = data || {};
       const issues = {};
       if (!input.name || !String(input.name).trim()) issues.name = 'Bắt buộc';
-      if (!/^[0-9+\s.-]{8,15}$/.test(String(input.phone || ''))) issues.phone = 'SĐT không hợp lệ (VD 0901234567)';
-      if (typeof input.password !== 'string' || input.password.length < 6) issues.password = 'Tối thiểu 6 ký tự';
-      if (Object.keys(issues).length) throw new ApiError('VALIDATION', 'Dữ liệu đăng ký không hợp lệ', issues);
-      if (await users.getByPhone(input.phone)) throw new ApiError('CONFLICT', `SĐT ${input.phone} đã có tài khoản`);
+      if (!/^[0-9+\s.-]{8,15}$/.test(String(input.phone || '')))
+        issues.phone = 'SĐT không hợp lệ (VD 0901234567)';
+      if (typeof input.password !== 'string' || input.password.length < 6)
+        issues.password = 'Tối thiểu 6 ký tự';
+      if (Object.keys(issues).length)
+        throw new ApiError('VALIDATION', 'Dữ liệu đăng ký không hợp lệ', issues);
+      if (await users.getByPhone(input.phone))
+        throw new ApiError('CONFLICT', `SĐT ${input.phone} đã có tài khoản`);
       const { salt, hash } = await hashPassword(input.password);
       const user = {
         id: newId('U'),
@@ -595,10 +709,12 @@ export function createApi({
       if (!u) throw new ApiError('NOT_FOUND', `Người dùng "${id}" không tồn tại`);
       const ALLOWED = ['name', 'address', 'email', 'birthday', 'phone'];
       for (const k of Object.keys(patch || {})) {
-        if (!ALLOWED.includes(k)) throw new ApiError('VALIDATION', `Không được sửa "${k}" qua users.update`, { field: k });
+        if (!ALLOWED.includes(k))
+          throw new ApiError('VALIDATION', `Không được sửa "${k}" qua users.update`, { field: k });
         if (k === 'phone') {
           const dup = await users.getByPhone(patch[k]);
-          if (dup && dup.id !== id) throw new ApiError('CONFLICT', `SĐT ${patch[k]} đã có tài khoản`);
+          if (dup && dup.id !== id)
+            throw new ApiError('CONFLICT', `SĐT ${patch[k]} đã có tài khoản`);
         }
         u[k] = patch[k];
       }
@@ -616,7 +732,11 @@ export function createApi({
       const rows = await list(KEYS.users);
       if (rows.length) return 0;
       await users.create({ name: 'Khách Demo', phone: '0900000001', password: 'cappan123' });
-      const staffUser = await users.create({ name: 'Nhân viên Demo', phone: '0900000002', password: 'cappan123' });
+      const staffUser = await users.create({
+        name: 'Nhân viên Demo',
+        phone: '0900000002',
+        password: 'cappan123'
+      });
       /* demo-grade: role staff cấp qua seed (+ghi DECISIONS.md) — production cấp qua backend admin */
       const all = await list(KEYS.users);
       const row = all.find((u) => u.id === staffUser.id);
@@ -653,7 +773,9 @@ export function createApi({
       return list(KEYS.promotions);
     },
     async getByCode(code) {
-      const c = String(code || '').toUpperCase().trim();
+      const c = String(code || '')
+        .toUpperCase()
+        .trim();
       return (await promotions.getAll()).find((p) => p.code === c) || null;
     },
     /* 'active' | 'upcoming' | 'expired' | 'off' */
@@ -679,13 +801,26 @@ export function createApi({
       if (!p) return { ok: false, error: 'Mã khuyến mãi không tồn tại' };
       const st = await promotions.status(p);
       if (st !== 'active') {
-        return { ok: false, error: st === 'upcoming' ? 'Mã chưa đến thời gian áp dụng' : st === 'expired' ? 'Mã đã hết hạn' : 'Mã đang tạm tắt' };
+        return {
+          ok: false,
+          error:
+            st === 'upcoming'
+              ? 'Mã chưa đến thời gian áp dụng'
+              : st === 'expired'
+                ? 'Mã đã hết hạn'
+                : 'Mã đang tạm tắt'
+        };
       }
       if (p.minOrder && subtotal < p.minOrder) {
-        return { ok: false, error: 'Đơn tối thiểu ' + (p.minOrder).toLocaleString('vi-VN') + 'đ mới dùng được mã này' };
+        return {
+          ok: false,
+          error: 'Đơn tối thiểu ' + p.minOrder.toLocaleString('vi-VN') + 'đ mới dùng được mã này'
+        };
       }
       if (/đầu tiên/i.test(p.terms || '') && userId) {
-        const history = (await list(KEYS.orders)).filter((o) => o.userId === userId && o.status !== 'cancelled');
+        const history = (await list(KEYS.orders)).filter(
+          (o) => o.userId === userId && o.status !== 'cancelled'
+        );
         if (history.length) return { ok: false, error: 'Mã chỉ dành cho đơn hàng đầu tiên' };
       }
       const d = String(p.discount || '');
@@ -696,7 +831,8 @@ export function createApi({
       } else {
         discount = parseInt(d.replace(/\D/g, ''), 10) || 0;
       }
-      if (/ship|giao hàng/i.test((p.name || '') + ' ' + (p.description || ''))) discount = Math.min(discount || shipping, shipping);
+      if (/ship|giao hàng/i.test((p.name || '') + ' ' + (p.description || '')))
+        discount = Math.min(discount || shipping, shipping);
       discount = Math.max(0, Math.min(discount, subtotal + shipping));
       return { ok: true, discount, promo: p };
     },
@@ -704,9 +840,14 @@ export function createApi({
     async create(data) {
       await ensureSeeded();
       const input = data || {};
-      const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+      const num = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) && n > 0 ? n : 0;
+      };
       const p = {
-        code: String(input.code || '').toUpperCase().replace(/\s+/g, ''),
+        code: String(input.code || '')
+          .toUpperCase()
+          .replace(/\s+/g, ''),
         name: String(input.name || '').trim(),
         description: String(input.description || '').trim(),
         discount: String(input.discount || '').trim(),
@@ -721,13 +862,20 @@ export function createApi({
       if (!p.code || !/^[A-Z0-9_-]{3,20}$/.test(p.code)) {
         throw new ApiError('VALIDATION', 'Mã chỉ gồm chữ/số/gạch (3–20 ký tự)', { field: 'code' });
       }
-      if (!p.name) throw new ApiError('VALIDATION', 'Vui lòng nhập tên chương trình', { field: 'name' });
-      if (!p.discount) throw new ApiError('VALIDATION', 'Vui lòng nhập mức giảm (VD: 10% hoặc 20.000đ)', { field: 'discount' });
+      if (!p.name)
+        throw new ApiError('VALIDATION', 'Vui lòng nhập tên chương trình', { field: 'name' });
+      if (!p.discount)
+        throw new ApiError('VALIDATION', 'Vui lòng nhập mức giảm (VD: 10% hoặc 20.000đ)', {
+          field: 'discount'
+        });
       if (p.startDate && p.endDate && p.endDate < p.startDate) {
-        throw new ApiError('VALIDATION', 'Ngày kết thúc phải sau ngày bắt đầu', { field: 'endDate' });
+        throw new ApiError('VALIDATION', 'Ngày kết thúc phải sau ngày bắt đầu', {
+          field: 'endDate'
+        });
       }
       const rows = await list(KEYS.promotions);
-      if (rows.some((x) => x.code === p.code)) throw new ApiError('CONFLICT', `Mã ${p.code} đã tồn tại`);
+      if (rows.some((x) => x.code === p.code))
+        throw new ApiError('CONFLICT', `Mã ${p.code} đã tồn tại`);
       rows.push(p);
       await storage.set(KEYS.promotions, rows);
       return p;
@@ -775,15 +923,20 @@ export function createApi({
       if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) {
         throw new ApiError('VALIDATION', 'Ngày phải dạng YYYY-MM-DD', { field: 'date' });
       }
-      if (!(await shifts.getById(shiftId))) throw new ApiError('NOT_FOUND', `Ca "${shiftId}" không tồn tại`);
-      if (!(await staff.getById(staffId))) throw new ApiError('NOT_FOUND', `Nhân viên "${staffId}" không tồn tại`);
+      if (!(await shifts.getById(shiftId)))
+        throw new ApiError('NOT_FOUND', `Ca "${shiftId}" không tồn tại`);
+      if (!(await staff.getById(staffId)))
+        throw new ApiError('NOT_FOUND', `Nhân viên "${staffId}" không tồn tại`);
       const s = await shifts.getSchedule();
       s[date] = s[date] || {};
       /* luật legacy P2-6: 1 nhân viên tối đa 1 ca/ngày */
-      const busy = Object.keys(s[date]).find((sid) => sid !== shiftId && s[date][sid].includes(staffId));
+      const busy = Object.keys(s[date]).find(
+        (sid) => sid !== shiftId && s[date][sid].includes(staffId)
+      );
       if (busy) throw new ApiError('CONFLICT', `${staffId} đã có ca ${busy} ngày ${date}`);
       s[date][shiftId] = s[date][shiftId] || [];
-      if (s[date][shiftId].includes(staffId)) throw new ApiError('CONFLICT', `${staffId} đã nằm trong ca ${shiftId} ngày ${date}`);
+      if (s[date][shiftId].includes(staffId))
+        throw new ApiError('CONFLICT', `${staffId} đã nằm trong ca ${shiftId} ngày ${date}`);
       s[date][shiftId].push(staffId);
       return shifts._saveSchedule(s);
     },
@@ -871,7 +1024,19 @@ export function createApi({
 
   const aPI = {
     meta: { contract: CONTRACT_VERSION },
-    menu, categories, floors, seats, cart, orders, users, auth, promotions, bookings, staff, shifts, stats,
+    menu,
+    categories,
+    floors,
+    seats,
+    cart,
+    orders,
+    users,
+    auth,
+    promotions,
+    bookings,
+    staff,
+    shifts,
+    stats,
     utils: { today, formatVND: (n) => `${Number(n || 0).toLocaleString('vi-VN')}đ`, SHIPPING_FEE },
     /* §4 — snapshot: "dump chuẩn" prep-backend */
     async exportAll() {

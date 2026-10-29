@@ -1,7 +1,39 @@
 /* chat.html — khung chat */
-.chat-box { display: flex; flex-direction: column; height: calc(100vh - 120px); }
-.chat-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px; }
-.msg { max-width: 78%; padding: 9px 13px; border-radius: 14px; font-size: 14px; line-height: 1.45; white-space: pre-wrap; }
-.msg.me { align-self: flex-end; background: var(--brand); color: #fff; }
-.msg.bot { align-self: flex-start; background: var(--card); border: 1px solid var(--line); }
-.chat-input { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); background: var(--card); }
+.chat-box {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 120px);
+}
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+.msg {
+  max-width: 78%;
+  padding: 9px 13px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.msg.me {
+  align-self: flex-end;
+  background: var(--brand);
+  color: #fff;
+}
+.msg.bot {
+  align-self: flex-start;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+.chat-input {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--line);
+  background: var(--card);
+}

@@ -9,14 +9,21 @@ const state = document.getElementById('state');
 let activeFloor = null;
 let pickedSeat = null;
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = (s) =>
+  String(s ?? '').replace(
+    /[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
+  );
 const today = await api.utils.today();
 
 async function paint(errMsg = '') {
   try {
     const floors = await api.floors.getAll();
     if (!activeFloor) activeFloor = floors[0]?.id;
-    const [seats, mine] = await Promise.all([api.seats.getByFloor(activeFloor), user ? api.bookings.getByUser(user.id) : []]);
+    const [seats, mine] = await Promise.all([
+      api.seats.getByFloor(activeFloor),
+      user ? api.bookings.getByUser(user.id) : []
+    ]);
     const active = mine.filter((b) => b.status === 'confirmed');
     renderHeader(document.getElementById('hdr'), { user });
 

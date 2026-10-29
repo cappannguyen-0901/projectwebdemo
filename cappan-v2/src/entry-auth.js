@@ -10,7 +10,11 @@ const main = document.getElementById('main');
 
 await api.users.seedDemo(); // tài khoản demo tạo đúng cơ chế hash chuẩn
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = (s) =>
+  String(s ?? '').replace(
+    /[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
+  );
 
 if (user) {
   renderHeader(document.getElementById('hdr'));

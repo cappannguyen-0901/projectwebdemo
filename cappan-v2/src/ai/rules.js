@@ -58,15 +58,21 @@ export function recommend(input, ctx, limit = 3) {
   const fmt = (m) => `• ${m.name} — ${m.price.toLocaleString('vi-VN')}đ`;
   const list = scored.slice(0, limit).map((x) => fmt(x.m));
   if (!list.length) return null; /* để rule fallback khác xử lý */
-  return { text: `Dạ em gợi ý mấy món này nhé ạ:\n${list.join('\n')}\nAnh/chị xem thêm ở trang menu ạ!` };
+  return {
+    text: `Dạ em gợi ý mấy món này nhé ạ:\n${list.join('\n')}\nAnh/chị xem thêm ở trang menu ạ!`
+  };
 }
 
 export const RULES = [
   {
     id: 'greeting',
     priority: 100,
-    test: (n) => /\b(chao|hello|hi|alo|xin chao|good ?(morning|evening))\b/.test(n) && !/\b(gia|bao nhieu|mon|dat)\b/.test(n),
-    reply: () => ({ text: 'Dạ em chào anh/chị ạ. Anh/chị cần em tư vấn món, đặt bàn hay hỗ trợ gì khác ạ?' })
+    test: (n) =>
+      /\b(chao|hello|hi|alo|xin chao|good ?(morning|evening))\b/.test(n) &&
+      !/\b(gia|bao nhieu|mon|dat)\b/.test(n),
+    reply: () => ({
+      text: 'Dạ em chào anh/chị ạ. Anh/chị cần em tư vấn món, đặt bàn hay hỗ trợ gì khác ạ?'
+    })
   },
   {
     /* Self-service không có trong v2 → hướng sang profile thay vì để LLM tự bịa */
@@ -74,7 +80,9 @@ export const RULES = [
     priority: 92,
     test: (n) =>
       /\b(doi|sua|thay|cap nhat)\b/.test(n) && /\b(dia chi|thong tin|so dien thoai|ten)\b/.test(n),
-    reply: () => ({ text: 'Dạ em chưa sửa thông tin giúp anh/chị được — anh/chị bấm "Hồ sơ" (profile.html) để tự đổi tên/địa chỉ mặc định nhé ạ. 😊' })
+    reply: () => ({
+      text: 'Dạ em chưa sửa thông tin giúp anh/chị được — anh/chị bấm "Hồ sơ" (profile.html) để tự đổi tên/địa chỉ mặc định nhé ạ. 😊'
+    })
   },
   {
     id: 'thanks',
@@ -116,25 +124,33 @@ export const RULES = [
     id: 'no-smoking',
     priority: 55,
     test: (n) => /\b(hut thuoc|thuoc la)\b/.test(n),
-    reply: () => ({ text: 'Dạ CAPPAN là không gian không khói thuốc ạ, anh/chị vui lòng không hút thuốc trong quán.' })
+    reply: () => ({
+      text: 'Dạ CAPPAN là không gian không khói thuốc ạ, anh/chị vui lòng không hút thuốc trong quán.'
+    })
   },
   {
     id: 'no-pets',
     priority: 54,
     test: (n) => /\b(thu cung|cho meo|con meo|meo cua khach|pet|vat nuoi)\b/.test(n),
-    reply: () => ({ text: 'Dạ CAPPAN không cho phép mang thú cưng vào quán ạ, để đảm bảo vệ sinh chung.' })
+    reply: () => ({
+      text: 'Dạ CAPPAN không cho phép mang thú cưng vào quán ạ, để đảm bảo vệ sinh chung.'
+    })
   },
   {
     id: 'no-app',
     priority: 53,
     test: (n) => /\b(app|ung dung|tai app|cai app)\b/.test(n),
-    reply: () => ({ text: 'Dạ hiện tại CAPPAN chưa có app riêng ạ. Anh/chị dùng website để đặt chỗ và đặt nước ạ.' })
+    reply: () => ({
+      text: 'Dạ hiện tại CAPPAN chưa có app riêng ạ. Anh/chị dùng website để đặt chỗ và đặt nước ạ.'
+    })
   },
   {
     id: 'no-jobs',
     priority: 52,
     test: (n) => /\b(tuyen dung|xin viec|tri lam|tim viec)\b/.test(n),
-    reply: () => ({ text: `Dạ hiện tại CAPPAN chưa có đợt tuyển dụng. Anh/chị theo dõi fanpage hoặc gọi hotline ${KB.hotline} nhé ạ.` })
+    reply: () => ({
+      text: `Dạ hiện tại CAPPAN chưa có đợt tuyển dụng. Anh/chị theo dõi fanpage hoặc gọi hotline ${KB.hotline} nhé ạ.`
+    })
   },
   {
     id: 'only-branch',
@@ -146,19 +162,25 @@ export const RULES = [
     id: 'party',
     priority: 50,
     test: (n) => /\b(tiec|sinh nhat|su kien|doan dong|dat tiec)\b/.test(n),
-    reply: () => ({ text: `Dạ CAPPAN có nhận đặt tiệc riêng cho đoàn từ 10 người. Anh/chị vui lòng gọi hotline ${KB.hotline} để được tư vấn ạ.` })
+    reply: () => ({
+      text: `Dạ CAPPAN có nhận đặt tiệc riêng cho đoàn từ 10 người. Anh/chị vui lòng gọi hotline ${KB.hotline} để được tư vấn ạ.`
+    })
   },
   {
     id: 'privacy',
     priority: 49,
     test: (n) => /\b(bao mat|du lieu ca nhan|quyen rieng tu|thong tin ca nhan)\b/.test(n),
-    reply: () => ({ text: 'Dạ thông tin của anh/chị chỉ dùng để đặt chỗ và đặt nước. Chi tiết xem trang "Chính sách bảo mật" ở cuối website ạ.' })
+    reply: () => ({
+      text: 'Dạ thông tin của anh/chị chỉ dùng để đặt chỗ và đặt nước. Chi tiết xem trang "Chính sách bảo mật" ở cuối website ạ.'
+    })
   },
   {
     id: 'is-bot',
     priority: 48,
     test: (n) => /\b(ban la ai|la ai|may tinh|robot|chatbot|nguoi that)\b/.test(n),
-    reply: () => ({ text: `Dạ em là AI của CAPPAN, không phải người thật. Em có thể nhầm — thông tin quan trọng anh/chị gọi hotline ${KB.hotline} ạ.` })
+    reply: () => ({
+      text: `Dạ em là AI của CAPPAN, không phải người thật. Em có thể nhầm — thông tin quan trọng anh/chị gọi hotline ${KB.hotline} ạ.`
+    })
   },
   {
     id: 'ac',
@@ -170,7 +192,9 @@ export const RULES = [
     id: 'outlet',
     priority: 46,
     test: (n) => /\b(o cam|sac dien thoai|cong sac|sac dien)\b/.test(n),
-    reply: () => ({ text: 'Dạ quán có ổ cắm điện tại mọi bàn, anh/chị sạc điện thoại thoải mái nha ạ.' })
+    reply: () => ({
+      text: 'Dạ quán có ổ cắm điện tại mọi bàn, anh/chị sạc điện thoại thoải mái nha ạ.'
+    })
   },
   {
     id: 'delivery',
@@ -184,21 +208,29 @@ export const RULES = [
     priority: 44,
     test: (n) =>
       /\b(dia chi|o dau|quan o).\b/.test(n) &&
-      !/\b(doi dia chi|cap nhat dia chi|doi thong tin|dia chi giao hang)\b/.test(n) && /* update-address = NOT here */
+      !/\b(doi dia chi|cap nhat dia chi|doi thong tin|dia chi giao hang)\b/.test(
+        n
+      ) /* update-address = NOT here */ &&
       !/\b(mon|do uong|quan ao|ao quan|xom|nha rieng)\b/.test(n),
-    reply: () => ({ text: `Dạ địa chỉ quán: ${KB.address} ạ. Hỗ trợ giao ${KB.shipNote.toLowerCase()}` })
+    reply: () => ({
+      text: `Dạ địa chỉ quán: ${KB.address} ạ. Hỗ trợ giao ${KB.shipNote.toLowerCase()}`
+    })
   },
   {
     id: 'food',
     priority: 40,
     test: (n) => /\b(do an|mon an|an vat|an nhe|ban do an)\b/.test(n),
-    reply: () => ({ text: `Dạ CAPPAN chủ yếu phục vụ đồ uống, món ăn hiện có là Bánh Flan. Món khác anh/chị gọi hotline ${KB.hotline} để hỏi thêm nhé ạ.` })
+    reply: () => ({
+      text: `Dạ CAPPAN chủ yếu phục vụ đồ uống, món ăn hiện có là Bánh Flan. Món khác anh/chị gọi hotline ${KB.hotline} để hỏi thêm nhé ạ.`
+    })
   },
   {
     id: 'vegan',
     priority: 39,
     test: (n) => /\b(mon chay|an chay|co chay|vegan)\b/.test(n),
-    reply: () => ({ text: 'Dạ CAPPAN chưa có menu chay riêng, nhưng có Sinh tố Bơ, Sinh tố Xoài, Nước Ép Cam, Trà Sen Vàng phù hợp ạ.' })
+    reply: () => ({
+      text: 'Dạ CAPPAN chưa có menu chay riêng, nhưng có Sinh tố Bơ, Sinh tố Xoài, Nước Ép Cam, Trà Sen Vàng phù hợp ạ.'
+    })
   },
   {
     id: 'new-drinks',
@@ -216,7 +248,10 @@ export const RULES = [
     /* TASTE-AWARE: gợi ý từ catalog, ví dụ "muốn cho ngọt ngào / giải khát..." */
     id: 'recommend',
     priority: 30,
-    test: (n, ctx) => /\b(goi y|khuyen|ngot|chua|lanh|nong|ca phe|tra|sinh to|nuoc ep|soda|socola|gioi thieu)\b/.test(n) && !!recommend(n, ctx),
+    test: (n, ctx) =>
+      /\b(goi y|khuyen|ngot|chua|lanh|nong|ca phe|tra|sinh to|nuoc ep|soda|socola|gioi thieu)\b/.test(
+        n
+      ) && !!recommend(n, ctx),
     reply: (n, ctx) => recommend(n, ctx)
   }
 ];

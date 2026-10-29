@@ -1,15 +1,55 @@
 /* cart.html — dòng giỏ + bảng tổng + hàng mã khuyến mãi */
 .line {
-  display: flex; align-items: center; gap: 10px;
-  background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
 }
-.line img { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; }
-.line .meta { flex: 1; }
-.line .meta .n { font-weight: 700; font-size: 14px; }
-.line .meta .s { font-size: 12px; color: var(--muted); }
-.qty { display: flex; align-items: center; gap: 6px; }
-.totals { display: grid; gap: 4px; }
-.totals .row-t { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
-.totals .row-t.strong { font-weight: 800; font-size: 16px; }
-.totals .promo-row code { background: #f3ece5; padding: 2px 8px; border-radius: 6px; color: var(--brand-2); }
-.totals .promo-row { align-items: center; }
+.line img {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+.line .meta {
+  flex: 1;
+}
+.line .meta .n {
+  font-weight: 700;
+  font-size: 14px;
+}
+.line .meta .s {
+  font-size: 12px;
+  color: var(--muted);
+}
+.qty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.totals {
+  display: grid;
+  gap: 4px;
+}
+.totals .row-t {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+.totals .row-t.strong {
+  font-weight: 800;
+  font-size: 16px;
+}
+.totals .promo-row code {
+  background: #f3ece5;
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: var(--brand-2);
+}
+.totals .promo-row {
+  align-items: center;
+}

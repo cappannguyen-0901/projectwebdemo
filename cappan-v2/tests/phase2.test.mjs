@@ -30,23 +30,41 @@ test('users.create: hash mật khẩu, KHÔNG rò password/salt ra ngoài (publi
   const u = await reg(api);
   assert.ok(u.id.startsWith('U'));
   assert.equal(typeof u.id, 'string');
-  assert.deepEqual(Object.keys(u).filter((k) => /password|salt|hash/i.test(k)), []);
-  assert.equal(((await api.users.getAll())[0]).passwordHash, undefined);
+  assert.deepEqual(
+    Object.keys(u).filter((k) => /password|salt|hash/i.test(k)),
+    []
+  );
+  assert.equal((await api.users.getAll())[0].passwordHash, undefined);
 });
 
 test('users: trùng SĐT CONFLICT · SĐT sai/ít mật khẩu VALIDATION', async () => {
   const api = mk();
   await reg(api, '0902222222');
-  await assert.rejects(() => reg(api, '0902222222'), (e) => e.code === 'CONFLICT');
-  await assert.rejects(() => api.users.create({ name: 'n', phone: 'abc', password: 'cappan123' }), (e) => e.code === 'VALIDATION');
-  await assert.rejects(() => api.users.create({ name: 'n', phone: '0903333333', password: '123' }), (e) => e.code === 'VALIDATION');
+  await assert.rejects(
+    () => reg(api, '0902222222'),
+    (e) => e.code === 'CONFLICT'
+  );
+  await assert.rejects(
+    () => api.users.create({ name: 'n', phone: 'abc', password: 'cappan123' }),
+    (e) => e.code === 'VALIDATION'
+  );
+  await assert.rejects(
+    () => api.users.create({ name: 'n', phone: '0903333333', password: '123' }),
+    (e) => e.code === 'VALIDATION'
+  );
 });
 
 test('users.update: chỉ whitelist field — cố sửa passwordHash/role → VALIDATION', async () => {
   const api = mk();
   const u = await reg(api, '0914444444');
-  await assert.rejects(() => api.users.update(u.id, { passwordHash: 'hack' }), (e) => e.code === 'VALIDATION');
-  await assert.rejects(() => api.users.update(u.id, { role: 'staff' }), (e) => e.code === 'VALIDATION');
+  await assert.rejects(
+    () => api.users.update(u.id, { passwordHash: 'hack' }),
+    (e) => e.code === 'VALIDATION'
+  );
+  await assert.rejects(
+    () => api.users.update(u.id, { role: 'staff' }),
+    (e) => e.code === 'VALIDATION'
+  );
   const after = await api.users.update(u.id, { address: '12 Lê Lợi' });
   assert.equal(after.address, '12 Lê Lợi');
   assert.equal(after.role, 'customer'); // role không đổi
@@ -64,8 +82,14 @@ test('auth: login đúng/sai · session chỉ {userId} · logout', async () => {
   assert.deepEqual(Object.keys(sess), ['userId', 'at']); // KHÔNG chứa user object như legacy
   assert.deepEqual((await api.auth.current()).id, u.id);
 
-  await assert.rejects(() => api.auth.login('0915555555', 'wrong pw'), (e) => e.code === 'UNAUTHORIZED');
-  await assert.rejects(() => api.auth.login('0999999999', 'cappan123'), (e) => e.code === 'UNAUTHORIZED');
+  await assert.rejects(
+    () => api.auth.login('0915555555', 'wrong pw'),
+    (e) => e.code === 'UNAUTHORIZED'
+  );
+  await assert.rejects(
+    () => api.auth.login('0999999999', 'cappan123'),
+    (e) => e.code === 'UNAUTHORIZED'
+  );
   assert.equal(await api.auth.logout(), true);
   assert.equal(await api.auth.current(), null);
 });
@@ -95,7 +119,12 @@ test('identity: giỏ tách bạch theo từng bản dạng — key per-uid', as
 /* ======================= bookings + seats (§3.8 P2) ======================= */
 test('bookings.create: khóa ghế · trùng khung giờ CONFLICT · quá sức chứa VALIDATION', async () => {
   const api = mk({ identity: () => 'U001' });
-  const bk = await api.bookings.create({ seatId: 'A1', date: '2030-01-01', time: '19:00', guests: 2 });
+  const bk = await api.bookings.create({
+    seatId: 'A1',
+    date: '2030-01-01',
+    time: '19:00',
+    guests: 2
+  });
   assert.ok(bk.id.startsWith('bk-'));
   assert.equal(bk.status, 'confirmed');
   assert.equal((await api.seats.getById('A1')).status, 'booked'); // ghế bị khóa
@@ -112,12 +141,16 @@ test('bookings.create: khóa ghế · trùng khung giờ CONFLICT · quá sức 
     () => api.bookings.create({ seatId: 'C5', date: '2030-01-01', time: '19:00', guests: 9 }), // C5 sức 8
     (e) => e.code === 'VALIDATION'
   );
-  await assert.rejects(() => api.bookings.create({ seatId: 'NOPE', date: '2030-01-01', time: '19:00' }), (e) => e.code === 'NOT_FOUND');
+  await assert.rejects(
+    () => api.bookings.create({ seatId: 'NOPE', date: '2030-01-01', time: '19:00' }),
+    (e) => e.code === 'NOT_FOUND'
+  );
 });
 
 test('bookings: giới hạn 3 slot hiệu lực/user · stranger FORBIDDEN · cancel/complete trả ghế', async () => {
   const api = mk({ identity: () => 'U001' });
-  for (const i of [1, 2, 3]) await api.bookings.create({ seatId: 'A' + i, date: '2030-06-0' + i, time: '10:00' });
+  for (const i of [1, 2, 3])
+    await api.bookings.create({ seatId: 'A' + i, date: '2030-06-0' + i, time: '10:00' });
   await assert.rejects(
     () => api.bookings.create({ seatId: 'A4', date: '2030-06-04', time: '10:00' }),
     (e) => e.code === 'CONFLICT'
@@ -128,8 +161,14 @@ test('bookings: giới hạn 3 slot hiệu lực/user · stranger FORBIDDEN · c
   const owner = createApi({ storage: store2, seed: SEED, identity: () => 'U001' });
   const bk = await owner.bookings.create({ seatId: 'A1', date: '2030-01-05', time: '09:00' });
   const sneaky = createApi({ storage: store2, seed: SEED, identity: () => 'U999' });
-  await assert.rejects(() => sneaky.bookings.cancel(bk.id), (e) => e.code === 'FORBIDDEN');
-  await assert.rejects(() => sneaky.bookings.update(bk.id, { time: '11:00' }), (e) => e.code === 'FORBIDDEN');
+  await assert.rejects(
+    () => sneaky.bookings.cancel(bk.id),
+    (e) => e.code === 'FORBIDDEN'
+  );
+  await assert.rejects(
+    () => sneaky.bookings.update(bk.id, { time: '11:00' }),
+    (e) => e.code === 'FORBIDDEN'
+  );
 
   /* cancel → ghế trả lại available */
   const c = await owner.bookings.cancel(bk.id);
@@ -147,8 +186,16 @@ test('bookings._sweepPast: confirmed quá hạn → completed + trả ghế', as
   const store = fresh();
   const api = mk({ identity: () => 'U001', storage: store });
   const fakePast = {
-    id: 'bk-old', userId: 'U001', seatId: 'A2', floorId: 'F1', date: '2020-01-01', time: '10:00',
-    guests: 2, note: '', status: 'confirmed', createdAt: '2020-01-01T00:00:00.000Z'
+    id: 'bk-old',
+    userId: 'U001',
+    seatId: 'A2',
+    floorId: 'F1',
+    date: '2020-01-01',
+    time: '10:00',
+    guests: 2,
+    note: '',
+    status: 'confirmed',
+    createdAt: '2020-01-01T00:00:00.000Z'
   };
   const rows = (await store.get('bookings')) || [];
   rows.push(fakePast);
@@ -165,7 +212,10 @@ test('bookings.update: dời giờ có clash CONFLICT · sửa note/guests OK', 
   const api = mk({ identity: () => 'U001' });
   const a = await api.bookings.create({ seatId: 'C1', date: '2030-03-01', time: '08:00' }); // C1 chứa tối đa 4
   await api.bookings.create({ seatId: 'C1', date: '2030-03-01', time: '10:00' });
-  await assert.rejects(() => api.bookings.update(a.id, { time: '10:00' }), (e) => e.code === 'CONFLICT');
+  await assert.rejects(
+    () => api.bookings.update(a.id, { time: '10:00' }),
+    (e) => e.code === 'CONFLICT'
+  );
   const u = await api.bookings.update(a.id, { time: '09:30', guests: 4, note: 'gần cửa sổ' });
   assert.equal(u.time, '09:30');
   assert.equal(u.guests, 4);
