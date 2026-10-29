@@ -101,9 +101,67 @@ export const SEED_SEATS = [
   { id: 'D8', floorId: 'F4', zone: 'window', capacity: 6, status: 'available', img: 'https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?w=500', description: '⭐ Bàn dài 6 người dọc lan can, view đẹp' }
 ];
 
+/* ---------- STAFF (nhân viên demo — copy legacy seed.js) ---------- */
+export const SEED_STAFF = [
+  { id: 'S001', name: 'Nguyễn Văn An', role: 'Pha chế', phone: '0912345601', avatar: 'A' },
+  { id: 'S002', name: 'Trần Thị Bình', role: 'Phục vụ', phone: '0912345602', avatar: 'B' },
+  { id: 'S003', name: 'Lê Minh Cường', role: 'Pha chế', phone: '0912345603', avatar: 'C' },
+  { id: 'S004', name: 'Phạm Thu Dung', role: 'Thu ngân', phone: '0912345604', avatar: 'D' },
+  { id: 'S005', name: 'Hoàng Văn Em', role: 'Phục vụ', phone: '0912345605', avatar: 'E' },
+  { id: 'S006', name: 'Vũ Thị Phương', role: 'Quản lý ca', phone: '0912345606', avatar: 'F' }
+];
+
+/* ---------- SHIFTS (ca làm việc) ---------- */
+export const SEED_SHIFTS = [
+  { id: 'morning', name: 'Ca sáng', start: '07:00', end: '12:00', color: '#FFA726' },
+  { id: 'afternoon', name: 'Ca chiều', start: '12:00', end: '17:00', color: '#42A5F5' },
+  { id: 'evening', name: 'Ca tối', start: '17:00', end: '22:30', color: '#7E57C2' }
+];
+
+/* ---------- PROMOTIONS (copy legacy js/data/promotions.js — giữ mã & luật demo) ---------- */
+export const SEED_PROMOTIONS = [
+  {
+    code: 'WELCOME10',
+    name: 'Chào khách mới',
+    description: 'Giảm 10% cho đơn hàng đầu tiên',
+    discount: '10%',
+    minOrder: 0,
+    maxDiscount: 30000,
+    active: true,
+    startDate: '2026-01-01',
+    endDate: '2027-12-31',
+    terms: 'Áp dụng cho đơn hàng đầu tiên của khách mới'
+  },
+  {
+    code: 'FREESHIP',
+    name: 'Miễn phí giao hàng',
+    description: 'Miễn phí ship cho đơn từ 100.000đ',
+    discount: '15.000đ',
+    minOrder: 100000,
+    active: true,
+    startDate: '2026-01-01',
+    endDate: '2027-12-31',
+    terms: 'Áp dụng cho đơn giao hàng trong bán kính 3km'
+  },
+  {
+    code: 'CAFE20',
+    name: 'Giảm giá cà phê',
+    description: 'Giảm 20.000đ cho đơn từ 100.000đ',
+    discount: '20.000đ',
+    minOrder: 100000,
+    active: true,
+    startDate: '2026-01-01',
+    endDate: '2027-12-31',
+    terms: 'Không áp dụng cùng lúc với mã khác'
+  }
+];
+
 export const SEED = {
   categories: SEED_CATEGORIES,
   menu: SEED_MENU_ITEMS,
   floors: SEED_FLOORS,
-  seats: SEED_SEATS
+  seats: SEED_SEATS,
+  staff: SEED_STAFF,
+  shifts: SEED_SHIFTS,
+  promotions: SEED_PROMOTIONS
 };

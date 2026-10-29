@@ -9,7 +9,11 @@
 | 2026-10-29 | Đóng invite-code staff qua register (legacy là lỗ hổng còn in trên trang) | `role` không cấp qua form công khai |
 | 2026-10-29 | Bỏ debug `syncFromBookings` → nội bộ `bookings._sweepPast` | 1 nguồn sự thật trạng thái ghế; quét quá hạn tự trả ghế |
 | 2026-10-29 | Vá bug legacy cancel-order ở step≥2 (signoff #6) — `CANCEL_MAX_STEP=1` | Khách hủy được đơn đang giao trước đây |
-| 2026-10-29 | CANCEL bug ai-cancel từng tồn tại vì authorization ở client — v2 vẫn giữ authorization client (demo) | Xem cảnh báo bên dưới |
+| 2026-10-29 | CANCEL bug legacy: AI-cancel từng tồn tại vì authorization ở client — v2 giữ authorization client (demo) | Xem cảnh báo bên dưới |
+| 2026-10-29 | Contract v1.2: `orders.create(promoCode)` — discount do facade evaluate khi tính lại giá; UI chỉ preview | Mã khuyến mãi = doanh nghiệp, client không được tự trừ tiền |
+| 2026-10-29 | `ensureSeeded` tự bồi namespace v1.2 (promotions/staff/shifts/schedule) + demo migration role staff cho SĐT 0900000002, KHÔNG đụng user tự đăng ký | Storage v1.1 không bị phá khi demo cũ còn dữ liệu |
+| 2026-10-29 | Đoanh thu stats CHỈ đếm step≥4 (giữ FIX legacy diep) | Tổng chờ/đang giao đừng được tính là tiền thu được |
+| 2026-10-29 | `staff.addFromUser` vẫn NOT_IMPLEMENTED (P3-admin) — role không cấp tự do | Mirror quy tắc đóng invite-code legacy |
 
 ## ⚠️ CẢNH BÁO BẢO MẬT (hiện trạng P2 — chưa production-safe)
 

@@ -171,13 +171,11 @@ test('orders.current: setCurrent/getCurrent, id lạ NOT_FOUND, null OK', async 
   assert.equal(await api.orders.getCurrent(), null);
 });
 
-/* ======================= §3.7/3.8 — P2 = NOT_IMPLEMENTED, chữ ký chốt ======================= */
-test('P2/P3 lại còn NOT_IMPLEMENTED đúng hợp đồng (users/auth/bookings/seats đã P2 — test phase2)', async () => {
+/* ======================= §3.7/3.8 — phần CHƯA implement đúng hợp đồng v1.2 ======================= */
+test('Chưa implement đúng hợp đồng v1.2: users.setCurrent · staff.addFromUser (menu mutations P3-admin)', async () => {
   const api = mk();
   await assert.rejects(() => api.users.setCurrent(null), (e) => e.code === 'NOT_IMPLEMENTED'); // ngoại lệ đã chốt trong §3.7
-  await assert.rejects(() => api.promotions.getActive(), (e) => e.code === 'NOT_IMPLEMENTED');
-  await assert.rejects(() => api.stats.today(), (e) => e.code === 'NOT_IMPLEMENTED');
-  await assert.rejects(() => api.staff.getAll(), (e) => e.code === 'NOT_IMPLEMENTED');
+  await assert.rejects(() => api.staff.addFromUser({ id: 'U1', role: 'staff' }), (e) => e.code === 'NOT_IMPLEMENTED'); // P3-admin
   assert.equal((await api.users.getAll()).length, 0); // users đã P2, trống vì chưa seedDemo
 });
 
@@ -189,7 +187,7 @@ test('exportAll → importAll 1-1 (dump chuẩn prep-backend, §4)', async () =>
 
   const snap = await apiA.exportAll();
   assert.equal(snap.format, 'cappan-snapshot');
-  assert.equal(snap.contract, '1.1');
+  assert.equal(snap.contract, '1.2');
   assert.ok(snap.data.orders.some((x) => x.id === o.id));
 
   /* "chuyển máy khác" = memory store riêng — đúng kịch bản RESTORE/backup */

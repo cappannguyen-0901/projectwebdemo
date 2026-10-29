@@ -120,7 +120,7 @@ Ghép item: cùng `itemId + size + JSON(toppings)` → tăng `qty`.
 ### 3.6 `api.orders`
 | Method | Tham số | Trả về | Lỗi | Pha |
 |---|---|---|---|---|
-| `create({items, address, phone, note?, customerName?})` | items=`[{itemId,size?,toppings?,qty?}]` | `Order` | `VALIDATION` (items rỗng, món lạ, thiếu địa chỉ/SĐT) | P1 · **tính giá + tổng lại từ catalog, KHÔNG tin client** |
+| `create({items, address, phone, note?, customerName?, promoCode?})` | items=`[{itemId,size?,toppings?,qty?}]` | `Order` (`discount`, `promoCode` khi có mã) | `VALIDATION` (items rỗng, món lạ, thiếu địa chỉ/SĐT, mã khuyến mãi lỗi) | P1 · **tính giá + tổng lại từ catalog, KHÔNG tin client** · v1.2: áp `promoCode` qua `promotions.evaluate` |
 | `getById(id)` · `getCurrent()` · `setCurrent(order\|id\|null)` | – | `Order \| null` | — | P1 |
 | `getByUser(userId)` | – | `Order[]` (mới nhất cuối) | — | P1 |
 | `getAll()` | – | `Order[]` | — | P1 (staff-filter P2) |
@@ -140,9 +140,20 @@ Ghép item: cùng `itemId + size + JSON(toppings)` → tăng `qty`.
 - `bookings.create/getAll/getById/getByUser/getActiveBySeat/complete/cancel/update` — **P2 ✅ thực thi v1.1**:
   kỹ thuật: `create` khóa ghế ngay (`seats.book`), conflict trùng seat+date+time → `CONFLICT`,
   giới hạn 3 đặt chỗ hiệu lực/user, quá hạn tự `_sweepPast` (completed + trả ghế).
-- `promotions.getActive(today?)`, `evaluate(code, subtotal, shipping, userId)`, `status(p, today)` — **vẫn NOT_IMPLEMENTED**, đến pha sau.
-- `staff.getAll/getById/addFromUser`, `shifts.getAll/getSchedule/addStaffToShift` — **vẫn NOT_IMPLEMENTED**.
-- `stats.today/thisWeek/thisMonth/ordersByStatus/topItems` — **vẫn NOT_IMPLEMENTED**.
+- `promotions.getAll/getByCode/status/getActive/evaluate/create/remove` — **v1.2 ✅ thực thi**:
+  - `status(p, today?)` → `'active' | 'upcoming' | 'expired' | 'off'` (`off` = `active:false`).
+  - `evaluate(code, subtotal, shipping, userId)` → `{ ok:true, discount, promo }` hoặc `{ ok:false, error }` (PROMISE-style như legacy, KHÔNG throw — caller tự quyết). Luật copy legacy: minOrder · mã "đầu tiên" (terms chứa "đầu tiên" + user đã có đơn không-hủy) · `%` có cap `maxDiscount` · mã ship/giao hàng (FREESHIP) giảm tối đa = `shipping` · clamp `0..subtotal+shipping`.
+  - `create(data)` / `remove(code)` — `VALIDATION` (mã/format sai), `CONFLICT` (trùng mã).
+- `orders.create` nhận thêm `promoCode?` — **facade tự evaluate + trừ vào total khi tính lại giá** (order lưu `discount`, `promoCode`; total = subtotal + shipping − discount). Mã lỗi → `VALIDATION` với message user-facing của evaluate.
+- `staff.getAll/getById` — **v1.2 ✅** (đọc seed `staff`, shape `{id,name,role,phone,avatar}`). `staff.addFromUser` — **vẫn NOT_IMPLEMENTED** (cần quyền admin, P3).
+- `shifts.getAll/getSchedule/addStaffToShift/removeStaffFromShift` — **v1.2 ✅**:
+  - `getSchedule()` → `{ [date]: { [shiftId]: staffId[] } }`.
+  - `addStaffToShift(date, shiftId, staffId)` → schedule mới; `VALIDATION` (ngày/giờ ca lạ), `CONFLICT` (đã có ca khác cùng ngày — luật legacy P2-6, hoặc đã nằm trong ca này).
+  - `removeStaffFromShift(date, shiftId, staffId)` → schedule mới (idempotent khi không có).
+- `stats.today/thisWeek/thisMonth/ordersByStatus/topItems/bookingsByStatus/occupancyRate` — **v1.2 ✅**:
+  - `today()/thisWeek()/thisMonth()` → `{ total, count, completedCount, pendingCount }` — doanh thu **chỉ đếm đơn step≥4** (giữ FIX của legacy); count gồm mọi đơn chưa hủy trong khoảng.
+  - `ordersByStatus` → `{pending,preparing,shipping,completed,cancelled}`; `topItems(limit=5)` → `[{name,qty,revenue}]`; `bookingsByStatus`; `occupancyRate` → % ghế booked.
+  - "Hôm nay/tuần/tháng" theo `now()` inject của facade (deterministic cho test).
 
 Tất cả method chưa đến pha: throw `ApiError('NOT_IMPLEMENTED', '<ns>.<method> hẹn pha P2/P3 — xem docs/api-contract.md')`.
 
@@ -181,7 +192,7 @@ chuyển argon2id server-side; chữ ký không đổi. Identity động ở m�
 
 ## §5. STORAGE KEY NAMESPACE
 Toàn v2 dùng prefix `cappan:v2:` — tách biệt hoàn toàn bản legacy `cappan_*` (không đụng nhau khi demo cũ còn chạy song song).
-Keys chuẩn: `meta:seeded`, `meta:contract`, `menu`, `categories`, `floors`, `seats`, `orders`, `current_order`, `cart:guest`, `cart:<uid>`.
+Keys chuẩn: `meta:seeded`, `meta:contract`, `menu`, `categories`, `floors`, `seats`, `orders`, `current_order`, `cart:guest`, `cart:<uid>`, `bookings`, `users`, `session`, `promotions`, `staff`, `shifts`, `schedule`.
 
 ## §6. CÂY THƯ MỤC V2 (chống lock-in)
 ```
@@ -203,3 +214,4 @@ cappan-v2/
 |---|---|---|
 | 1.0 | 2026-10-29 | Khởi tạo: menu/categories/floors/seats(read) + cart + orders + utils + export/import = P1; users/promotions/bookings/staff/shifts/stats = P2, chữ ký bám legacy |
 | 1.1 | 2026-10-29 | **P2 thực thi:** identity sync (lib/identity) + `api.auth` (login/current/logout, PBKDF2) + `users.*` (hash, whitelist update, đóng setCurrent) + `bookings.*` (khóa ghế, conflict, sweep quá hạn) + `seats.book/release/resetAll`. Mở trang: menu/cart/auth. Zéro mô-đun promotions/staff/shifts/stats vẫn NOT_IMPLEMENTED |
+| 1.2 | 2026-10-29 | **P3 thực thi:** `promotions.*` (getAll/getByCode/status/getActive/evaluate/create/remove — luật legacy WELCOME10/FREESHIP/CAFE20) + `orders.create(promoCode)` tự trừ discount khi tính lại giá + `staff.*` (getAll/getById; addFromUser NOT_IMPLEMENTED chờ P3-admin) + `shifts.*` (schedule 7 ngày, CONFLICT 2 ca/ngày) + `stats.*` (today/thisWeek/thisMonth/ordersByStatus/topItems/bookingsByStatus/occupancyRate — doanh thu chỉ step≥4). Mở trang: cart(promo)/staff |

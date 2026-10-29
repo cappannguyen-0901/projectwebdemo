@@ -15,7 +15,7 @@ import { ApiError } from '../core/errors.js';
 import { ORDER_EXPRESS, CANCEL_MAX_STEP, SHIPPING_FEE, ID_PREFIX } from '../data/schema.js';
 import { hashPassword, verifyPassword } from '../core/hash.js';
 
-const CONTRACT_VERSION = '1.1';
+const CONTRACT_VERSION = '1.2';
 const KEYS = {
   seeded: 'meta:seeded',
   contract: 'meta:contract',
@@ -27,7 +27,11 @@ const KEYS = {
   currentOrder: 'current_order',
   users: 'users',
   bookings: 'bookings',
-  session: 'session'
+  session: 'session',
+  promotions: 'promotions',
+  staff: 'staff',
+  shifts: 'shifts',
+  schedule: 'schedule'
 };
 
 export function createApi({
@@ -53,6 +57,28 @@ export function createApi({
   };
 
   async function ensureSeeded() {
+    /* v1.2: seed bổ sung namespace MỚI ngay cả khi store đã seed từ v1.1
+       (storage cũ không có promotions/staff/shifts → bồi đủ, không xóa dữ liệu người dùng) */
+    if (!(await storage.get(KEYS.promotions))) {
+      await storage.set(KEYS.promotions, seed.promotions || []);
+    }
+    if (!(await storage.get(KEYS.staff))) {
+      await storage.set(KEYS.staff, seed.staff || []);
+    }
+    if (!(await storage.get(KEYS.shifts))) {
+      await storage.set(KEYS.shifts, seed.shifts || []);
+    }
+    if ((await storage.get(KEYS.schedule)) === null || (await storage.get(KEYS.schedule)) === undefined) {
+      await storage.set(KEYS.schedule, {});
+    }
+    /* v1.2 demo migration: tài khoản seed "Nhân viên Demo" (0900000002) create từ v1.1 mang role
+       customer — nâng lên staff để demo hub. User tự đăng ký KHÔNG bao giờ bị đụng tới. */
+    const userRows = (await storage.get(KEYS.users)) || [];
+    const demoStaff = userRows.find((u) => u.phone === '0900000002' && u.role !== 'staff');
+    if (demoStaff) {
+      demoStaff.role = 'staff';
+      await storage.set(KEYS.users, userRows);
+    }
     if (await storage.get(KEYS.seeded)) return;
     await storage.set(KEYS.menu, seed.menu || []);
     await storage.set(KEYS.categories, seed.categories || []);
@@ -263,7 +289,16 @@ export function createApi({
         items.push(priceLine(item, it));
       }
       const subtotal = items.reduce((s, l) => s + l.price * l.qty, 0);
-      const total = subtotal + SHIPPING_FEE;
+      /* v1.2: promoCode do FACADE evaluate — discount không bao giờ đến từ client */
+      let discount = 0;
+      let promoCode = '';
+      if (input.promoCode) {
+        const ev = await promotions.evaluate(input.promoCode, subtotal, SHIPPING_FEE, identity());
+        if (!ev.ok) throw new ApiError('VALIDATION', ev.error, { field: 'promoCode' });
+        discount = ev.discount;
+        promoCode = ev.promo.code;
+      }
+      const total = subtotal + SHIPPING_FEE - discount;
 
       const order = {
         id: newId(ID_PREFIX.order),
@@ -272,6 +307,8 @@ export function createApi({
         items,
         subtotal,
         shipping: SHIPPING_FEE,
+        discount,
+        promoCode,
         total,
         address: String(input.address).trim(),
         phone: String(input.phone).trim(),
@@ -579,7 +616,12 @@ export function createApi({
       const rows = await list(KEYS.users);
       if (rows.length) return 0;
       await users.create({ name: 'Khách Demo', phone: '0900000001', password: 'cappan123' });
-      await users.create({ name: 'Nhân viên Demo', phone: '0900000002', password: 'cappan123' });
+      const staffUser = await users.create({ name: 'Nhân viên Demo', phone: '0900000002', password: 'cappan123' });
+      /* demo-grade: role staff cấp qua seed (+ghi DECISIONS.md) — production cấp qua backend admin */
+      const all = await list(KEYS.users);
+      const row = all.find((u) => u.id === staffUser.id);
+      row.role = 'staff';
+      await storage.set(KEYS.users, all);
       return 2;
     }
   };
@@ -604,10 +646,228 @@ export function createApi({
     }
   };
 
-  const promotions = Object.fromEntries(['getAll', 'getActive', 'evaluate', 'status'].map((m) => [m, notImplemented('promotions', m)]));
-  const staff = Object.fromEntries(['getAll', 'getById', 'addFromUser'].map((m) => [m, notImplemented('staff', m)]));
-  const shifts = Object.fromEntries(['getAll', 'getSchedule', 'addStaffToShift'].map((m) => [m, notImplemented('shifts', m)]));
-  const stats = Object.fromEntries(['today', 'thisWeek', 'thisMonth', 'ordersByStatus', 'topItems'].map((m) => [m, notImplemented('stats', m)]));
+  /* ---------- promotions (P3 — v1.2, luật copy legacy js/api/index.js) ---------- */
+  const promotions = {
+    async getAll() {
+      await ensureSeeded();
+      return list(KEYS.promotions);
+    },
+    async getByCode(code) {
+      const c = String(code || '').toUpperCase().trim();
+      return (await promotions.getAll()).find((p) => p.code === c) || null;
+    },
+    /* 'active' | 'upcoming' | 'expired' | 'off' */
+    async status(p, todayValue) {
+      const d = todayValue || today();
+      if (!p.active) return 'off';
+      if (p.startDate && d < p.startDate) return 'upcoming';
+      if (p.endDate && d > p.endDate) return 'expired';
+      return 'active';
+    },
+    async getActive(todayValue) {
+      const all = await promotions.getAll();
+      const out = [];
+      for (const p of all) if ((await promotions.status(p, todayValue)) === 'active') out.push(p);
+      return out;
+    },
+    /* Kiểm tra & tính giảm giá cho 1 mã. Trả { ok, discount, promo } hoặc { ok:false, error }
+       — PROMISE-style như legacy (không throw), caller (UI hoặc orders.create) tự quyết. */
+    async evaluate(code, subtotalInput, shippingInput, userId) {
+      const subtotal = Number(subtotalInput) || 0;
+      const shipping = Number(shippingInput) || 0;
+      const p = await promotions.getByCode(code);
+      if (!p) return { ok: false, error: 'Mã khuyến mãi không tồn tại' };
+      const st = await promotions.status(p);
+      if (st !== 'active') {
+        return { ok: false, error: st === 'upcoming' ? 'Mã chưa đến thời gian áp dụng' : st === 'expired' ? 'Mã đã hết hạn' : 'Mã đang tạm tắt' };
+      }
+      if (p.minOrder && subtotal < p.minOrder) {
+        return { ok: false, error: 'Đơn tối thiểu ' + (p.minOrder).toLocaleString('vi-VN') + 'đ mới dùng được mã này' };
+      }
+      if (/đầu tiên/i.test(p.terms || '') && userId) {
+        const history = (await list(KEYS.orders)).filter((o) => o.userId === userId && o.status !== 'cancelled');
+        if (history.length) return { ok: false, error: 'Mã chỉ dành cho đơn hàng đầu tiên' };
+      }
+      const d = String(p.discount || '');
+      let discount = 0;
+      if (d.includes('%')) {
+        discount = Math.round(subtotal * ((parseFloat(d) || 0) / 100));
+        if (p.maxDiscount) discount = Math.min(discount, p.maxDiscount);
+      } else {
+        discount = parseInt(d.replace(/\D/g, ''), 10) || 0;
+      }
+      if (/ship|giao hàng/i.test((p.name || '') + ' ' + (p.description || ''))) discount = Math.min(discount || shipping, shipping);
+      discount = Math.max(0, Math.min(discount, subtotal + shipping));
+      return { ok: true, discount, promo: p };
+    },
+    /* create/remove — admin-level, hợp đồng v1.2 (UI quản promo thuộc P3-admin, chưa mở trang) */
+    async create(data) {
+      await ensureSeeded();
+      const input = data || {};
+      const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+      const p = {
+        code: String(input.code || '').toUpperCase().replace(/\s+/g, ''),
+        name: String(input.name || '').trim(),
+        description: String(input.description || '').trim(),
+        discount: String(input.discount || '').trim(),
+        minOrder: num(input.minOrder),
+        active: input.active !== false,
+        startDate: input.startDate || '',
+        endDate: input.endDate || '',
+        terms: String(input.terms || '').trim()
+      };
+      const max = num(input.maxDiscount);
+      if (max) p.maxDiscount = max;
+      if (!p.code || !/^[A-Z0-9_-]{3,20}$/.test(p.code)) {
+        throw new ApiError('VALIDATION', 'Mã chỉ gồm chữ/số/gạch (3–20 ký tự)', { field: 'code' });
+      }
+      if (!p.name) throw new ApiError('VALIDATION', 'Vui lòng nhập tên chương trình', { field: 'name' });
+      if (!p.discount) throw new ApiError('VALIDATION', 'Vui lòng nhập mức giảm (VD: 10% hoặc 20.000đ)', { field: 'discount' });
+      if (p.startDate && p.endDate && p.endDate < p.startDate) {
+        throw new ApiError('VALIDATION', 'Ngày kết thúc phải sau ngày bắt đầu', { field: 'endDate' });
+      }
+      const rows = await list(KEYS.promotions);
+      if (rows.some((x) => x.code === p.code)) throw new ApiError('CONFLICT', `Mã ${p.code} đã tồn tại`);
+      rows.push(p);
+      await storage.set(KEYS.promotions, rows);
+      return p;
+    },
+    async remove(code) {
+      const p = await promotions.getByCode(code);
+      if (!p) throw new ApiError('NOT_FOUND', `Mã "${code}" không tồn tại`);
+      const rows = (await list(KEYS.promotions)).filter((x) => x.code !== p.code);
+      await storage.set(KEYS.promotions, rows);
+      return true;
+    }
+  };
+
+  /* ---------- staff (P3 — v1.2; addFromUser Chờ P3-admin vì cần quyền) ---------- */
+  const staff = {
+    async getAll() {
+      await ensureSeeded();
+      return list(KEYS.staff);
+    },
+    async getById(id) {
+      return (await staff.getAll()).find((s) => s.id === id) || null;
+    },
+    addFromUser: notImplemented('staff', 'addFromUser') /* cần quyền admin — P3 */
+  };
+
+  /* ---------- shifts (P3 — v1.2): lịch date → shiftId → staffId[] ---------- */
+  const shifts = {
+    async getAll() {
+      await ensureSeeded();
+      return list(KEYS.shifts);
+    },
+    async getById(id) {
+      return (await shifts.getAll()).find((s) => s.id === id) || null;
+    },
+    async getSchedule() {
+      await ensureSeeded();
+      return (await storage.get(KEYS.schedule)) || {};
+    },
+    async _saveSchedule(s) {
+      await storage.set(KEYS.schedule, s);
+      return s;
+    },
+    async addStaffToShift(date, shiftId, staffId) {
+      await ensureSeeded();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) {
+        throw new ApiError('VALIDATION', 'Ngày phải dạng YYYY-MM-DD', { field: 'date' });
+      }
+      if (!(await shifts.getById(shiftId))) throw new ApiError('NOT_FOUND', `Ca "${shiftId}" không tồn tại`);
+      if (!(await staff.getById(staffId))) throw new ApiError('NOT_FOUND', `Nhân viên "${staffId}" không tồn tại`);
+      const s = await shifts.getSchedule();
+      s[date] = s[date] || {};
+      /* luật legacy P2-6: 1 nhân viên tối đa 1 ca/ngày */
+      const busy = Object.keys(s[date]).find((sid) => sid !== shiftId && s[date][sid].includes(staffId));
+      if (busy) throw new ApiError('CONFLICT', `${staffId} đã có ca ${busy} ngày ${date}`);
+      s[date][shiftId] = s[date][shiftId] || [];
+      if (s[date][shiftId].includes(staffId)) throw new ApiError('CONFLICT', `${staffId} đã nằm trong ca ${shiftId} ngày ${date}`);
+      s[date][shiftId].push(staffId);
+      return shifts._saveSchedule(s);
+    },
+    async removeStaffFromShift(date, shiftId, staffId) {
+      const s = await shifts.getSchedule();
+      if (s[date]?.[shiftId]) s[date][shiftId] = s[date][shiftId].filter((x) => x !== staffId);
+      return shifts._saveSchedule(s);
+    }
+  };
+
+  /* ---------- stats (P3 — v1.2): doanh thu CHỈ tính đơn step≥4 (giữ FIX legacy) ---------- */
+  const stats = {
+    async _revenueInRange(fromTs, toTs) {
+      const all = (await list(KEYS.orders)).filter((o) => {
+        if (o.status === 'cancelled') return false;
+        const t = new Date(o.createdAt).getTime();
+        return t >= fromTs && t <= toTs;
+      });
+      const completed = all.filter((o) => o.step >= 4);
+      return {
+        total: completed.reduce((s, o) => s + o.total, 0),
+        count: all.length,
+        completedCount: completed.length,
+        pendingCount: all.length - completed.length
+      };
+    },
+    _dayStart(d) {
+      const x = new Date(d);
+      x.setHours(0, 0, 0, 0);
+      return x.getTime();
+    },
+    async today() {
+      const n = now();
+      return stats._revenueInRange(stats._dayStart(n), n.getTime());
+    },
+    async thisWeek() {
+      const n = now();
+      const day = n.getDay();
+      const monday = new Date(n);
+      monday.setDate(n.getDate() - day + (day === 0 ? -6 : 1));
+      return stats._revenueInRange(stats._dayStart(monday), n.getTime());
+    },
+    async thisMonth() {
+      const n = now();
+      const first = new Date(n.getFullYear(), n.getMonth(), 1);
+      return stats._revenueInRange(stats._dayStart(first), n.getTime());
+    },
+    async ordersByStatus() {
+      const rows = (await list(KEYS.orders)).filter((o) => o.status !== 'cancelled');
+      return {
+        pending: rows.filter((o) => o.step === 0).length,
+        preparing: rows.filter((o) => o.step === 1).length,
+        shipping: rows.filter((o) => o.step === 2 || o.step === 3).length,
+        completed: rows.filter((o) => o.step >= 4).length,
+        cancelled: (await list(KEYS.orders)).filter((o) => o.status === 'cancelled').length
+      };
+    },
+    async topItems(limit = 5) {
+      const map = new Map();
+      for (const o of await list(KEYS.orders)) {
+        if (o.status === 'cancelled') continue;
+        for (const it of o.items) {
+          const cur = map.get(it.name) || { name: it.name, qty: 0, revenue: 0 };
+          cur.qty += it.qty;
+          cur.revenue += it.price * it.qty;
+          map.set(it.name, cur);
+        }
+      }
+      return [...map.values()].sort((a, b) => b.qty - a.qty).slice(0, limit);
+    },
+    async bookingsByStatus() {
+      const rows = await bookings.getAll();
+      return {
+        confirmed: rows.filter((b) => b.status === 'confirmed').length,
+        completed: rows.filter((b) => b.status === 'completed').length,
+        cancelled: rows.filter((b) => b.status === 'cancelled').length
+      };
+    },
+    async occupancyRate() {
+      const rows = await seats.getAll();
+      const booked = rows.filter((s) => s.status === 'booked').length;
+      return rows.length ? Math.round((booked / rows.length) * 100) : 0;
+    }
+  };
 
   const aPI = {
     meta: { contract: CONTRACT_VERSION },
