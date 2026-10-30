@@ -362,6 +362,53 @@ export function createApi({
 
   /* ---------- orders ---------- */
   const orders = {
+    async previewCreate(data) {
+      const input = data || {};
+      if (!Array.isArray(input.items) || input.items.length === 0)
+        throw new ApiError('VALIDATION', 'Đơn phải có ít nhất 1 món', { field: 'items' });
+      const issues = {};
+      if (!input.address || !String(input.address).trim()) issues.address = 'Bắt buộc';
+      if (!input.phone || !/^[0-9+\s.-]{8,15}$/.test(String(input.phone)))
+        issues.phone = 'SĐT không hợp lệ (VD 0901234567)';
+      if (Object.keys(issues).length) throw new ApiError('VALIDATION', 'Đơn thiếu thông tin giao hàng', issues);
+      const items = [];
+      for (const line of input.items) {
+        const item = (await list(KEYS.menu, seed.menu || [])).find((row) => row.id === line?.itemId);
+        if (!item) throw new ApiError('VALIDATION', `Món "${line?.itemId}" không tồn tại`);
+        items.push(priceLine(item, line));
+      }
+      const subtotal = items.reduce((sum, line) => sum + line.price * line.qty, 0);
+      let discount = 0;
+      let promoCode = '';
+      if (input.promoCode) {
+        const code = String(input.promoCode).toUpperCase().trim();
+        const promo = (await list(KEYS.promotions, seed.promotions || [])).find((row) => row.code === code);
+        let result = { ok: false, error: 'Mã khuyến mãi không tồn tại' };
+        if (promo) {
+          const status = await promotions.status(promo);
+          if (status !== 'active') result.error = status === 'upcoming' ? 'Mã chưa đến thời gian áp dụng' : status === 'expired' ? 'Mã đã hết hạn' : 'Mã đang tạm tắt';
+          else if (promo.minOrder && subtotal < promo.minOrder) result.error = `Đơn tối thiểu ${promo.minOrder.toLocaleString('vi-VN')}đ mới dùng được mã này`;
+          else if (/đầu tiên/i.test(promo.terms || '') && !identity()) result.error = 'Cần đăng nhập để dùng mã này';
+          else if (/đầu tiên/i.test(promo.terms || '') && (await list(KEYS.orders)).some((order) => order.status !== 'cancelled' && order.userId === identity())) result.error = 'Mã chỉ dành cho đơn hàng đầu tiên';
+          else {
+            const text = String(promo.discount || '');
+            let amount = text.includes('%') ? Math.round(subtotal * ((parseFloat(text) || 0) / 100)) : parseInt(text.replace(/\D/g, ''), 10) || 0;
+            if (text.includes('%') && promo.maxDiscount) amount = Math.min(amount, promo.maxDiscount);
+            if (/ship|giao hàng/i.test(`${promo.name || ''} ${promo.description || ''}`)) amount = Math.min(amount || SHIPPING_FEE, SHIPPING_FEE);
+            result = { ok: true, discount: Math.max(0, Math.min(amount, subtotal + SHIPPING_FEE)), promo };
+          }
+        }
+        if (!result.ok) throw new ApiError('VALIDATION', result.error, { field: 'promoCode' });
+        discount = result.discount;
+        promoCode = result.promo.code;
+      }
+      return {
+        items, subtotal, shipping: SHIPPING_FEE, discount,
+        total: subtotal + SHIPPING_FEE - discount,
+        address: String(input.address).trim(), phone: String(input.phone).trim(),
+        note: input.note ? String(input.note).trim() : '', promoCode
+      };
+    },
     async create(data) {
       await ensureSeeded();
       const input = data || {};
@@ -542,6 +589,31 @@ export function createApi({
         const event = item.to === 'completed' ? 'booking.completed' : 'booking.auto_cancelled';
         await afterWrite(event, event, item.id, undefined, { reason: item.reason });
       }
+    },
+    async previewCreate(data) {
+      await assertAllowed('booking.create');
+      const input = data || {};
+      const seat = (await list(KEYS.seats, seed.seats || [])).find((row) => row.id === input.seatId);
+      if (!seat) throw new ApiError('NOT_FOUND', `Ghế "${input.seatId}" không tồn tại`);
+      const guests = Math.floor(Number(input.guests === undefined ? 2 : input.guests));
+      if (!Number.isInteger(guests) || guests < 1 || guests > seat.capacity)
+        throw new ApiError('VALIDATION', `Số khách 1..${seat.capacity} cho bàn ${seat.id}`, { field: 'guests' });
+      const current = now();
+      const bad = R.validateSlot(input.date, input.time, current);
+      if (bad) throw new ApiError('VALIDATION', bad.message, { field: bad.field });
+      const rows = await list(KEYS.bookings);
+      if (R.holderOf(seat.id, input.date, rows, current))
+        throw new ApiError('CONFLICT', `Bàn ${seat.id} đã có người đặt ngày ${input.date}`);
+      const uidv = identity();
+      if (uidv && rows.filter((booking) => booking.userId === uidv && R.isHolding(booking, current)).length >= R.RULES.MAX_ACTIVE_PER_USER)
+        throw new ApiError('CONFLICT', `Tối đa ${R.RULES.MAX_ACTIVE_PER_USER} đặt chỗ đang hiệu lực mỗi người`);
+      const depositAmount = R.depositAmount(seat.capacity);
+      const depositExpiresAt = new Date(current.getTime() + R.RULES.DEPOSIT_HOLD_MIN * 60000).toISOString();
+      return {
+        booking: { userId: uidv, seatId: seat.id, floorId: seat.floorId, date: input.date, time: input.time, guests,
+          note: input.note ? String(input.note).trim() : '', status: 'pending_deposit', depositAmount, depositExpiresAt },
+        seat, depositAmount, depositExpiresAt
+      };
     },
     async create(data) {
       await assertAllowed('booking.create');
@@ -1157,6 +1229,13 @@ export function createApi({
     stats,
     events: publicEvents,
     audit: {
+      async recordDenied(actor, action, targetId, code = 'FORBIDDEN') {
+        await writeAudit({ actor: {
+          userId: actor?.userId || null,
+          role: actor?.role || 'guest',
+          channel: ['web', 'chat', 'voice'].includes(actor?.channel) ? actor.channel : channel
+        }, action, targetId: targetId || null, ok: false, code });
+      },
       async getRecent(limit = 50) {
         await assertAllowed('audit.read');
         const amount = Number(limit);

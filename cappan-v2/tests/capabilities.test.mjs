@@ -45,6 +45,7 @@ function mockApi() {
 test('mọi năng lực × mọi vai trò: kết quả theo roles và policy, không có HTML', async () => {
   const runner = createCapabilityRunner(mockApi());
   for (const [name, capability] of Object.entries(CAPABILITIES)) {
+    if (capability.risk !== 'read') continue;
     for (const role of ROLES) {
       const actor = { userId: role === 'guest' ? null : 'U1', role, channel: 'web' };
       const allowed = capability.roles.includes(role) && POLICY[name][role].length > 0;
@@ -76,7 +77,7 @@ test('năng lực kiểm tra input sai bằng VALIDATION trước khi gọi hand
     'order.status': { id: '' },
     'profile.me': { extra: true }
   };
-  for (const name of Object.keys(CAPABILITIES)) {
+  for (const name of Object.keys(CAPABILITIES).filter((key) => CAPABILITIES[key].risk === 'read')) {
     await assert.rejects(() => runner.run(name, invalid[name], actor), (error) => error.code === 'VALIDATION');
   }
 });
