@@ -1121,6 +1121,67 @@ export function createApi({
 
   /* ---------- stats (P3 — v1.2): doanh thu CHỈ tính đơn step≥4 (giữ FIX legacy) ---------- */
   const stats = {
+    async _summary(period) {
+      await assertAllowed('stats.read');
+      if (!['day', 'week', 'month'].includes(period))
+        throw new ApiError('VALIDATION', 'Kỳ thống kê phải là day, week hoặc month');
+      const current = now();
+      const start = new Date(current);
+      start.setHours(0, 0, 0, 0);
+      if (period === 'week') {
+        const offset = (start.getDay() + 6) % 7;
+        start.setDate(start.getDate() - offset);
+      } else if (period === 'month') {
+        start.setDate(1);
+      }
+      const from = start.getTime();
+      const to = current.getTime();
+      const inTime = (value) => {
+        const time = value ? new Date(value).getTime() : NaN;
+        return Number.isFinite(time) && time >= from && time <= to;
+      };
+      const fromDate = R.fmtDate(start);
+      const toDate = R.fmtDate(current);
+      const ordersInRange = await list(KEYS.orders);
+      const completed = ordersInRange.filter((order) => order.step >= 4 && inTime(order.completedAt));
+      const currentOrders = ordersInRange.filter((order) => order.status !== 'cancelled' && inTime(order.createdAt));
+      const itemMap = new Map();
+      for (const order of completed) {
+        for (const item of order.items || []) {
+          const summary = itemMap.get(item.name) || { name: item.name, qty: 0, revenue: 0 };
+          summary.qty += Number(item.qty || 0);
+          summary.revenue += Number(item.price || 0) * Number(item.qty || 0);
+          itemMap.set(item.name, summary);
+        }
+      }
+      const bookingRows = await bookings.getAll();
+      let depositForfeited = 0;
+      let depositRefunded = 0;
+      for (const booking of bookingRows) {
+        if (!booking.depositPaid) continue;
+        if (booking.status === 'cancelled' && inTime(booking.cancelledAt)) {
+          const refund = Number(booking.refundAmount || 0);
+          depositRefunded += refund;
+          depositForfeited += Math.max(0, Number(booking.depositAmount || 0) - refund);
+        } else if (booking.status === 'no_show' && inTime(booking.closedAt)) {
+          depositForfeited += Number(booking.depositAmount || 0);
+        }
+      }
+      const seatMap = await seats.getMap(toDate);
+      const bookedSeats = seatMap.filter((seat) => seat.status === 'booked').length;
+      return {
+        revenue: completed.reduce((sum, order) => sum + Number(order.total || 0), 0),
+        orderCount: currentOrders.length,
+        topItems: [...itemMap.values()].sort((left, right) => right.qty - left.qty).slice(0, 5),
+        occupancyRate: seatMap.length ? Math.round((bookedSeats / seatMap.length) * 100) : 0,
+        noShowCount: bookingRows.filter((booking) => booking.status === 'no_show' && booking.date >= fromDate && booking.date <= toDate).length,
+        depositForfeited,
+        depositRefunded
+      };
+    },
+    async summary(period) { return stats._summary(period); },
+    async depositForfeited(period) { return (await stats._summary(period)).depositForfeited; },
+    async depositRefunded(period) { return (await stats._summary(period)).depositRefunded; },
     async _revenueInRange(fromTs, toTs) {
       const inRange = (t) => t >= fromTs && t <= toTs;
       const rows = await list(KEYS.orders);

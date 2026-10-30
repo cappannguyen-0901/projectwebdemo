@@ -102,6 +102,51 @@ export const CAPABILITIES = Object.freeze({
       return { type: 'profile.me', data: { profile } };
     }
   }),
+  'order.queue': Object.freeze({
+    name: 'order.queue', description: 'Xem các đơn đang được xử lý.',
+    input: objectInput(), roles: ['staff', 'owner'], policyAction: 'order.queue.read', risk: 'read',
+    async handler(api) {
+      const orders = (await api.orders.getAll()).filter((order) => order.status !== 'cancelled' && order.step >= 0 && order.step < 4);
+      return { type: 'order.queue', data: { orders } };
+    }
+  }),
+  'booking.today': Object.freeze({
+    name: 'booking.today', description: 'Xem các đặt chỗ hôm nay và nhóm trễ.',
+    input: objectInput(), roles: ['staff', 'owner'], policyAction: 'booking.today.read', risk: 'read',
+    async handler(api) {
+      const today = api.utils.today();
+      const rows = (await api.bookings.getAll()).filter((booking) => booking.date === today);
+      const bookings = await Promise.all(rows.map(async (booking) => ({
+        ...booking,
+        phase: api.bookings.phase(booking),
+        customerName: booking.userId ? (await api.users.getById(booking.userId))?.name || 'Khách hàng' : 'Khách'
+      })));
+      return { type: 'booking.today', data: { date: today, bookings, late: bookings.filter((booking) => booking.phase === 'late') } };
+    }
+  }),
+  'stats.summary': Object.freeze({
+    name: 'stats.summary', description: 'Xem số liệu tổng hợp theo ngày, tuần hoặc tháng.',
+    input: objectInput({ period: { type: 'string', enum: ['day', 'week', 'month'] } }, ['period']),
+    roles: ['staff', 'owner'], policyAction: 'stats.read', risk: 'read',
+    async handler(api, args) { return { type: 'stats.summary', data: await api.stats.summary(args.period) }; }
+  }),
+  'shift.today': Object.freeze({
+    name: 'shift.today', description: 'Xem lịch ca và nhân viên hôm nay.',
+    input: objectInput(), roles: ['staff', 'owner'], policyAction: 'shift.today.read', risk: 'read',
+    async handler(api) {
+      const date = api.utils.today();
+      const [shifts, schedule, staff] = await Promise.all([api.shifts.getAll(), api.shifts.getSchedule(), api.staff.getAll()]);
+      const staffById = new Map(staff.map((person) => [person.id, person.name]));
+      return { type: 'shift.today', data: { date, shifts: shifts.map((shift) => ({
+        ...shift, staff: (schedule[date]?.[shift.id] || []).map((id) => ({ id, name: staffById.get(id) || 'Nhân viên' }))
+      })) } };
+    }
+  }),
+  'menu.outOfStock': Object.freeze({
+    name: 'menu.outOfStock', description: 'Xem các món đang hết hàng.',
+    input: objectInput(), roles: ['staff', 'owner'], policyAction: 'menu.stock.read', risk: 'read',
+    async handler(api) { return { type: 'menu.outOfStock', data: { items: await api.menu.getOutOfStock() } }; }
+  }),
   'order.create': Object.freeze({
     name: 'order.create', description: 'Tạo đơn giao món.',
     input: objectInput({ items: { type: 'array', minItems: 1 }, address: { type: 'string', minLength: 1, maxLength: 300 },
@@ -189,6 +234,8 @@ function validateInput(schema, value) {
       throw new ApiError('VALIDATION', `${key} phải là số`);
     if (rule.type === 'number' && (input < rule.minimum || input > rule.maximum))
       throw new ApiError('VALIDATION', `${key} nằm ngoài giới hạn`);
+    if (rule.type === 'boolean' && typeof input !== 'boolean') throw new ApiError('VALIDATION', `${key} phải là đúng hoặc sai`);
+    if (rule.enum && !rule.enum.includes(input)) throw new ApiError('VALIDATION', `${key} không nằm trong danh sách cho phép`);
     if (rule.type === 'array' && !Array.isArray(input)) throw new ApiError('VALIDATION', `${key} phải là danh sách`);
     if (rule.type === 'array' && rule.minItems && input.length < rule.minItems)
       throw new ApiError('VALIDATION', `${key} cần ít nhất ${rule.minItems} mục`);
@@ -213,10 +260,6 @@ async function execute(name, args, actor, api) {
   const capability = CAPABILITIES[name];
   if (!capability) throw new ApiError('NOT_FOUND', `Không có năng lực ${name}`);
   if (capability.risk !== 'read') throw new ApiError('FORBIDDEN', 'Năng lực ghi phải đi qua bước xác nhận');
-  if (!capability.roles.includes(actor?.role)) {
-    const code = actor?.role === 'guest' ? 'UNAUTHORIZED' : 'FORBIDDEN';
-    throw new ApiError(code, `Vai trò không được dùng ${name}`);
-  }
   validateInput(capability.input, args);
 
   let resource = null;
@@ -229,8 +272,8 @@ async function execute(name, args, actor, api) {
   } else if (['booking.mine', 'order.mine', 'profile.me'].includes(name)) {
     resource = { ownerId: actor?.userId };
   }
-  const access = authorize(actor, name, resource);
-  if (!access.allowed) throw new ApiError('FORBIDDEN', access.reason);
+  const access = authorize(actor, capability.policyAction || name, resource);
+  if (!access.allowed) throw new ApiError(actor?.role === 'guest' ? 'UNAUTHORIZED' : 'FORBIDDEN', access.reason);
 
   return capability.handler(api, args, actor);
 }
@@ -256,14 +299,9 @@ export function createCapabilityRunner(api, { now = () => Date.now() } = {}) {
     const capability = CAPABILITIES[name];
     if (!capability) throw new ApiError('NOT_FOUND', `Không có năng lực ${name}`);
     const targetId = args?.id || null;
-    if (!capability.roles.includes(actor?.role)) {
-      const code = actor?.role === 'guest' ? 'UNAUTHORIZED' : 'FORBIDDEN';
-      await denied(actor, name, code, targetId);
-      throw new ApiError(code, `Vai trò không được dùng ${name}`);
-    }
     validateInput(capability.input, args);
     let resource = null;
-    if (name === 'order.status' || name === 'order.cancel') {
+    if (['order.status', 'order.cancel'].includes(name)) {
       const row = await api.orders.getById(args.id);
       if (!row) throw new ApiError('NOT_FOUND', `Không tìm thấy đơn ${args.id}`);
       resource = { ownerId: row.userId };
@@ -272,7 +310,7 @@ export function createCapabilityRunner(api, { now = () => Date.now() } = {}) {
       if (!row) throw new ApiError('NOT_FOUND', `Không tìm thấy đặt chỗ ${args.id}`);
       resource = { ownerId: row.userId };
     } else if (['booking.mine', 'order.mine', 'profile.me'].includes(name)) resource = { ownerId: actor?.userId };
-    const access = authorize(actor, name, resource);
+    const access = authorize(actor, capability.policyAction || name, resource);
     if (!access.allowed) {
       const code = actor?.role === 'guest' ? 'UNAUTHORIZED' : 'FORBIDDEN';
       await denied(actor, name, code, targetId);

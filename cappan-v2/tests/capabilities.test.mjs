@@ -11,6 +11,11 @@ const validArgs = {
   'order.mine': {},
   'order.status': { id: 'O1' },
   'profile.me': {}
+  ,'order.queue': {}
+  ,'booking.today': {}
+  ,'stats.summary': { period: 'day' }
+  ,'shift.today': {}
+  ,'menu.outOfStock': {}
 };
 
 function mockApi() {
@@ -30,25 +35,36 @@ function mockApi() {
           { id: 'M2', name: 'Trà đào', description: '', inStock: true },
           { id: 'M3', name: 'Cà phê hết món', inStock: false }
         ];
-      }
+      },
+      async getOutOfStock() { return [{ id: 'M3', name: 'Cà phê hết món', inStock: false }]; }
     },
     seats: { async getMap() { return [{ id: 'A1', floorId: 'F1', capacity: 2, status: 'available', secret: 'drop' }]; } },
-    bookings: { async getByUser() { return bookings; } },
+    bookings: {
+      async getByUser() { return bookings; },
+      async getAll() { return bookings; },
+      phase() { return 'confirmed'; }
+    },
     orders: {
       async getByUser() { return orders; },
+      async getAll() { return orders; },
       async getById(id) { return orders.find((order) => order.id === id) || null; }
     },
+    stats: { async summary(period) { return { period, revenue: 0, orderCount: 0, topItems: [], occupancyRate: 0, noShowCount: 0, depositForfeited: 0, depositRefunded: 0 }; } },
+    shifts: { async getAll() { return [{ id: 'morning', name: 'Sáng' }]; }, async getSchedule() { return {}; } },
+    staff: { async getAll() { return []; } },
+    utils: { today() { return '2026-10-30'; } },
     users: { async getById(id) { return { id, name: 'Khách của tôi', phone: '0901' }; } }
   };
 }
 
-test('mọi năng lực × mọi vai trò: kết quả theo roles và policy, không có HTML', async () => {
+test('mọi năng lực × mọi vai trò: kết quả theo chính sách quyền, không có HTML', async () => {
   const runner = createCapabilityRunner(mockApi());
   for (const [name, capability] of Object.entries(CAPABILITIES)) {
     if (capability.risk !== 'read') continue;
     for (const role of ROLES) {
       const actor = { userId: role === 'guest' ? null : 'U1', role, channel: 'web' };
-      const allowed = capability.roles.includes(role) && POLICY[name][role].length > 0;
+      const action = capability.policyAction || name;
+      const allowed = (POLICY[action]?.[role] || []).length > 0;
       if (!allowed) {
         await assert.rejects(
           () => runner.run(name, validArgs[name], actor),
@@ -61,6 +77,20 @@ test('mọi năng lực × mọi vai trò: kết quả theo roles và policy, kh
       assert.equal(typeof result.type, 'string');
       assert.equal(typeof result.data, 'object');
       assert.equal(JSON.stringify(result).includes('<'), false, `${name} không trả HTML`);
+    }
+  }
+});
+
+test('năng lực đọc dành cho nhân viên và chủ quán bị từ chối với khách và khách hàng', async () => {
+  const runner = createCapabilityRunner(mockApi());
+  for (const name of ['order.queue', 'booking.today', 'stats.summary', 'shift.today', 'menu.outOfStock']) {
+    for (const role of ['guest', 'customer']) {
+      await assert.rejects(() => runner.run(name, validArgs[name], { userId: role === 'guest' ? null : 'U1', role }),
+        (error) => ['UNAUTHORIZED', 'FORBIDDEN'].includes(error.code));
+    }
+    for (const role of ['staff', 'owner']) {
+      const result = await runner.run(name, validArgs[name], { userId: 'S1', role });
+      assert.equal(typeof result.type, 'string');
     }
   }
 });
