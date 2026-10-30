@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApi } from '../src/api/index.js';
-import { createCapabilityRunner } from '../src/ai/capabilities.js';
+import { CAPABILITIES, createCapabilityRunner } from '../src/ai/capabilities.js';
 import { Storage, memoryDriver } from '../src/core/storage.js';
 import { SEED } from '../src/data/seed.js';
 
@@ -92,4 +92,12 @@ test('mọi đầu vào ghi vẫn qua kiểm tra lược đồ', async () => {
   await assert.rejects(() => runner.prepare('order.create', { ...orderArgs, surprise: true }, actor('U1')), (error) => error.code === 'VALIDATION');
   await assert.rejects(() => runner.prepare('booking.create', { ...bookingArgs, guests: '4' }, actor('U1')), (error) => error.code === 'VALIDATION');
   await assert.rejects(() => runner.prepare('order.create', { ...orderArgs, items: [{ itemId: 'M001', extra: true }] }, actor('U1')), (error) => error.code === 'VALIDATION');
+});
+
+test('không thể gọi trực tiếp hàm thực thi ghi để bỏ qua bước xác nhận', async () => {
+  const { api } = setup({ userId: 'U1' });
+  await assert.rejects(
+    () => CAPABILITIES['order.create'].execute(api, orderArgs, actor('U1')),
+    (error) => error.code === 'FORBIDDEN'
+  );
 });

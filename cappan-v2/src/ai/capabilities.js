@@ -2,6 +2,12 @@
 import { ApiError } from '../core/errors.js';
 import { authorize } from '../domain/policy.js';
 
+const CONFIRM_KEY = Symbol('capability-confirmation');
+const guardedExecute = (handler) => async (api, args, actor, key) => {
+  if (key !== CONFIRM_KEY) throw new ApiError('FORBIDDEN', 'Năng lực ghi chỉ chạy sau khi xác nhận');
+  return handler(api, args, actor);
+};
+
 const publicRoles = Object.freeze(['guest', 'customer', 'staff', 'owner']);
 const accountRoles = Object.freeze(['customer', 'staff', 'owner']);
 const objectInput = (properties = {}, required = []) => ({
@@ -109,7 +115,7 @@ export const CAPABILITIES = Object.freeze({
         `Giao đến: ${quote.address}`, `Tổng cộng: ${quote.total.toLocaleString('vi-VN')}đ`
       ] };
     },
-    execute(api, args) { return api.orders.create(args); }
+    execute: guardedExecute((api, args) => api.orders.create(args))
   }),
   'order.cancel': Object.freeze({
     name: 'order.cancel', description: 'Hủy đơn giao món.',
@@ -120,7 +126,7 @@ export const CAPABILITIES = Object.freeze({
       if (!order) throw new ApiError('NOT_FOUND', `Không tìm thấy đơn ${args.id}`);
       return { title: 'Xác nhận hủy đơn', lines: [`Đơn ${order.id}`, `Trạng thái: ${order.status}`, `Tổng tiền: ${Number(order.total || 0).toLocaleString('vi-VN')}đ`] };
     },
-    execute(api, args) { return api.orders.cancel(args.id); }
+    execute: guardedExecute((api, args) => api.orders.cancel(args.id))
   }),
   'booking.create': Object.freeze({
     name: 'booking.create', description: 'Đặt bàn.',
@@ -136,7 +142,7 @@ export const CAPABILITIES = Object.freeze({
         `Hạn trả cọc: ${preview.depositExpiresAt.slice(11, 16)}`
       ] };
     },
-    execute(api, args) { return api.bookings.create(args); }
+    execute: guardedExecute((api, args) => api.bookings.create(args))
   }),
   'booking.cancel': Object.freeze({
     name: 'booking.cancel', description: 'Hủy đặt bàn.',
@@ -149,7 +155,7 @@ export const CAPABILITIES = Object.freeze({
         `Tiền hoàn: ${preview.refundAmount.toLocaleString('vi-VN')}đ (${Math.round(preview.refundRate * 100)}%)`
       ] };
     },
-    execute(api, args) { return api.bookings.cancel(args.id); }
+    execute: guardedExecute((api, args) => api.bookings.cancel(args.id))
   })
 });
 
@@ -313,7 +319,7 @@ export function createCapabilityRunner(api, { now = () => Date.now() } = {}) {
       draft.used = true;
       pending.delete(token);
       const capability = CAPABILITIES[draft.name];
-      const result = await capability.execute(chatApi, structuredClone(draft.args), actor);
+      const result = await capability.execute(chatApi, structuredClone(draft.args), actor, CONFIRM_KEY);
       return { type: `${draft.name}.result`, data: result };
     },
     cancel(token, actor) {

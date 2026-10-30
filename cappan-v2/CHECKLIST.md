@@ -41,7 +41,7 @@ Một trang "đạt" khi đủ 6 mục. Chạy `npm test` + `npm run lint` trư�
 | 3. Xem trước hủy đặt chỗ | Không ghi dữ liệu; tiền hoàn và giai đoạn khớp quy tắc hủy trước nửa đêm, từ nửa đêm và khi trễ | ✅ Có kiểm tra trong `tests/booking-preview-cancel.test.mjs` |
 | 4. Năng lực ghi | Đủ bốn thao tác; đầu vào qua lược đồ; thẻ chưa ghi dữ liệu; mã xác nhận gắn người dùng và dấu băm, hết hạn, dùng một lần; giới hạn năm lượt; nhật ký ghi đúng kênh | ✅ Có kiểm tra trong `tests/capabilities-write.test.mjs` |
 | 5. Nối năng lực vào chat | Xử lý xác nhận trước luật; nhận ý định cục bộ trước mô hình; mô hình chỉ chọn năng lực hợp lệ; có thẻ xác nhận và thẻ đặt chỗ trễ; không mở thanh toán cọc trong chat | ✅ Đã nối qua `src/entry-chat.js`; proxy và tên mô hình lấy từ `src/config.js` |
-| 6. Tài liệu và bản 1.5 | Hợp đồng, quyết định, README và checklist đồng bộ; ba cổng xanh; commit riêng; tag `v2-1.5` | ✅ Đã đồng bộ; cổng cuối xanh với 94 bài kiểm tra; gắn thẻ `v2-1.5` sau commit tài liệu |
+| 6. Tài liệu và bản 1.5 | Hợp đồng, quyết định, README và checklist đồng bộ; ba cổng xanh; commit riêng; tag `v2-1.5` | ✅ Đã đồng bộ; cổng cuối xanh với 95 bài kiểm tra; gắn thẻ `v2-1.5` trên commit hoàn thiện |
 
 ## Kết luận đóng băng (Bước F — 2026-10-29)
 
