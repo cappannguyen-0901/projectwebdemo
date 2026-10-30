@@ -1,8 +1,7 @@
 /* Chat UI chỉ nhận dữ liệu có cấu trúc từ facade và sổ năng lực. */
 import { createAppApi, toast } from './lib/boot.js';
 import { renderHeader } from './lib/page-kit.js';
-import { match } from './ai/rules.js';
-import { checkInput, checkIntent, GUARD_MESSAGES } from './ai/guards.js';
+import { route, UNIFIED_DENIAL_MESSAGE } from './ai/router.js';
 import { parseWhen } from './ai/datetime-vi.js';
 import { createDraftSession } from './ai/draft.js';
 import { CAPABILITIES, createCapabilityRunner } from './ai/capabilities.js';
@@ -138,13 +137,6 @@ function cancelPending() {
   message('bot', 'Em đã bỏ thẻ xác nhận.');
 }
 
-function isAffirmative(text) {
-  return /^(?:ok|okay|xác nhận|đồng ý|đồng ý nhé)[.! ]*$/i.test(text.trim());
-}
-function isNegative(text) {
-  return /^(?:hủy|thôi|không|không đồng ý|bỏ)[.! ]*$/i.test(text.trim());
-}
-
 function parseLocalIntent(text) {
   const clean = normalize(text);
   const id = text.match(/\b(?:od|bk)-[a-z0-9-]+\b/i)?.[0];
@@ -263,7 +255,7 @@ async function selectCapability(question) {
     const raw = payload?.choices?.[0]?.message?.content;
     const text = typeof raw === 'string' ? raw.replace(/^```(?:json)?\s*|\s*```$/g, '') : '';
     const selected = JSON.parse(text);
-    if (!selected || !allowed.some((capability) => capability.name === selected.name) || !selected.args || typeof selected.args !== 'object' || Array.isArray(selected.args)) return null;
+    if (!selected || typeof selected !== 'object' || !selected.args || typeof selected.args !== 'object' || Array.isArray(selected.args)) return null;
     return selected;
   } catch {
     return null;
@@ -275,7 +267,7 @@ async function selectCapability(question) {
 async function runCapability(name, args) {
   const capability = CAPABILITIES[name];
   if (!capability || !capability.roles.includes(actor.role)) {
-    message('bot', actor.role === 'guest' ? 'Anh/chị vui lòng đăng nhập để dùng chức năng này ạ.' : GUARD_MESSAGES.forbidden);
+    message('bot', actor.role === 'guest' ? 'Anh/chị vui lòng đăng nhập để dùng chức năng này ạ.' : UNIFIED_DENIAL_MESSAGE);
     return;
   }
   if (capability.risk !== 'read') {
@@ -288,30 +280,28 @@ async function runCapability(name, args) {
   catch (error) { message('bot', error.message || 'Em chưa lấy được thông tin này.'); }
 }
 
-function acknowledgePending(text) {
-  if (!pendingToken) return false;
-  if (isAffirmative(text)) { confirmPending(); return true; }
-  if (isNegative(text)) { cancelPending(); return true; }
-  return false;
-}
-
 async function respond(text) {
   message('me', text);
-  const shortAck = pendingToken && (isAffirmative(text) || isNegative(text));
-  if (!shortAck) {
-    const inputGuard = checkInput(text);
-    if (inputGuard.blocked) { message('bot', GUARD_MESSAGES.injection); return; }
-    const intentGuard = checkIntent(text, actor.role);
-    if (!intentGuard.allowed) { message('bot', GUARD_MESSAGES.forbidden); toast('Chức năng này chỉ dành cho nhân viên.', 'err'); return; }
+  const currentDraft = drafts.get();
+  const localIntent = parseLocalIntent(text);
+  const routingContext = {
+    menu: menuCache, user, actor, registry: Object.keys(CAPABILITIES), localIntent,
+    policyActions: Object.fromEntries(Object.entries(CAPABILITIES).filter(([, capability]) => capability.policyAction).map(([name, capability]) => [name, capability.policyAction])),
+    requestLLM: !localIntent
+  };
+  const state = { pendingToken, draft: Boolean(currentDraft) };
+  let action = route(text, state, routingContext);
+  if (action.type === 'denied' || action.type === 'reply' || action.type === 'pending-confirmation') {
+    message('bot', action.data.message || action.data.text);
+    if (action.data.code === 'INJECTION') toast('Yêu cầu bị chặn.', 'err');
+    return;
   }
-  if (acknowledgePending(text)) return;
-  if (pendingToken) { message('bot', 'Anh/chị hãy xác nhận hoặc bỏ thẻ đang chờ trước nhé ạ.'); return; }
-
-  const localRule = match(text, { menu: menuCache, user });
-  if (localRule) { message('bot', localRule.text); return; }
-  if (drafts.get()) {
-    if (/^(?:hủy|thôi|bỏ bản nháp)[.! ]*$/i.test(text.trim())) { drafts.cancel(); message('bot', 'Em đã bỏ bản nháp.'); return; }
-    const draft = drafts.get();
+  if (action.type === 'confirm') { await confirmPending(); return; }
+  if (action.type === 'cancel-confirmation') { cancelPending(); return; }
+  if (action.type === 'cancel-draft') { drafts.cancel(); message('bot', 'Em đã bỏ bản nháp.'); return; }
+  if (action.type === 'reject-capability') { message('bot', action.data.message); return; }
+  if (action.type === 'draft-input') {
+    const draft = currentDraft;
     const fields = parseDraftFields(text, draft.action);
     const adding = draft.action === 'order' && /thêm\s+(\d+)\s+(?:ly|phần)\s+(.+)/i.exec(text);
     if (adding) {
@@ -330,16 +320,20 @@ async function respond(text) {
     if (drafts.ready()) return prepareDraft();
     return message('bot', missingPrompt(drafts.get()));
   }
-
-  const localIntent = parseLocalIntent(text);
-  if (localIntent) {
-    if ((localIntent.name === 'order.create' || localIntent.name === 'booking.create') && !Object.keys(localIntent.args).length)
-      return startOrFillDraft(localIntent.name.startsWith('booking') ? 'booking' : 'order', text);
-    return runCapability(localIntent.name, localIntent.args);
+  if (action.type === 'select-capability') {
+    const selected = await selectCapability(text);
+    action = selected
+      ? route(text, state, { ...routingContext, requestLLM: false, llmResult: selected })
+      : route(text, state, { ...routingContext, requestLLM: false, llmError: true });
   }
-  if (/^(?:ok|okay)[.! ]*$/i.test(text.trim())) { message('bot', 'Dạ, anh/chị cần em hỗ trợ gì ạ?'); return; }
-  const selected = await selectCapability(text);
-  if (selected?.name) return runCapability(selected.name, selected.args);
+  if (action.type === 'reject-capability') return message('bot', action.data.message);
+  if (action.type === 'denied') return message('bot', action.data.message);
+  if (action.type === 'reply') return message('bot', action.data.text);
+  if (action.type === 'capability') {
+    if ((action.data.name === 'order.create' || action.data.name === 'booking.create') && !Object.keys(action.data.args).length)
+      return startOrFillDraft(action.data.name.startsWith('booking') ? 'booking' : 'order', text);
+    return runCapability(action.data.name, action.data.args);
+  }
   message('bot', 'Dạ em chưa nhận ra yêu cầu. Anh/chị có thể hỏi món, xem bàn trống, đặt nước hoặc đặt bàn ạ.');
 }
 

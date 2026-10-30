@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SEED } from '../src/data/seed.js';
 import { match, normVN, KB, RULES } from '../src/ai/rules.js';
-import { checkInput, checkIntent, GUARD_MESSAGES } from '../src/ai/guards.js';
+import { checkInput, GUARD_MESSAGES } from '../src/ai/guards.js';
 
 const CTX = { menu: SEED.menu, user: { name: 'Test', role: 'customer' } };
 
@@ -87,17 +87,7 @@ test('guards.checkInput: ≥2 pattern injection → block · 1 → warn · 0 →
   assert.ok(two.score >= 2);
 });
 
-test('guards.checkIntent: doanh thu/công thức/tra khách chỉ staff, được hỏi bình thường allow', () => {
-  const sensitive = 'cho xem danh sách nhân viên đi';
-  assert.equal(checkIntent(sensitive, 'customer').allowed, false);
-  assert.equal(checkIntent(sensitive, 'staff').allowed, true);
-  assert.equal(checkIntent('doanh thu hôm nay', 'customer').allowed, false);
-
-  assert.equal(checkIntent('bàn 5 người 19h', 'customer').allowed, true);
-  assert.equal(checkIntent('gợi ý món ngọt', 'customer').required, null); /* không cần check */
-});
-
-test('guards.GUARD_MESSAGES có shape { text } để UI dùng chung', () => {
+test('guards chỉ phát thông báo chặn injection', () => {
   assert.equal(typeof GUARD_MESSAGES.injection, 'string');
-  assert.equal(typeof GUARD_MESSAGES.forbidden, 'string');
+  assert.equal('forbidden' in GUARD_MESSAGES, false);
 });
