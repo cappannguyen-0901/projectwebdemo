@@ -37,3 +37,22 @@
   border-top: 1px solid var(--line);
   background: var(--card);
 }
+.chat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.chat-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.chat-card-actions .primary {
+  background: var(--brand);
+  color: #fff;
+}
+.chat-card a {
+  color: var(--brand);
+  font-weight: 600;
+}
