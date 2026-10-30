@@ -1,6 +1,6 @@
 # CAPPAN v2 — Nền tảng chính thức (Vite MPA + Async API Adapter)
 
-> ✅ **HIỆN TRẠNG: v2 là BẢN CHÍNH (đã hoàn tất bước 3 và khởi động bước 4).** Demo cũ (`js/...`, gốc) CHỈ CÒN giữ làm tham chiếu — không phát triển thêm trên nó.
+> ✅ **HIỆN TRẠNG: v2 là sản phẩm đang phát triển; Bước 3 và Bước 4 đã hoàn tất.** Demo cũ (`js/...`, ở thư mục gốc) chỉ dùng làm tài liệu tham khảo — không phát triển thêm trên đó.
 >
 > ⚠️ **Vẫn demo-grade: auth, phân quyền, kiểm tra giá và chỗ ngồi hiện chỉ ở client, chưa bảo mật. KHÔNG cho khách thật dùng.** Chi tiết: `DECISIONS.md`.
 >
@@ -18,7 +18,9 @@ cappan-v2/
 │  ├─ entry-*.js            entry mỗi trang — mỏng, chỉ nối page → api
 │  ├─ core/errors.js        ApiError/StorageError — mô hình lỗi duy nhất
 │  ├─ core/storage.js       Storage async + driver (browser/memory) + exportAll/importAll
-│  ├─ api/index.js          API FACADE — thứ duy nhất pages được chạm
+  │  ├─ api/index.js          API facade — lớp duy nhất mà trang giao diện sử dụng
+  │  ├─ ai/                   luật chat, phân tích ngày giờ, bản nháp, năng lực và xác nhận
+  │  ├─ config.js             cấu hình chung cho địa chỉ proxy và tên mô hình
 │  ├─ data/schema.js        enum/hằng số validate THẬT (khác legacy: file chết)
 │  └─ data/seed.js          seed ES module (menu/floors/seats…)
 └─ tests/                   node --test (zero-dep) = executable specification
@@ -37,7 +39,7 @@ cappan-v2/
 ```bash
 npm run dev        # Vite dev server (MPA)
 npm run build      # build toàn bộ trang, tự quét
-  npm test           # node:test — đặc tả hợp đồng có thể chạy, không thêm thư viện kiểm thử
+npm test            # node:test — đặc tả hợp đồng có thể chạy, không thêm thư viện kiểm thử
 npm run lint       # eslint (flat config)
 npm run format     # prettier
 ```
@@ -51,10 +53,9 @@ npm run format     # prettier
 - **Bước E:** CSS tách base + per-page (2 sheet/trang), không còn `window.*` biến toàn cục ✅
 - **Bước 1 (đã xong):** vá các lỗi nặng, kiểm tra khách, đặt chỗ và mã ưu đãi đầu tiên; đồng bộ doanh thu theo ngày hoàn tất ✅
 - **Bước 2 (đã xong):** luật đặt chỗ v1.3, đặt bàn có cọc, giữ chỗ theo ngày, thẻ trễ và tự giải phóng bàn ✅
-- **Bước 3 (đã xong):** bảng quyền tập trung cho khách, khách hàng, nhân viên và chủ quán; sự kiện nghiệp vụ và nhật ký kiểm toán ✅
-- **Bước 4 (đang khởi động):** sổ bảy năng lực chỉ đọc, kiểm tra vai trò và đầu vào, lọc dữ liệu theo chủ sở hữu. Chưa nối vào chat và chưa có năng lực ghi.
-- **Bước 5:** nối năng lực vào chat, bổ sung thao tác ghi có xác nhận, thống kê và bảng điều khiển chủ quán.
-- **Bước 6:** backend Node + PostgreSQL, xác thực phía máy chủ, tác vụ nền và thanh toán thật; `exportAll()` làm nguồn chuyển dữ liệu.
+- **Bước 3 (đã xong):** bảng quyền tập trung cho khách, khách hàng, nhân viên và chủ quán; sự kiện nghiệp vụ và nhật ký kiểm toán.
+- **Bước 4 (đã xong):** bảy năng lực đọc và bốn năng lực ghi; ngày giờ tiếng Việt, bản nháp; thao tác ghi qua thẻ xem trước và xác nhận; chat xử lý đặt nước, đặt bàn, hủy và thẻ đặt chỗ trễ.
+- **Bước 5:** chuyển facade sang máy chủ Node và PostgreSQL, xác thực phía máy chủ, tác vụ nền và thanh toán thật; `exportAll()` làm nguồn chuyển dữ liệu.
 
 ## Trang đã migrate (tất cả qua CHECKLIST.md ✅)
 
@@ -65,4 +66,4 @@ index · auth · menu · cart (+mã khuyến mãi) · order (size/topping/qty) �
 - Khách chưa đăng nhập xem được sơ đồ chỗ và đặt nước; các thao tác đặt chỗ yêu cầu đăng nhập.
 - Mã có điều kiện đơn đầu tiên yêu cầu tài khoản. Nhân viên và chủ quán thao tác hộ theo cùng chính sách; chỉ hai vai trò này xem thống kê tổng và nhật ký.
 - Vai trò chủ quán đã có trong bảng quyền nhưng chưa có tài khoản được tạo.
-- Sổ năng lực chỉ đọc chưa được gọi từ `chat.html`; đây là nền cho bước tiếp theo, chưa phải trợ lý có thể thao tác dữ liệu.
+- Trợ lý chat chỉ gọi năng lực đã đăng ký; thao tác ghi cần người dùng xác nhận. Thanh toán cọc vẫn thực hiện ở trang đặt chỗ vì phần thanh toán trong bản này còn giả lập.

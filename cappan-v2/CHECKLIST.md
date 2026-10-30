@@ -30,7 +30,18 @@ Một trang "đạt" khi đủ 6 mục. Chạy `npm test` + `npm run lint` trư�
 | 2. Chính sách quyền | Bảng quyền thuần theo hành động, vai trò và quan hệ sở hữu; facade dựng actor có kênh; test ma trận sinh từ chính bảng quyền | ✅ Ma trận đầy đủ trong `tests/policy.test.mjs` |
 | 3. Sự kiện và nhật ký | Sự kiện sau khi lưu; lỗi listener/ghi nhật ký không chặn thao tác; từ chối được ghi; nhật ký giữ tối đa 500 dòng; staff/owner đọc được | ✅ Có kiểm thử sự kiện, quyền đọc, lỗi lưu và giới hạn |
 | 4. Sổ năng lực đọc | Đủ bảy năng lực đọc; không dùng DOM; từng vai trò được kiểm tra; đầu vào sai trả `VALIDATION`; khách không đọc dữ liệu người khác | ✅ Có kiểm thử năng lực × vai trò và lọc dữ liệu; chưa nối vào chat |
-| 5. Tài liệu và bản 1.4 | README có bản đồ pha; hợp đồng và quyết định đồng bộ; có dòng nghiệm thu cho từng việc; ba cổng xanh; tag `v2-1.4` | ✅ Tài liệu đồng bộ, ba cổng xanh; ⏳ tạo commit/tag đang chờ quyền ghi Git |
+| 5. Tài liệu và bản 1.4 | README có bản đồ pha; hợp đồng và quyết định đồng bộ; có dòng nghiệm thu cho từng việc; ba cổng xanh; tag `v2-1.4` | ✅ Tài liệu đồng bộ, ba cổng xanh; commit `b330522`, tag `v2-1.4` |
+
+## Nghiệm thu Bước 4 — hợp đồng v1.5
+
+| Việc | Điều kiện nghiệm thu | Kết quả |
+| --- | --- | --- |
+| 1. Ngày giờ tiếng Việt | Hiểu ngày tương đối, thứ trong tuần, ngày trong tháng và giờ có chỉ rõ buổi; trường hợp thiếu hoặc mơ hồ được hỏi lại; kiểm tra qua mốc ngày | ✅ Có kiểm tra với thời gian giả định trong `tests/datetime-vi.test.mjs` |
+| 2. Bản nháp | Đặt bàn và đơn giao món hỏi đúng trường thiếu; sửa giờ, thêm món; tự hết hạn sau mười phút không hoạt động | ✅ Có kiểm tra trong `tests/draft.test.mjs` |
+| 3. Xem trước hủy đặt chỗ | Không ghi dữ liệu; tiền hoàn và giai đoạn khớp quy tắc hủy trước nửa đêm, từ nửa đêm và khi trễ | ✅ Có kiểm tra trong `tests/booking-preview-cancel.test.mjs` |
+| 4. Năng lực ghi | Đủ bốn thao tác; đầu vào qua lược đồ; thẻ chưa ghi dữ liệu; mã xác nhận gắn người dùng và dấu băm, hết hạn, dùng một lần; giới hạn năm lượt; nhật ký ghi đúng kênh | ✅ Có kiểm tra trong `tests/capabilities-write.test.mjs` |
+| 5. Nối năng lực vào chat | Xử lý xác nhận trước luật; nhận ý định cục bộ trước mô hình; mô hình chỉ chọn năng lực hợp lệ; có thẻ xác nhận và thẻ đặt chỗ trễ; không mở thanh toán cọc trong chat | ✅ Đã nối qua `src/entry-chat.js`; proxy và tên mô hình lấy từ `src/config.js` |
+| 6. Tài liệu và bản 1.5 | Hợp đồng, quyết định, README và checklist đồng bộ; ba cổng xanh; commit riêng; tag `v2-1.5` | ✅ Đã đồng bộ; cổng cuối xanh với 94 bài kiểm tra; gắn thẻ `v2-1.5` sau commit tài liệu |
 
 ## Kết luận đóng băng (Bước F — 2026-10-29)
 
