@@ -235,12 +235,14 @@ export function createApi({
       return menu._setStock(id, false);
     },
     async _setStock(id, inStock) {
+      const actor = await assertAllowed('menu.stock.update', { ownerId: null, id });
       await ensureSeeded();
       const rows = await list(KEYS.menu);
       const m = rows.find((r) => r.id === id);
       if (!m) throw new ApiError('NOT_FOUND', `Món "${id}" không tồn tại`);
       m.inStock = inStock;
       await storage.set(KEYS.menu, rows);
+      await afterWrite('menu.stock_changed', 'menu.stock_changed', id, actor);
       return m;
     }
   };

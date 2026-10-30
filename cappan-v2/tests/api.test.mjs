@@ -30,7 +30,9 @@ test('menu.getAll: đủ seed, sort theo category.order, reader trả null (§3.
 });
 
 test('menu flip stock + mutator throw NOT_FOUND', async () => {
-  const api = mk();
+  const storage = fresh();
+  await storage.set('users', [{ id: 'S1', name: 'Nhân viên', role: 'staff', phone: '0900000001' }]);
+  const api = mk({ identity: () => 'S1', storage });
   const out = await api.menu.markOutOfStock('M104');
   assert.equal(out.inStock, false);
   assert.ok((await api.menu.getOutOfStock()).some((m) => m.id === 'M104'));

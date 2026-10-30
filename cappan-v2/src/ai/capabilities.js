@@ -147,6 +147,69 @@ export const CAPABILITIES = Object.freeze({
     input: objectInput(), roles: ['staff', 'owner'], policyAction: 'menu.stock.read', risk: 'read',
     async handler(api) { return { type: 'menu.outOfStock', data: { items: await api.menu.getOutOfStock() } }; }
   }),
+  'order.advance': Object.freeze({
+    name: 'order.advance', description: 'Chuyển đơn sang bước tiếp theo.',
+    input: objectInput({ id: { type: 'string', minLength: 1, maxLength: 100 } }, ['id']),
+    roles: ['staff', 'owner'], policyAction: 'order.step', risk: 'write',
+    async prepare(api, args) {
+      const order = await api.orders.getById(args.id);
+      if (!order) throw new ApiError('NOT_FOUND', `Không tìm thấy đơn ${args.id}`);
+      const customer = order.userId ? await api.users.getById(order.userId) : null;
+      if (order.status === 'cancelled' || order.step >= 4) throw new ApiError('CONFLICT', 'Đơn không còn bước tiếp theo');
+      return { title: `Xác nhận chuyển bước đơn ${order.id}`, lines: [
+        `Khách: ${customer?.name || 'Khách'}`, `Tổng tiền: ${Number(order.total || 0).toLocaleString('vi-VN')}đ`,
+        `Bước tiếp theo: ${order.step + 1}`
+      ] };
+    },
+    execute: guardedExecute(async (api, args) => {
+      const order = await api.orders.getById(args.id);
+      if (!order) throw new ApiError('NOT_FOUND', `Không tìm thấy đơn ${args.id}`);
+      return api.orders.updateStep(args.id, order.step + 1);
+    })
+  }),
+  'booking.checkIn': Object.freeze({
+    name: 'booking.checkIn', description: 'Xác nhận khách đã đến nhận bàn.',
+    input: objectInput({ id: { type: 'string', minLength: 1, maxLength: 100 } }, ['id']),
+    roles: ['staff', 'owner'], policyAction: 'booking.checkIn', risk: 'write',
+    async prepare(api, args) {
+      const booking = await api.bookings.getById(args.id);
+      if (!booking) throw new ApiError('NOT_FOUND', `Không tìm thấy đặt chỗ ${args.id}`);
+      const customer = booking.userId ? await api.users.getById(booking.userId) : null;
+      return { title: `Xác nhận nhận bàn ${booking.seatId}`, lines: [
+        `Đặt chỗ ${booking.id} · khách ${customer?.name || 'Khách'}`,
+        `${booking.date} lúc ${booking.time} · ${booking.guests} khách`,
+        `Tiền cọc: ${Number(booking.depositAmount || 0).toLocaleString('vi-VN')}đ`
+      ] };
+    },
+    execute: guardedExecute((api, args) => api.bookings.checkIn(args.id))
+  }),
+  'booking.complete': Object.freeze({
+    name: 'booking.complete', description: 'Hoàn tất lượt đặt chỗ.',
+    input: objectInput({ id: { type: 'string', minLength: 1, maxLength: 100 } }, ['id']),
+    roles: ['staff', 'owner'], policyAction: 'booking.complete', risk: 'write',
+    async prepare(api, args) {
+      const booking = await api.bookings.getById(args.id);
+      if (!booking) throw new ApiError('NOT_FOUND', `Không tìm thấy đặt chỗ ${args.id}`);
+      const customer = booking.userId ? await api.users.getById(booking.userId) : null;
+      return { title: `Xác nhận hoàn tất đặt chỗ ${booking.id}`, lines: [
+        `Bàn ${booking.seatId} · khách ${customer?.name || 'Khách'}`,
+        `${booking.date} lúc ${booking.time} · ${booking.guests} khách`,
+        `Tiền cọc: ${Number(booking.depositAmount || 0).toLocaleString('vi-VN')}đ`
+      ] };
+    },
+    execute: guardedExecute((api, args) => api.bookings.complete(args.id))
+  }),
+  'menu.setStock': Object.freeze({
+    name: 'menu.setStock', description: 'Đánh dấu một món còn hoặc hết hàng.',
+    input: objectInput({ id: { type: 'string', minLength: 1, maxLength: 100 }, inStock: { type: 'boolean' } }, ['id', 'inStock']),
+    roles: ['staff', 'owner'], policyAction: 'menu.stock.update', risk: 'write',
+    async prepare(api, args) {
+      const item = await api.menu.getById(args.id);
+      if (!item) throw new ApiError('NOT_FOUND', `Không tìm thấy món ${args.id}`);
+      return { title: `Xác nhận cập nhật món ${item.name}`, lines: [`Mã món ${item.id}`, `Trạng thái mới: ${args.inStock ? 'Còn hàng' : 'Hết hàng'}`] };
+    },
+    execute: guardedExecute((api, args) => args.inStock ? api.menu.markInStock(args.id) : api.menu.markOutOfStock(args.id))
+  }),
   'order.create': Object.freeze({
     name: 'order.create', description: 'Tạo đơn giao món.',
     input: objectInput({ items: { type: 'array', minItems: 1 }, address: { type: 'string', minLength: 1, maxLength: 300 },
@@ -169,7 +232,8 @@ export const CAPABILITIES = Object.freeze({
     async prepare(api, args) {
       const order = await api.orders.getById(args.id);
       if (!order) throw new ApiError('NOT_FOUND', `Không tìm thấy đơn ${args.id}`);
-      return { title: 'Xác nhận hủy đơn', lines: [`Đơn ${order.id}`, `Trạng thái: ${order.status}`, `Tổng tiền: ${Number(order.total || 0).toLocaleString('vi-VN')}đ`] };
+      const customer = order.userId ? await api.users.getById(order.userId) : null;
+      return { title: `Xác nhận hủy đơn ${order.id}`, lines: [`Mã đơn: ${order.id}`, `Khách: ${customer?.name || 'Khách'}`, `Trạng thái: ${order.status}`, `Tổng tiền: ${Number(order.total || 0).toLocaleString('vi-VN')}đ`] };
     },
     execute: guardedExecute((api, args) => api.orders.cancel(args.id))
   }),
@@ -195,8 +259,10 @@ export const CAPABILITIES = Object.freeze({
     roles: accountRoles, risk: 'destructive',
     async prepare(api, args) {
       const preview = await api.bookings.previewCancel(args.id);
+      const booking = await api.bookings.getById(args.id);
+      const customer = booking?.userId ? await api.users.getById(booking.userId) : null;
       return { title: 'Xác nhận hủy đặt bàn', lines: [
-        `Đặt chỗ ${args.id}`, `Giai đoạn: ${preview.phase}`,
+        `Đặt chỗ ${args.id} · bàn ${booking?.seatId || 'không rõ'}`, `Khách: ${customer?.name || 'Khách'}`, `Giai đoạn: ${preview.phase}`,
         `Tiền hoàn: ${preview.refundAmount.toLocaleString('vi-VN')}đ (${Math.round(preview.refundRate * 100)}%)`
       ] };
     },
