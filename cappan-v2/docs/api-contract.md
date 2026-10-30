@@ -1,4 +1,4 @@
-# CAPPAN v2 — HỢP ĐỒNG DATA/API · CONTRACT v1.5
+# CAPPAN v2 — HỢP ĐỒNG DATA/API · CONTRACT v1.6
 
 > **Đây là tài liệu BINDING.** Mọi thay đổi chữ ký (tên hàm, tham số, giá trị trả về, cách báo lỗi)
 > PHẢI cập nhật tài liệu này + mục Changelog §7 **trước** khi sửa code.
@@ -109,7 +109,8 @@ Giai đoạn: **P1 = implement ngay bước này**, **P2 = chốt chữ ký, cod
 | `booking.checkIn`, `booking.complete` (`any`) | — | — | ✓ | ✓ |
 | `order.step` (`any`) | — | — | ✓ | ✓ |
 | `booking.lateCards` (`own/any`) | — | ✓ own | ✓ any | ✓ any |
-| `stats.read`, `audit.read` (`none`) | — | — | ✓ | ✓ |
+| `stats.read`, `audit.read`, `order.queue.read`, `booking.today.read`, `shift.today.read`, `menu.stock.read` (`none`) | — | — | ✓ | ✓ |
+| `menu.stock.update` (`none`) | — | — | ✓ | ✓ |
 
 `owner` được mọi hành động của `staff`; không seed tài khoản owner. Channel mặc định là `web`; `api.forChannel(channel)` tạo facade dùng chung storage/identity với channel khác.
 - Đặt chỗ bắt buộc đăng nhập: guest gọi `create/payDeposit/cancel/checkIn/complete` nhận `UNAUTHORIZED`; guest vẫn đọc `seats.getMap()` và đặt nước. Mã khuyến mãi có điều kiện “đầu tiên” khi guest dùng trả `{ ok:false, error:'Cần đăng nhập để dùng mã này' }`.
@@ -161,6 +162,16 @@ Token được tiêu thụ trước khi bắt đầu thực thi để chống g�
 
 Chat xử lý theo thứ tự: kiểm tra đầu vào và quyền → ưu tiên xác nhận/hủy token đang chờ → luật cục bộ → nhận diện ý định cục bộ → yêu cầu LLM chọn tên/đối số capability hợp lệ → xem trước → thẻ xác nhận → thao tác ghi. Lỗi LLM không chặn câu có cấu trúc rõ để luật cục bộ và bản nháp hỏi trường còn thiếu. Dữ liệu gửi LLM phải qua bộ lọc quyền. UI chỉ dựng thẻ từ `{type,data}`; không truy cập storage.
 
+### 3.17 Định tuyến và năng lực nhân viên (v1.6)
+
+- `route(input, state, ctx)` trong `src/ai/router.js` là hàm thuần. Nó trả hành động giao diện có kiểu, gồm phản hồi, gọi capability, xác nhận, bỏ thẻ, hủy nháp, từ chối capability lạ hoặc dự phòng khi mô hình lỗi. Không nhận diện quyền nhân viên bằng biểu thức trong `guards.js`; quyền được quyết định duy nhất bằng `authorize()` từ `src/domain/policy.js`.
+- Khi có token, câu xác nhận hoặc từ chối được xử lý trước luật khác. Khi không có token, “ok” là câu đáp thường. “Hủy”/“thôi” bỏ bản nháp. Câu có cấu trúc rõ tiếp tục chạy được khi mô hình lỗi; injection luôn bị chặn.
+- Tham chiếu “đơn đó” hoặc “bàn đó” chỉ dùng đối tượng gần nhất trong phiên chat. Thẻ luôn hiển thị mã đối tượng, tên khách và số tiền liên quan trước khi người dùng xác nhận.
+- Capability chỉ đọc cho staff/owner: `order.queue({})`, `booking.today({})`, `stats.summary({period:'day'|'week'|'month'})`, `shift.today({})`, `menu.outOfStock({})`. Dữ liệu tổng hợp lấy từ bản ghi đơn và đặt chỗ, không lấy từ nhật ký kiểm toán.
+- `stats.summary` trả `{ revenue, orderCount, topItems, occupancyRate, noShowCount, depositForfeited, depositRefunded }`. Kỳ ngày/tuần/tháng dùng giờ địa phương; tuần bắt đầu thứ Hai; doanh thu tính từ đơn hoàn tất theo `completedAt`; số đơn đếm đơn không hủy theo `createdAt`; món bán chạy tính trên đơn hoàn tất; tỷ lệ lấp đầy dùng sơ đồ bàn hôm nay; lượt vắng mặt nhóm theo ngày đặt. Tiền cọc bị mất/hoàn nhóm theo thời điểm hủy hoặc đóng booking và hiển thị riêng doanh thu bán hàng.
+- Capability ghi staff gồm `order.advance({id})`, `booking.checkIn({id})`, `booking.complete({id})`, `menu.setStock({itemId,inStock})`; `order.cancel({id})` và `booking.cancel({id})` dùng lại. Mỗi xác nhận chỉ tác động đúng một mã đối tượng. Không nhận danh sách nhiều mã hay thao tác hàng loạt; yêu cầu hàng loạt được hướng tới trang nhân viên.
+- Mọi thao tác ghi đi qua `prepare → confirm`. Thẻ hủy hộ hiển thị mã, tên khách và tiền đơn/tiền hoàn đã xem trước. Thao tác qua facade dùng `channel:'chat'`; audit ghi đúng `actor.role` và kênh.
+
 ### 3.1 `api.menu`
 
 | Method                                               | Tham số | Trả về                                  | Lỗi                         | Pha                 |
@@ -170,7 +181,7 @@ Chat xử lý theo thứ tự: kiểm tra đầu vào và quyền → ưu tiên 
 | `getByCategory(categoryId)`                          | id      | `MenuItem[]`                            | `NOT_FOUND` nếu category lạ | P1                  |
 | `getAvailable()`                                     | –       | `MenuItem[]` inStock                    | —                           | P1                  |
 | `getOutOfStock()`                                    | –       | `MenuItem[]`                            | —                           | P1                  |
-| `markInStock(id)` / `markOutOfStock(id)`             | id      | `MenuItem` (bản ghi sau update)         | `NOT_FOUND`                 | P1                  |
+| `markInStock(id)` / `markOutOfStock(id)`             | id      | `MenuItem` (bản ghi sau update)         | `NOT_FOUND`, `FORBIDDEN`    | P1                  |
 | `create(patch)` / `update(id, patch)` / `remove(id)` | —       | —                                       | —                           | P3 staff, phase sau |
 
 ### 3.2 `api.categories`
@@ -348,3 +359,4 @@ cappan-v2/
 | 1.3.1   | 2026-10-29 | **Quy tắc khách:** đặt chỗ yêu cầu đăng nhập; khách vẫn xem sơ đồ và đặt nước; mã khuyến mãi có điều kiện đơn đầu tiên yêu cầu tài khoản; giao diện không hiển thị mẫu đặt bàn cho khách chưa đăng nhập. |
 | 1.4     | 2026-10-29 | **Bước 3 + nền Bước 4:** guest không được đặt chỗ; mã “đầu tiên” yêu cầu đăng nhập; policy tập trung cho `guest/customer/staff/owner` theo hành động+sở hữu; owner có quyền staff và thống kê tổng; actor có channel; event phát sau ghi; audit tối đa 500 dòng và lỗi audit/listener không chặn nghiệp vụ; sổ capability chỉ đọc gồm bảy mục, kiểm tra quyền/input và lọc dữ liệu. |
 | 1.5     | 2026-10-30 | **Bước 4 — ghi qua chat có xác nhận:** phân tích ngày giờ tiếng Việt không đoán mơ hồ; bản nháp 10 phút; báo giá và xem trước hủy; bốn capability ghi qua `prepare → confirm`, token trong bộ nhớ gắn actor/action/dấu băm, hết hạn 2 phút và dùng một lần; giới hạn 5 thao tác ghi/phút/phiên; LLM chỉ chọn capability và đối số; guest không đặt bàn; không có capability trả cọc; nối thẻ xác nhận và thẻ đặt chỗ trễ vào chat, cấu hình proxy/mô hình tập trung. |
+| 1.6     | 2026-10-30 | **Bước 5 — nhân viên thao tác qua chat và thống kê chủ quán:** router chat thuần, bỏ kiểm tra vai trò bằng biểu thức trong guards; năm capability đọc cho staff/owner; thống kê lấy từ đơn/booking và tách tiền cọc bị mất/hoàn khỏi doanh thu; bốn capability ghi staff cùng hủy đơn/booking đều cần xác nhận, một đối tượng mỗi lần, thẻ nêu mã/tên khách/tiền; chủ quán dùng policy chung; README và checklist cập nhật. |

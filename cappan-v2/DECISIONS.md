@@ -36,6 +36,11 @@
 | 2026-10-30 | Khi có mã chờ, câu đồng ý hoặc từ chối được ưu tiên trước mọi luật; không có mã thì “ok” là câu trả lời thường. Giới hạn 5 lần ghi/phút/phiên chat. Chat không mở trả cọc giả lập; thẻ đặt bàn dẫn tới trang đặt chỗ. | Xác nhận do người dùng điều khiển và có giới hạn tốc độ |
 | 2026-10-30 | Ngày giờ thiếu chỉ dẫn sáng/trưa/tối được đánh dấu mơ hồ để hỏi lại; nháp tự hết hạn sau 10 phút không hoạt động. Số điện thoại mặc định lấy từ hồ sơ nếu có. | Không tự đoán giờ và giảm nhập lại thông tin |
 | 2026-10-30 | Năng lực ghi v1.5 gồm tạo/hủy đơn và tạo/hủy đặt chỗ; xem trước dùng luật facade. Guest được đặt nước nhưng không được tạo đặt chỗ qua chat. | Giữ một nguồn giá, quyền và luật hoàn cọc |
+| 2026-10-30 | Nhân viên và chủ quán thao tác qua chat theo `prepare → confirm`; mỗi xác nhận chỉ được chạm một mã đối tượng. Không có thao tác hàng loạt; câu như “hủy hết đơn chờ” bị từ chối và hướng sang trang nhân viên. Thẻ phải nêu mã đơn/đặt chỗ, tên khách và số tiền. | Tránh nhầm đối tượng và giữ người dùng làm bước xác nhận cuối |
+| 2026-10-30 | “Đơn đó/bàn đó” chỉ tham chiếu đối tượng gần nhất trong phiên chat; thẻ xác nhận vẫn phải hiện rõ mã và thông tin người/tiền. | Người dùng xem lại đúng đối tượng trước khi xác nhận |
+| 2026-10-30 | `guards.js` chỉ chống injection. Mọi quyền đọc/ghi do `src/domain/policy.js` quyết định; yêu cầu nhạy cảm của khách đi qua capability rồi bị policy từ chối bằng cùng một thông điệp. Owner có mọi quyền staff và quyền xem thống kê tổng; chưa tạo tài khoản owner. | Tránh hai danh sách quyền lệch nhau giữa chat và facade |
+| 2026-10-30 | Thống kê Bước 5 đọc bản ghi đơn và booking, không đọc audit. Doanh thu dựa trên đơn hoàn tất theo `completedAt`; số đơn đếm đơn không hủy theo `createdAt`; món bán chạy dựa trên đơn hoàn tất; tỷ lệ lấp đầy theo sơ đồ hôm nay; no-show theo ngày đặt. Tiền cọc mất/hoàn nhóm theo thời điểm hủy/đóng booking và tách khỏi doanh thu bán hàng. | Audit chỉ giữ 500 dòng và không phải sổ cái nghiệp vụ |
+| 2026-10-30 | Kỳ thống kê ngày, tuần, tháng dùng giờ địa phương; tuần bắt đầu từ thứ Hai. Nút nhanh của nhân viên trong chat vẫn tạo thẻ và đòi xác nhận. Nghiệm thu trình duyệt chưa được thực hiện thủ công trong nhiệm vụ này. | Giữ kết quả kiểm thử xác định được và ghi rõ mức nghiệm thu giao diện |
 
 ## ⚠️ CẢNH BÁO BẢO MẬT (hiện trạng P2 — chưa production-safe)
 
