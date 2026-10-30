@@ -14,6 +14,13 @@ const mk = (opts = {}) =>
     identity: opts.identity || (() => null),
     now: () => NOW
   });
+const mkStaff = async (opts = {}) => {
+  const storage = opts.storage || fresh();
+  const bootstrap = mk({ storage });
+  await bootstrap.users.seedDemo();
+  const userId = (await bootstrap.users.getAll()).find((user) => user.role === 'staff').id;
+  return mk({ ...opts, storage, identity: () => userId });
+};
 
 /* helper: 1 đơn COMPLETED ở "hôm nay" (step 4) bằng updateStep */
 const completeOrder = async (api, input) => {
@@ -100,6 +107,15 @@ test('promotions.evaluate: WELCOME10 "đơn hàng đầu tiên" — có đơn ch
   assert.equal((await api2.promotions.evaluate('WELCOME10', 130000, 15000, 'U002')).ok, true);
 });
 
+test('promotions.evaluate: guest cần đăng nhập cho mã "đầu tiên" nhưng vẫn dùng mã thường', async () => {
+  const api = mk();
+  assert.deepEqual(
+    await api.promotions.evaluate('WELCOME10', 100000, 15000, null),
+    { ok: false, error: 'Cần đăng nhập để dùng mã này' }
+  );
+  assert.equal((await api.promotions.evaluate('FREESHIP', 100000, 15000, null)).ok, true);
+});
+
 test('promotions.create/remove: VALIDATION format · CONFLICT trùng mã · remove NOT_FOUND', async () => {
   const api = mk();
   await assert.rejects(
@@ -180,7 +196,7 @@ test('orders.create + promoCode: total giảm đúng 10% cap · mã lỗi → VA
 
 /* ======================= stats (§3.8 v1.2) — doanh thu chỉ đếm step≥4 ======================= */
 test('stats: today/thisWeek/thisMonth — completed chỉ step4, pending không vào doanh thu', async () => {
-  const api = mk({ identity: () => 'U001' });
+  const api = await mkStaff();
   await completeOrder(api, { items: [{ itemId: 'M001', qty: 4 }] }); // 140k + 15k = 155k
   await completeOrder(api, { items: [{ itemId: 'M101', qty: 2 }] }); // 90k + 15k = 105k
   await api.orders.create({
@@ -219,7 +235,7 @@ test('stats: today/thisWeek/thisMonth — completed chỉ step4, pending không 
 });
 
 test('stats: ordersByStatus · topItems · bookingsByStatus · occupancyRate', async () => {
-  const api = mk({ identity: () => 'U001' });
+  const api = await mkStaff();
   await completeOrder(api, {
     items: [
       { itemId: 'M001', qty: 2 },
@@ -262,12 +278,7 @@ test('stats: ordersByStatus · topItems · bookingsByStatus · occupancyRate', a
 
   /* v1.3: create → pending_deposit; trả cọc → confirmed; occ tính từ getMap HÔM NAY */
   await api.bookings.create({ seatId: 'A1', date: '2026-10-30', time: '19:00', guests: 2 }); // ngày mai — chưa chạm sơ đồ hôm nay
-  const b2 = await api.bookings.create({
-    seatId: 'A2',
-    date: '2026-10-29',
-    time: '19:00',
-    guests: 2
-  }); // hôm nay
+  const b2 = await api.bookings.create({ seatId: 'A2', date: '2026-10-29', time: '19:00', guests: 2 }); // hôm nay
   await api.bookings.payDeposit(b2.id);
   const bs = await api.stats.bookingsByStatus();
   assert.equal(bs.pendingDeposit, 1);

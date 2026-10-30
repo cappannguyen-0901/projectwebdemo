@@ -6,7 +6,7 @@ Một trang "đạt" khi đủ 6 mục. Chạy `npm test` + `npm run lint` trư�
 - [ ] **ASYNC-ONLY**: mọi dữ liệu qua `await api.*`; KHÔNG `API.` sync legacy; KHÔNG chạm `localStorage`/`document` ngoài render
 - [ ] **3 TRẠNG THÁI**: loading (initial), rỗng (empty-state giải thích được), lỗi (`ApiError` → hiện message, app không nổ trắng)
 - [ ] **MUTATION AN TOÀN**: mọi action hủy/đặt/cập nhật xử lý lỗi ra toast/inline; sau mutation có re-render
-- [ ] **IDENTITY**: trang phân biệt guest vs đăng nhập; action của người khác bị chặn ở facade (FORBIDDEN) và có mặt hiển thị tương ứng
+- [ ] **IDENTITY**: trang phân biệt khách chưa đăng nhập với tài khoản; đặt chỗ yêu cầu đăng nhập; thao tác sai quyền bị chặn ở facade (`FORBIDDEN` hoặc `UNAUTHORIZED`) và có thông báo phù hợp
 - [ ] **GLOBAL XANH**: `npm test` + `npm run lint` + `npm run build` pass
 
 | Trang                       | Ngày kiểm  | Kết quả                                                                                                                                  |
@@ -21,6 +21,16 @@ Một trang "đạt" khi đủ 6 mục. Chạy `npm test` + `npm run lint` trư�
 | cart (promo, contract v1.2) | 2026-10-29 | ✅ browser: WELCOME10 chặn "đơn hàng đầu tiên" đúng luật · CAFE20 minOrder chặn 100k · đạt min → −20k, order.total=155.000 (facade tính) |
 | staff (hub/KPI/shifts)      | 2026-10-29 | ✅ browser: login 0900000002 · KPI từ stats · advance đơn → "Đang pha" · toggle hết món · xếp ca Hôm nay ca sáng (S001)                  |
 | chat (AI, bước D)           | 2026-10-29 | ✅ browser: wifi/gợi ý món qua rules (<1s) · injection chặn · khách hỏi doanh thu bị guard chặn · staff được qua LLM/fallback            |
+
+## Nghiệm thu lộ trình v1.4
+
+| Việc | Điều kiện nghiệm thu | Kết quả |
+| --- | --- | --- |
+| 1. Vá khách | Khách không tạo, trả cọc, hủy, check-in hoặc hoàn tất đặt chỗ; sơ đồ vẫn xem được; mã “đầu tiên” báo cần đăng nhập; giao diện ẩn form đặt bàn | ✅ Test facade và luồng giao diện đã cập nhật |
+| 2. Chính sách quyền | Bảng quyền thuần theo hành động, vai trò và quan hệ sở hữu; facade dựng actor có kênh; test ma trận sinh từ chính bảng quyền | ✅ Ma trận đầy đủ trong `tests/policy.test.mjs` |
+| 3. Sự kiện và nhật ký | Sự kiện sau khi lưu; lỗi listener/ghi nhật ký không chặn thao tác; từ chối được ghi; nhật ký giữ tối đa 500 dòng; staff/owner đọc được | ✅ Có kiểm thử sự kiện, quyền đọc, lỗi lưu và giới hạn |
+| 4. Sổ năng lực đọc | Đủ bảy năng lực đọc; không dùng DOM; từng vai trò được kiểm tra; đầu vào sai trả `VALIDATION`; khách không đọc dữ liệu người khác | ✅ Có kiểm thử năng lực × vai trò và lọc dữ liệu; chưa nối vào chat |
+| 5. Tài liệu và bản 1.4 | README có bản đồ pha; hợp đồng và quyết định đồng bộ; có dòng nghiệm thu cho từng việc; ba cổng xanh; tag `v2-1.4` | ✅ Tài liệu đồng bộ, ba cổng xanh; ⏳ tạo commit/tag đang chờ quyền ghi Git |
 
 ## Kết luận đóng băng (Bước F — 2026-10-29)
 

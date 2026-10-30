@@ -68,14 +68,14 @@ test('#1b guest (chưa login) KHÔNG hủy được đơn/booking có chủ — 
   const bk = await cust.bookings.create({ seatId: 'A2', date: soon(5), time: '19:00', guests: 2 });
   await assert.rejects(
     () => guest.bookings.cancel(bk.id),
-    (e) => e.code === 'UNAUTHORIZED' // v1.3.1: guest phải đăng nhập trước khi đụng booking
+    (e) => e.code === 'UNAUTHORIZED'
   );
   // dữ liệu không rơi vãi: đơn + booking vẫn nguyên trạng
   assert.equal((await cust.orders.getById(o.id)).status, 'pending');
   assert.equal((await cust.bookings.getById(bk.id)).status, 'pending_deposit');
 });
 
-test('#1c guest vẫn hủy được ĐƠN GUEST của mình (userId=null); đặt chỗ thì không', async () => {
+test('#1c guest không tạo được đặt chỗ; vẫn đặt nước guest như cũ', async () => {
   const guest = mk({ identity: () => null });
   const o = await guest.orders.create({
     items: [{ itemId: 'M101', qty: 1 }],
@@ -100,7 +100,6 @@ test('#6 seedDemo gọi đồng thời không nhân đôi user demo; readers son
     api.users.seedDemo(),
     api.menu.getAll(),
     api.staff.getAll(),
-    api.stats.today(),
     api.orders.getAll()
   ]);
   assert.equal(n, 2); // đúng 2 user demo (trước đây có thể 4+)
@@ -110,40 +109,32 @@ test('#6 seedDemo gọi đồng thời không nhân đôi user demo; readers son
   assert.equal(await api.users.seedDemo(), 0);
 });
 
-/* ---------- #7 — WELCOME10 guest chỉ dùng 1 lần ---------- */
-test('#7 WELCOME10 bắt buộc đăng nhập — guest nhận lỗi rõ; khách đã login dùng được 1 lần', async () => {
+/* ---------- #7 — mã đầu tiên cần tài khoản ---------- */
+test('#7 guest không dùng WELCOME10; customer mới đủ điều kiện dùng mã đầu tiên', async () => {
   const store = fresh();
   const guest = mk({ storage: store, identity: () => null });
-  const evG = await guest.promotions.evaluate('WELCOME10', 100000, 15000, null);
-  assert.equal(evG.ok, false);
-  assert.equal(evG.error, 'Cần đăng nhập để dùng mã này');
 
-  const uid = (
-    await mk({ storage: store }).users.create({
-      name: 'Mới',
-      phone: '0903000009',
-      password: 'cappan123'
-    })
-  ).id;
-  const user = mk({ storage: store, identity: () => uid });
-  assert.ok((await user.promotions.evaluate('WELCOME10', 100000, 15000, uid)).ok);
-  const o = await user.orders.create({
-    items: [{ itemId: 'M001', qty: 3 }],
+  const ev1 = await guest.promotions.evaluate('WELCOME10', 100000, 15000, null);
+  assert.deepEqual(ev1, { ok: false, error: 'Cần đăng nhập để dùng mã này' });
+  await assert.rejects(() => guest.orders.create({
+    items: [{ itemId: 'M001', qty: 3 }], // 105k + ship — promoCode do facade evaluate
     address: '3 Nguyễn Huệ',
     phone: '0916666666',
     promoCode: 'WELCOME10'
-  });
-  assert.equal(o.discount, 10500);
-  const ev2 = await user.promotions.evaluate('WELCOME10', 100000, 15000, uid);
-  assert.equal(ev2.ok, false);
-  assert.match(ev2.error, /đầu tiên/);
+  }), (e) => e.code === 'VALIDATION' && /đăng nhập/.test(e.message));
+  /* người đã login dùng được mã theo lịch sử đơn của riêng họ */
+  const boot2 = mk({ storage: store, identity: () => 'U-KHAC' });
+  assert.ok((await boot2.promotions.evaluate('WELCOME10', 100000, 15000, 'U-KHAC')).ok);
 });
 
 /* ---------- #8 — doanh thu theo ngày HOÀN TẤT ---------- */
 test('#8 stats.today: đơn hoàn tất sáng nay vào doanh thu HÔM NAY dù tạo tối qua (theo completedAt)', async () => {
   const store = fresh();
   let clock = new Date('2026-11-01T23:50:00'); // tối 1/11 — tạo đơn
-  const api = mk({ storage: store, identity: () => 'U001', now: () => clock });
+  const bootstrap = mk({ storage: store, now: () => clock });
+  await bootstrap.users.seedDemo();
+  const staffId = (await bootstrap.users.getAll()).find((u) => u.role === 'staff').id;
+  const api = mk({ storage: store, identity: () => staffId, now: () => clock });
   const o = await api.orders.create({
     items: [{ itemId: 'M001', qty: 2 }], // 70k + 15k ship = 85k
     address: '4 Lê Thánh Tôn',

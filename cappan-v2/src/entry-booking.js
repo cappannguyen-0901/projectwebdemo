@@ -88,9 +88,9 @@ async function paint(errMsg = '') {
 
       ${
         !user
-          ? `<div class="panel">Bạn đang xem sơ đồ bàn. <a href="auth.html">Đăng nhập</a> để đặt chỗ và trả cọc — khách vãng lai không giữ bàn được.</div>`
+          ? `<div class="panel"><b>Muốn đặt bàn?</b><p>Đặt chỗ cần đăng nhập. Bạn vẫn có thể xem sơ đồ và đặt nước.</p><a class="btn" href="auth.html">Đăng nhập để đặt chỗ</a></div>`
           : pickedSeat
-            ? `<form class="panel" id="bkform">
+          ? `<form class="panel" id="bkform">
               <h3>Bàn <strong>${esc(pickedSeat.id)}</strong> — tối đa ${pickedSeat.capacity} khách · ${esc(pickedSeat.description || '')}</h3>
               <p class="det">Cọc giữ bàn: <b>${api.utils.formatVND(api.utils.depositAmount(pickedSeat.capacity))}</b>
                 (${Math.ceil(pickedSeat.capacity / 2)} ly × ${api.utils.formatVND(api.utils.DEPOSIT_PER_DRINK)}) ·
@@ -108,9 +108,9 @@ async function paint(errMsg = '') {
                 <button type="button" class="btn ghost" id="unpick">Bỏ chọn</button>
               </div>
             </form>`
-            : errMsg
-              ? `<div class="panel"><div class="err">${esc(errMsg)}</div></div>`
-              : '<div class="panel">Chọn một bàn còn trống để đặt. Bàn đã có người đặt hôm nay thì <b>cả ngày</b> không nhận thêm (đặt chỗ = giữ chỗ).</div>'
+          : errMsg
+            ? `<div class="panel"><div class="err">${esc(errMsg)}</div></div>`
+            : '<div class="panel">Chọn một bàn còn trống để đặt. Bàn đã có người đặt hôm nay thì <b>cả ngày</b> không nhận thêm (đặt chỗ = giữ chỗ).</div>'
       }
 
       <div class="grid seats" id="seats">
@@ -131,10 +131,10 @@ async function paint(errMsg = '') {
       </div>
 
       <div class="panel" id="minebox">
-        <h3>Đặt chỗ của tôi ${user ? '' : '(cần đăng nhập)'}</h3>
+        <h3>Đặt chỗ của tôi ${user ? '' : '(cần đăng nhập để quản lý)'}</h3>
         ${
           !user
-            ? `<p>Đăng nhập để đặt chỗ, trả cọc và xem lịch sử bàn của bạn.</p>`
+            ? `<p>Đăng nhập để xem và quản lý đặt chỗ của bạn.</p>`
             : holding.length
               ? holding
                   .map((b) => {
@@ -193,10 +193,6 @@ async function paint(errMsg = '') {
     };
     main.querySelectorAll('[data-seat]').forEach((b) =>
       b.addEventListener('click', () => {
-        if (!user) {
-          toast('Cần đăng nhập để đặt chỗ', 'err');
-          return;
-        }
         pickedSeat = seats.find((s) => s.id === b.dataset.seat);
         paint();
       })

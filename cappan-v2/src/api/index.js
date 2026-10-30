@@ -15,8 +15,10 @@ import { ApiError } from '../core/errors.js';
 import { ORDER_EXPRESS, CANCEL_MAX_STEP, SHIPPING_FEE, ID_PREFIX } from '../data/schema.js';
 import { hashPassword, verifyPassword } from '../core/hash.js';
 import * as R from '../domain/booking-rules.js'; // v1.3 — luật đặt chỗ thuần
+import { authorize } from '../domain/policy.js';
+import { createEventBus } from '../domain/events.js';
 
-const CONTRACT_VERSION = '1.3';
+const CONTRACT_VERSION = '1.4';
 const KEYS = {
   seeded: 'meta:seeded',
   contract: 'meta:contract',
@@ -32,16 +34,20 @@ const KEYS = {
   promotions: 'promotions',
   staff: 'staff',
   shifts: 'shifts',
-  schedule: 'schedule'
+  schedule: 'schedule',
+  audit: 'audit'
 };
 
 export function createApi({
   storage,
   seed = {},
   identity = () => null, // () => userId | null — cắm auth thật vào đây ở P2
-  now = () => new Date()
+  now = () => new Date(),
+  channel = 'web',
+  logger = console
 } = {}) {
   if (!storage) throw new Error('createApi: thiếu storage');
+  const eventBus = createEventBus({ logger });
 
   const uid = () => identity() || 'guest';
   const iso = () => now().toISOString();
@@ -68,26 +74,40 @@ export function createApi({
     };
   };
 
-  /* Chính sách sở hữu/khai thác (bug #1 — vá cục bộ; bước 3 sẽ tập trung hóa thành bảng vai trò×hành động cho CHAT-OS):
-     • owner: row.userId === identity() → được hủy/chỉnh.
-     • staff (users[identity].role === 'staff'): được thao tác HỘ khách — trước đây staff hủy
-       đơn/booking của khách bị FORBIDDEN dù trang staff gọi chính xác.
-     • guest (chưa đăng nhập): chỉ được chạm vào row KHÔNG có chủ (userId=null, tạo khi guest) —
-       trước đây guest "lọt" qua guard `o.userId && identity()` và hủy được đơn của người đã login. */
-  const isStaff = async () => {
-    const id = identity();
-    if (!id) return false;
-    const role = (await list(KEYS.users)).find((u) => u.id === id)?.role;
-    return role === 'staff' || role === 'owner';
+  const actorFor = async (via = channel) => {
+    const userId = identity() || null;
+    const user = userId ? (await list(KEYS.users)).find((row) => row.id === userId) : null;
+    return {
+      userId,
+      role: userId ? (user?.role === 'staff' || user?.role === 'owner' ? user.role : 'customer') : 'guest',
+      channel: ['web', 'chat', 'voice'].includes(via) ? via : 'web'
+    };
   };
-  const canTouch = async (row) => !row.userId || row.userId === identity() || (await isStaff());
-  const requireStaff = async () => {
-    if (!(await isStaff())) throw new ApiError('FORBIDDEN', 'Chỉ nhân viên được thao tác này');
+  const assertAllowed = async (action, resource = null, via = channel) => {
+    const actor = await actorFor(via);
+    const result = authorize(actor, action, resource);
+    if (!result.allowed) {
+      const code = actor.role === 'guest' && action.startsWith('booking.') ? 'UNAUTHORIZED' : 'FORBIDDEN';
+      await writeAudit({ actor, action, targetId: resource?.id || null, ok: false, code });
+      throw new ApiError(code, result.reason);
+    }
+    return actor;
   };
-  /* v1.3.1: đặt chỗ bắt buộc đăng nhập — guest xem sơ đồ, không tạo/hủy/trả cọc/check-in */
-  const requireLoginForBooking = () => {
-    if (!identity()) throw new ApiError('UNAUTHORIZED', 'Cần đăng nhập để đặt chỗ');
+  const writeAudit = async (entry) => {
+    try {
+      const rows = (await storage.get(KEYS.audit)) || [];
+      rows.push({ at: iso(), ...entry });
+      await storage.set(KEYS.audit, rows.slice(-500));
+    } catch (error) {
+      logger.error?.('[CAPPAN audit] Không ghi được nhật ký:', error);
+    }
   };
+  const afterWrite = async (event, action, targetId, actor = undefined, extra = {}) => {
+    const eventActor = actor || (await actorFor());
+    await writeAudit({ actor: eventActor, action, targetId, ok: true });
+    eventBus.emit(event, { actor: eventActor, targetId, ...extra });
+  };
+  const publicEvents = Object.freeze({ on: eventBus.on });
 
   let seedDemoRun = null; /* memo promise chạy seedDemo — dùng trong users.seedDemo (bug #6) */
 
@@ -394,6 +414,7 @@ export function createApi({
       const rows = await list(KEYS.orders);
       rows.push(order);
       await storage.set(KEYS.orders, rows);
+      await afterWrite('order.created', 'order.created', order.id);
       return order;
     },
 
@@ -426,9 +447,7 @@ export function createApi({
 
     async cancel(id) {
       const o = await orders._must(id);
-      if (!(await canTouch(o))) {
-        throw new ApiError('FORBIDDEN', 'Đơn này của người dùng khác'); // §3.6 — staff được hủy hộ; guest (chưa login) chỉ hủy được đơn guest (userId=null)
-      }
+      await assertAllowed('order.cancel', { ownerId: o.userId });
       if (o.status === 'cancelled') throw new ApiError('CONFLICT', `Đơn ${id} đã hủy trước đó`);
       if (o.step > CANCEL_MAX_STEP) {
         // BUG legacy (docs/signoff-report.md #6): khách hủy được đơn đang giao. Cấm step > CANCEL_MAX_STEP (=1).
@@ -441,7 +460,9 @@ export function createApi({
       o.step = -1;
       o.cancelledAt = iso();
       o.updatedAt = iso();
-      return orders._saveRow(o);
+      const saved = await orders._saveRow(o);
+      await afterWrite('order.cancelled', 'order.cancelled', o.id);
+      return saved;
     },
 
     async updateStep(id, nextStep) {
@@ -459,7 +480,9 @@ export function createApi({
       if (step === 4) o.completedAt = iso();
       o.updatedAt = iso();
       if (o.status === 'completed') orders._completeBookings(o.id).catch(() => {}); // no-op P1
-      return orders._saveRow(o);
+      const saved = await orders._saveRow(o);
+      await afterWrite('order.step_changed', 'order.step_changed', o.id, undefined, { step });
+      return saved;
     },
 
     /* nội bộ: bắt buộc có + chưa hoàn tất */
@@ -494,7 +517,10 @@ export function createApi({
       await ensureSeeded();
       const rows = await list(KEYS.bookings);
       const plan = R.sweepPlan(rows, now());
-      if (!plan.length) return;
+      const late = rows.filter(
+        (b) => b.status === 'confirmed' && R.phase(b, now()) === 'late' && !b.lateNotifiedAt
+      );
+      if (!plan.length && !late.length) return;
       const byId = new Map(rows.map((b) => [b.id, b]));
       const noShows = {};
       for (const { id, to, reason } of plan) {
@@ -504,15 +530,21 @@ export function createApi({
         b.closedAt = iso();
         if (to === 'no_show' && b.userId) noShows[b.userId] = (noShows[b.userId] || 0) + 1;
       }
+      for (const b of late) b.lateNotifiedAt = iso();
       await storage.set(KEYS.bookings, rows);
       if (Object.keys(noShows).length) {
         const us = await list(KEYS.users);
         for (const u of us) if (noShows[u.id]) u.noShowCount = (u.noShowCount || 0) + noShows[u.id];
         await storage.set(KEYS.users, us);
       }
+      for (const b of late) await afterWrite('booking.late', 'booking.late', b.id);
+      for (const item of plan) {
+        const event = item.to === 'completed' ? 'booking.completed' : 'booking.auto_cancelled';
+        await afterWrite(event, event, item.id, undefined, { reason: item.reason });
+      }
     },
     async create(data) {
-      requireLoginForBooking();
+      await assertAllowed('booking.create');
       await bookings._sweep();
       const input = data || {};
       const seat = await seats.getById(input.seatId);
@@ -541,7 +573,7 @@ export function createApi({
 
       const bk = {
         id: newId(ID_PREFIX.booking),
-        userId: uidv, // v1.3.1: đã qua requireLoginForBooking — luôn có userId
+        userId: uidv,
         seatId: seat.id,
         floorId: seat.floorId,
         date: input.date,
@@ -558,6 +590,7 @@ export function createApi({
       };
       rows.push(bk);
       await storage.set(KEYS.bookings, rows);
+      await afterWrite('booking.created', 'booking.created', bk.id);
       return bk;
     },
     async getAll() {
@@ -577,11 +610,15 @@ export function createApi({
     /* thẻ "đã trễ 15'" — engine trả `{type:'booking-late', data}`, UI (web/chat/voice) tự vẽ.
        Quyền: staff xem tất cả; người khác chỉ xem thẻ của chính mình (lọc theo identity). */
     async getLateCards(userId) {
+      const actor = await actorFor();
       let filterId = userId || null;
-      if (!(await isStaff())) {
-        if (filterId && filterId !== identity())
-          throw new ApiError('FORBIDDEN', 'Đặt chỗ của người khác');
-        filterId = identity(); // guest tự hạn chế thẻ của mình
+      if (actor.role === 'staff' || actor.role === 'owner') {
+        if (filterId) await assertAllowed('booking.lateCards', { ownerId: filterId });
+      } else {
+        await assertAllowed('booking.lateCards', { ownerId: actor.userId });
+        if (filterId && filterId !== actor.userId)
+          await assertAllowed('booking.lateCards', { ownerId: filterId });
+        filterId = actor.userId;
       }
       const out = [];
       for (const b of await bookings.getAll()) {
@@ -605,40 +642,46 @@ export function createApi({
       return row;
     },
     async payDeposit(id) {
-      requireLoginForBooking();
+      await assertAllowed('booking.payDeposit', { ownerId: identity(), id });
       const b = await bookings._must(id);
-      if (!(await canTouch(b))) throw new ApiError('FORBIDDEN', 'Đặt chỗ của người khác');
+      await assertAllowed('booking.payDeposit', { ownerId: b.userId });
       if (R.phase(b, now()) !== 'pending_deposit')
         throw new ApiError('CONFLICT', `Đặt chỗ ${id} không còn chờ cọc`);
       b.status = 'confirmed';
       b.depositPaid = true;
       b.depositPaidAt = iso();
-      return bookings._save(b);
+      const saved = await bookings._save(b);
+      await afterWrite('booking.deposit_paid', 'booking.deposit_paid', b.id);
+      return saved;
     },
     async checkIn(id) {
-      requireLoginForBooking();
-      await requireStaff();
+      await assertAllowed('booking.checkIn', { ownerId: identity(), id });
       const b = await bookings._must(id);
+      await assertAllowed('booking.checkIn', { ownerId: b.userId });
       if (!['upcoming', 'late'].includes(R.phase(b, now())))
         throw new ApiError('CONFLICT', `Đặt chỗ ${id} không thể check-in lúc này`);
       b.status = 'seated';
       b.seatedAt = iso();
-      return bookings._save(b);
+      const saved = await bookings._save(b);
+      await afterWrite('booking.seated', 'booking.seated', b.id);
+      return saved;
     },
     async complete(id) {
-      requireLoginForBooking();
-      await requireStaff();
+      await assertAllowed('booking.complete', { ownerId: identity(), id });
       const b = await bookings._must(id);
+      await assertAllowed('booking.complete', { ownerId: b.userId });
       if (!['seated', 'upcoming', 'late'].includes(R.phase(b, now())))
         throw new ApiError('CONFLICT', `Đặt chỗ ${id} không ở trạng thái hoàn tất được`);
       b.status = 'completed';
       b.completedAt = iso();
-      return bookings._save(b);
+      const saved = await bookings._save(b);
+      await afterWrite('booking.completed', 'booking.completed', b.id);
+      return saved;
     },
     async cancel(id) {
-      requireLoginForBooking();
+      await assertAllowed('booking.cancel', { ownerId: identity(), id });
       const b = await bookings._must(id);
-      if (!(await canTouch(b))) throw new ApiError('FORBIDDEN', 'Đặt chỗ của người khác');
+      await assertAllowed('booking.cancel', { ownerId: b.userId });
       const p = R.phase(b, now());
       if (p === 'seated')
         throw new ApiError('CONFLICT', 'Khách đang ngồi — dùng "hoàn tất" để nhả bàn');
@@ -648,7 +691,9 @@ export function createApi({
       b.status = 'cancelled';
       b.cancelledAt = iso();
       b.cancelledBy = identity() || 'guest';
-      return bookings._save(b);
+      const saved = await bookings._save(b);
+      await afterWrite('booking.cancelled', 'booking.cancelled', b.id);
+      return saved;
     }
   };
 
@@ -774,13 +819,32 @@ export function createApi({
       const p = String(phone || '').trim();
       const u = (await list(KEYS.users)).find((x) => x.phone === p);
       const ok = u ? await verifyPassword(password, { salt: u.salt, hash: u.passwordHash }) : false;
-      if (!u || !ok) throw new ApiError('UNAUTHORIZED', 'SĐT hoặc mật khẩu không đúng');
+      if (!u || !ok) {
+        const actor = await actorFor();
+        await writeAudit({ actor, action: 'auth.login', targetId: null, ok: false, code: 'UNAUTHORIZED' });
+        throw new ApiError('UNAUTHORIZED', 'SĐT hoặc mật khẩu không đúng');
+      }
       await storage.set(KEYS.session, { userId: u.id, at: iso() });
       await cart.mergeGuestToUser(u.id); // giỏ guest nhập vào giỏ user (như legacy)
+      const actor = {
+        userId: u.id,
+        role: u.role === 'staff' || u.role === 'owner' ? u.role : 'customer',
+        channel
+      };
+      await afterWrite('auth.login', 'auth.login', u.id, actor);
       return publicUser(u);
     },
     async logout() {
+      const current = await auth.current();
+      const actor = current
+        ? {
+            userId: current.id,
+            role: current.role === 'staff' || current.role === 'owner' ? current.role : 'customer',
+            channel
+          }
+        : await actorFor();
       await storage.set(KEYS.session, null);
+      await afterWrite('auth.logout', 'auth.logout', actor.userId, actor);
       return true;
     }
   };
@@ -837,7 +901,6 @@ export function createApi({
         };
       }
       if (/đầu tiên/i.test(p.terms || '')) {
-        /* v1.3.1: mã "đầu tiên" cần hồ sơ khách — guest không dùng (tránh đếm đơn userId=null dùng chung). */
         if (!userId) return { ok: false, error: 'Cần đăng nhập để dùng mã này' };
         const history = (await list(KEYS.orders)).filter(
           (o) => o.status !== 'cancelled' && o.userId === userId
@@ -995,10 +1058,12 @@ export function createApi({
       return x.getTime();
     },
     async today() {
+      await assertAllowed('stats.read');
       const n = now();
       return stats._revenueInRange(stats._dayStart(n), n.getTime());
     },
     async thisWeek() {
+      await assertAllowed('stats.read');
       const n = now();
       const day = n.getDay();
       const monday = new Date(n);
@@ -1006,11 +1071,13 @@ export function createApi({
       return stats._revenueInRange(stats._dayStart(monday), n.getTime());
     },
     async thisMonth() {
+      await assertAllowed('stats.read');
       const n = now();
       const first = new Date(n.getFullYear(), n.getMonth(), 1);
       return stats._revenueInRange(stats._dayStart(first), n.getTime());
     },
     async ordersByStatus() {
+      await assertAllowed('stats.read');
       const rows = (await list(KEYS.orders)).filter((o) => o.status !== 'cancelled');
       return {
         pending: rows.filter((o) => o.step === 0).length,
@@ -1021,6 +1088,7 @@ export function createApi({
       };
     },
     async topItems(limit = 5) {
+      await assertAllowed('stats.read');
       const map = new Map();
       for (const o of await list(KEYS.orders)) {
         if (o.status === 'cancelled') continue;
@@ -1034,6 +1102,7 @@ export function createApi({
       return [...map.values()].sort((a, b) => b.qty - a.qty).slice(0, limit);
     },
     async bookingsByStatus() {
+      await assertAllowed('stats.read');
       const rows = await bookings.getAll(); // đã sweep — status lưu là chốt
       const c = (s) => rows.filter((b) => b.status === s).length;
       return {
@@ -1047,6 +1116,7 @@ export function createApi({
       };
     },
     async occupancyRate() {
+      await assertAllowed('stats.read');
       /* v1.3: % ghế booked HÔM NAY tính từ getMap (trạng thái suy ra từ bookings) */
       const map = await seats.getMap();
       const booked = map.filter((s) => s.status === 'booked').length;
@@ -1069,6 +1139,20 @@ export function createApi({
     staff,
     shifts,
     stats,
+    events: publicEvents,
+    audit: {
+      async getRecent(limit = 50) {
+        await assertAllowed('audit.read');
+        const amount = Number(limit);
+        if (!Number.isInteger(amount) || amount < 1 || amount > 500)
+          throw new ApiError('VALIDATION', 'limit phải là số nguyên từ 1 đến 500');
+        const rows = (await storage.get(KEYS.audit)) || [];
+        return rows.slice(-amount).reverse();
+      }
+    },
+    forChannel(nextChannel) {
+      return createApi({ storage, seed, identity, now, channel: nextChannel, logger });
+    },
     utils: {
     today,
     formatVND: (n) => `${Number(n || 0).toLocaleString('vi-VN')}đ`,

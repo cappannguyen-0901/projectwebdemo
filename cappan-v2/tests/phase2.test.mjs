@@ -278,7 +278,7 @@ test('seats.getMap v1.3: reserved trước 00:00 ngày D · booked từ 00:00 ·
   );
 });
 
-test('bookings v1.3: giới hạn 3 hiệu lực/user · stranger FORBIDDEN · guest UNAUTHORIZED', async () => {
+test('bookings v1.3: giới hạn 3 hiệu lực/user · stranger FORBIDDEN · guest không được đặt hoặc hủy', async () => {
   setClock('2026-10-29T12:00:00'); // reset giờ — mỗi test bắt đầu 12:00 ngày 29/10
   const api = mkAt({ identity: () => 'U001' });
   for (const dt of ['2026-10-30', '2026-10-31', '2026-11-01'])
@@ -300,12 +300,20 @@ test('bookings v1.3: giới hạn 3 hiệu lực/user · stranger FORBIDDEN · g
   const c = await owner.bookings.cancel(bk.id); // chủ hủy được
   assert.equal(c.status, 'cancelled');
 
-  /* v1.3.1: guest không đặt / hủy được */
+  /* guest không được tạo hoặc thay đổi booking; sơ đồ chỗ vẫn đọc công khai */
   const guest = mkAt({ storage: store, identity: () => null });
-  await assert.rejects(
+  for (const call of [
     () => guest.bookings.create(BK({ seatId: 'A4' })),
-    (e) => e.code === 'UNAUTHORIZED'
-  );
+    () => guest.bookings.cancel(bk.id),
+    () => guest.bookings.payDeposit(bk.id),
+    () => guest.bookings.checkIn(bk.id),
+    () => guest.bookings.complete(bk.id),
+    () => guest.bookings.cancel('missing'),
+    () => guest.bookings.payDeposit('missing'),
+    () => guest.bookings.checkIn('missing'),
+    () => guest.bookings.complete('missing')
+  ]) await assert.rejects(call, (e) => e.code === 'UNAUTHORIZED');
+  assert.ok((await guest.seats.getMap()).length > 0);
 });
 
 test('bookings.getLateCards v1.3: thẻ trễ giữa +15\'..+30\' · guest chỉ xem thẻ của mình', async () => {
@@ -345,7 +353,7 @@ test('exportAll v1.1 có chứa users đã hash — KHÔNG plaintext password', 
   const api = mk();
   await api.users.seedDemo();
   const snap = await api.exportAll();
-  assert.equal(snap.contract, '1.3');
+  assert.equal(snap.contract, '1.4');
   const dump = JSON.stringify(snap);
   assert.equal(dump.includes('cappan123'), false); // legacy từng có password "123" gõ sạch trong localStorage
   assert.ok(snap.data.users[0].passwordHash.length >= 40);
