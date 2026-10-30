@@ -1,4 +1,4 @@
-# CAPPAN v2 — HỢP ĐỒNG DATA/API · CONTRACT v1.4
+# CAPPAN v2 — HỢP ĐỒNG DATA/API · CONTRACT v1.5
 
 > **Đây là tài liệu BINDING.** Mọi thay đổi chữ ký (tên hàm, tham số, giá trị trả về, cách báo lỗi)
 > PHẢI cập nhật tài liệu này + mục Changelog §7 **trước** khi sửa code.
@@ -115,10 +115,13 @@ Giai đoạn: **P1 = implement ngay bước này**, **P2 = chốt chữ ký, cod
 - Đặt chỗ bắt buộc đăng nhập: guest gọi `create/payDeposit/cancel/checkIn/complete` nhận `UNAUTHORIZED`; guest vẫn đọc `seats.getMap()` và đặt nước. Mã khuyến mãi có điều kiện “đầu tiên” khi guest dùng trả `{ ok:false, error:'Cần đăng nhập để dùng mã này' }`.
 - `src/domain/events.js`: `api.events.on(name, listener)` → hàm bỏ đăng ký; callback nhận `{ actor, targetId, ...data }`. Các sự kiện `order.created`, `order.cancelled`, `order.step_changed`, `booking.created`, `booking.deposit_paid`, `booking.late`, `booking.auto_cancelled`, `booking.cancelled`, `booking.seated`, `booking.completed`, `auth.login`, `auth.logout` chỉ phát sau khi lưu thành công. Listener đồng bộ hoặc bất đồng bộ ném lỗi đều được ghi log và không làm hỏng thao tác.
 - Nhật ký lưu ở key `audit`, mỗi dòng `{ at, actor:{userId,role,channel}, action, targetId, ok, code? }`; giữ 500 dòng mới nhất theo thứ tự thời gian. Ghi cả từ chối `FORBIDDEN`/`UNAUTHORIZED` với `ok:false` và `code`. Lỗi đọc/ghi nhật ký không chặn thao tác. `api.audit.getRecent(limit=50)` chỉ staff/owner được đọc; giới hạn 1..500 và trả mới nhất trước.
+- `api.audit.recordDenied(action,targetId,code)` ghi từ chối của bộ xác nhận capability; actor được dựng trong facade. Chỉ nhận mã lỗi đã khai báo; lỗi ghi nhật ký không chặn việc từ chối.
 
 ### 3.12 Sổ năng lực chỉ đọc (v1.4)
 
-`src/ai/capabilities.js` là mô-đun thuần, không DOM. Mỗi mục có `{ name, description, input, roles, risk:'read', handler(api,args,actor) }`. `run(name,args,actor)` kiểm tra policy, kiểm tra input trước handler và trả `{ type, data }`; lỗi dùng `ApiError` với `FORBIDDEN`, `UNAUTHORIZED`, `VALIDATION` hoặc `NOT_FOUND`. Mọi kết quả được lọc theo quyền trước khi trả.
+`src/ai/capabilities.js` là mô-đun thuần, không DOM. Mục đọc có `{ name, description, input, roles, risk:'read', handler(api,args,actor) }`. Mục ghi có `risk:'write'|'destructive'`, `prepare(api,args,actor)` và `execute(api,args,actor)`. `run(name,args,actor)` tiếp tục dùng cho mục đọc; `prepare(name,args,actor)` kiểm tra policy/schema và trả thẻ xem trước, còn `confirm(token,actor)` chỉ được gọi bởi mã giao diện sau thao tác xác nhận của người dùng.
+
+Mã xác nhận do mã ứng dụng sinh, gắn với người dùng, vai trò, kênh, tên hành động và dấu băm đối số; sống 2 phút, dùng một lần và chỉ ở bộ nhớ phiên chat. LLM chỉ được chọn tên cùng đối số trong registry, không nhận token và không có lời gọi xác nhận. Tối đa 5 thao tác ghi mỗi phút trong một phiên chat; vượt giới hạn trả lời lịch sự và ghi từ chối. Các thao tác ghi qua facade dùng `channel:'chat'`. Không mở `booking.payDeposit` trong chat khi thanh toán còn giả lập.
 
 | Năng lực | Đầu vào đã kiểm tra | Vai trò | Kết quả |
 | --- | --- | --- | --- |
@@ -130,7 +133,33 @@ Giai đoạn: **P1 = implement ngay bước này**, **P2 = chốt chữ ký, cod
 | `order.status` | `{ id:string }` | customer/staff/owner | `{ type:'order.status', data:{ order } }` nếu sở hữu hoặc actor là staff/owner |
 | `profile.me` | `{}` | customer/staff/owner | `{ type:'profile.me', data:{ profile } }` của actor |
 
-Guest chỉ được dùng năng lực công khai về menu và sơ đồ. Năng lực cá nhân yêu cầu đăng nhập; khách không nhận dữ liệu thuộc người khác. V1.4 chưa nối capability vào giao diện chat và chưa có năng lực ghi.
+Guest chỉ được dùng năng lực công khai về menu và sơ đồ. Năng lực cá nhân yêu cầu đăng nhập; khách không nhận dữ liệu thuộc người khác. Guest không được dùng năng lực tạo đặt chỗ; guest vẫn có thể đặt nước.
+
+### 3.13 Xem trước và hủy đặt chỗ
+
+- `api.orders.previewCreate(data)` → báo giá đã chuẩn hóa `{ items, subtotal, shipping, discount, total, address, phone, note }`, không ghi dữ liệu. Giá và khuyến mãi tính cùng luật với `orders.create`.
+- `api.bookings.previewCreate(data)` → `{ booking, seat, depositAmount, depositExpiresAt }`, không tạo booking; kiểm tra chỗ, giờ, sức chứa và giới hạn như `bookings.create`.
+- `api.bookings.previewCancel(id)` → `{ refundRate, refundAmount, phase }`, không đổi booking. Quyền giống `bookings.cancel`; tiền hoàn dùng cùng hàm luật tại cùng thời điểm với thao tác hủy.
+
+### 3.14 Năng lực ghi qua xác nhận (v1.5)
+
+| Năng lực | Vai trò | Mức rủi ro | Xem trước | Thực thi sau xác nhận |
+| --- | --- | --- | --- | --- |
+| `order.create` | guest/customer/staff/owner | `write` | món, số lượng, tổng tiền, địa chỉ | `api.orders.create` |
+| `order.cancel` | chủ đơn; staff/owner mọi đơn; guest chỉ đơn không có chủ | `destructive` | trạng thái đơn và ảnh hưởng hủy | `api.orders.cancel` |
+| `booking.create` | customer/staff/owner | `write` | bàn, ngày giờ, số khách, tiền cọc, hạn trả cọc | `api.bookings.create` |
+| `booking.cancel` | chủ booking; staff/owner mọi booking | `destructive` | trạng thái, tỷ lệ và tiền hoàn từ `previewCancel` | `api.bookings.cancel` |
+
+Token được tiêu thụ trước khi bắt đầu thực thi để chống gọi lặp. Token không hợp lệ, sai actor, hết hạn, đã dùng hoặc sai dấu băm bị từ chối và ghi nhật ký `ok:false`. Xác nhận thứ hai không tạo bản ghi khác. Khi có token chờ, câu trả lời xác nhận/đồng ý hoặc từ chối/hủy được xử lý trước luật hội thoại khác; không có token thì “ok” là câu trả lời bình thường.
+
+### 3.15 Ngày giờ và bản nháp
+
+- `parseWhen(text, now)` trong `src/ai/datetime-vi.js` thuần trả `{ date?, time?, ambiguous?:string[] }`. Ngày hiểu hôm nay, mai, mốt/ngày kia, thứ Hai đến Chủ nhật kế tiếp, `dd/mm`, `dd-mm`, `ngày dd`. Giờ hiểu giờ 24 tiếng và giờ 12 tiếng có chỉ rõ sáng/trưa/tối. Không tự chọn sáng hay tối nếu thiếu chỉ dẫn.
+- `createDraftSession({ now })` trong `src/ai/draft.js` cung cấp `start(action,initial?)`, `fill(parsed)`, `missing()`, `ready()`, `cancel()` và `get()`. Đơn cần món, địa chỉ và số điện thoại (có thể lấy mặc định từ hồ sơ); đặt bàn cần bàn, ngày, giờ và số khách. Nháp hết hạn sau 10 phút không hoạt động.
+
+### 3.16 Luồng hội thoại ghi
+
+Chat xử lý theo thứ tự: kiểm tra đầu vào và quyền → ưu tiên xác nhận/hủy token đang chờ → luật cục bộ → nhận diện ý định cục bộ → yêu cầu LLM chọn tên/đối số capability hợp lệ → xem trước → thẻ xác nhận → thao tác ghi. Lỗi LLM không chặn câu có cấu trúc rõ để luật cục bộ và bản nháp hỏi trường còn thiếu. Dữ liệu gửi LLM phải qua bộ lọc quyền. UI chỉ dựng thẻ từ `{type,data}`; không truy cập storage.
 
 ### 3.1 `api.menu`
 
@@ -289,7 +318,7 @@ _demo-grade_ — người này có thể tự sửa session trong console; kế 
 ## §5. STORAGE KEY NAMESPACE
 
 Toàn v2 dùng prefix `cappan:v2:` — tách biệt hoàn toàn bản legacy `cappan_*` (không đụng nhau khi demo cũ còn chạy song song).
-Keys chuẩn: `meta:seeded`, `meta:contract`, `menu`, `categories`, `floors`, `seats`, `orders`, `current_order`, `cart:guest`, `cart:<uid>`, `bookings`, `users`, `session`, `promotions`, `staff`, `shifts`, `schedule`, `audit`.
+Keys chuẩn: `meta:seeded`, `meta:contract`, `menu`, `categories`, `floors`, `seats`, `orders`, `current_order`, `cart:guest`, `cart:<uid>`, `bookings`, `users`, `session`, `promotions`, `staff`, `shifts`, `schedule`, `audit`. Token xác nhận và nháp chỉ tồn tại trong bộ nhớ phiên, không xuất hiện ở snapshot.
 
 ## §6. CÂY THƯ MỤC V2 (chống lock-in)
 
@@ -318,3 +347,4 @@ cappan-v2/
 | 1.3     | 2026-10-29 | **Luật đặt chỗ v1.3:** đặt chỗ = giữ chỗ — 1 bàn 1 booking/ngày (khóa cả ngày); `pending_deposit` (cọc `ceil(capacity/2)` ly × 35k, chờ 15') → `confirmed` → `seated` → `completed`; mốc 00:00 ngày D = ranh giới hoàn cọc (100% → 0%) + `reserved`→`booked` trên sơ đồ; +15' thẻ trễ, +30' tự hủy `no_show` + `noShowCount++`; giờ mở 07:00–22:30, đặt trước ≤30 ngày, ≤3 booking hiệu lực/user; luật thuần `src/domain/booking-rules.js`; **bỏ `bookings.update`/`getActiveBySeat`/`seats.book|release|resetAll`, thêm `payDeposit/checkIn/phase/getLateCards/seats.getMap(date)`** |
 | 1.3.1   | 2026-10-29 | **Quy tắc khách:** đặt chỗ yêu cầu đăng nhập; khách vẫn xem sơ đồ và đặt nước; mã khuyến mãi có điều kiện đơn đầu tiên yêu cầu tài khoản; giao diện không hiển thị mẫu đặt bàn cho khách chưa đăng nhập. |
 | 1.4     | 2026-10-29 | **Bước 3 + nền Bước 4:** guest không được đặt chỗ; mã “đầu tiên” yêu cầu đăng nhập; policy tập trung cho `guest/customer/staff/owner` theo hành động+sở hữu; owner có quyền staff và thống kê tổng; actor có channel; event phát sau ghi; audit tối đa 500 dòng và lỗi audit/listener không chặn nghiệp vụ; sổ capability chỉ đọc gồm bảy mục, kiểm tra quyền/input và lọc dữ liệu. |
+| 1.5     | 2026-10-30 | **Bước 4 — ghi qua chat có xác nhận:** phân tích ngày giờ tiếng Việt không đoán mơ hồ; bản nháp 10 phút; báo giá và xem trước hủy; bốn capability ghi qua `prepare → confirm`, token trong bộ nhớ gắn actor/action/dấu băm, hết hạn 2 phút và dùng một lần; giới hạn 5 thao tác ghi/phút/phiên; LLM chỉ chọn capability và đối số; guest không đặt bàn; không có capability trả cọc; nối thẻ xác nhận và thẻ đặt chỗ trễ vào chat, cấu hình proxy/mô hình tập trung. |

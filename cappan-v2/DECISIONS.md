@@ -32,6 +32,10 @@
 | 2026-10-29 | Mọi thay đổi trạng thái nghiệp vụ phát sự kiện sau khi lưu; lỗi listener chỉ ghi log. Nhật ký `audit` giữ tối đa 500 dòng mới nhất; lỗi audit không chặn nghiệp vụ. | Nhật ký là phụ trợ và không được làm hỏng thao tác chính |
 | 2026-10-29 | Sự kiện `booking.late` chỉ phát một lần cho mỗi đặt chỗ; dấu đã báo được lưu cùng booking để tránh lặp khi quét lại. Chuyển trạng thái tự động được ghi thành `booking.auto_cancelled` hoặc `booking.completed`. | Các lần đọc sơ đồ đều có thể kích hoạt sweep; cần chống phát lặp |
 | 2026-10-29 | Capability ở v1.4 chỉ đọc, không DOM, trả `{type,data}`; quyền và lọc dữ liệu trước khi trả. Chưa nối chat, chưa khai báo thao tác ghi. | Dựng nền an toàn trước khi mở luồng chat |
+| 2026-10-30 | Mọi ghi qua chat đi theo chuẩn bị rồi xác nhận. Mã xác nhận do mã ứng dụng tạo, gắn người dùng/vai trò/kênh/hành động/dấu băm đối số, sống 2 phút, dùng một lần và chỉ lưu trong bộ nhớ. LLM không nhận mã và không gọi xác nhận. | Không để mô hình tự xác nhận hoặc tái sử dụng thao tác |
+| 2026-10-30 | Khi có mã chờ, câu đồng ý hoặc từ chối được ưu tiên trước mọi luật; không có mã thì “ok” là câu trả lời thường. Giới hạn 5 lần ghi/phút/phiên chat. Chat không mở trả cọc giả lập; thẻ đặt bàn dẫn tới trang đặt chỗ. | Xác nhận do người dùng điều khiển và có giới hạn tốc độ |
+| 2026-10-30 | Ngày giờ thiếu chỉ dẫn sáng/trưa/tối được đánh dấu mơ hồ để hỏi lại; nháp tự hết hạn sau 10 phút không hoạt động. Số điện thoại mặc định lấy từ hồ sơ nếu có. | Không tự đoán giờ và giảm nhập lại thông tin |
+| 2026-10-30 | Năng lực ghi v1.5 gồm tạo/hủy đơn và tạo/hủy đặt chỗ; xem trước dùng luật facade. Guest được đặt nước nhưng không được tạo đặt chỗ qua chat. | Giữ một nguồn giá, quyền và luật hoàn cọc |
 
 ## ⚠️ CẢNH BÁO BẢO MẬT (hiện trạng P2 — chưa production-safe)
 
