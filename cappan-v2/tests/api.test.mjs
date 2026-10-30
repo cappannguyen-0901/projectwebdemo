@@ -240,8 +240,8 @@ test('orders.current: setCurrent/getCurrent, id lạ NOT_FOUND, null OK', async 
   assert.equal(await api.orders.getCurrent(), null);
 });
 
-/* ======================= §3.7/3.8 — phần CHƯA implement đúng hợp đồng v1.2 ======================= */
-test('Chưa implement đúng hợp đồng v1.2: users.setCurrent · staff.addFromUser (menu mutations P3-admin)', async () => {
+/* ======================= §3.7/3.8 — phần chưa thực hiện theo hợp đồng v1.2 ======================= */
+test('Chưa thực hiện theo hợp đồng v1.2: users.setCurrent · staff.addFromUser (thay đổi thực đơn dành cho quản trị)', async () => {
   const api = mk();
   await assert.rejects(
     () => api.users.setCurrent(null),

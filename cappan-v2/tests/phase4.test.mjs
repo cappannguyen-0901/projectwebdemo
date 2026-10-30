@@ -8,7 +8,7 @@ import { checkInput, checkIntent, GUARD_MESSAGES } from '../src/ai/guards.js';
 const CTX = { menu: SEED.menu, user: { name: 'Test', role: 'customer' } };
 
 /* ======================= normVN ======================= */
-test('normVN: bỏ dấu, giảm đ,[length guard] — giống legacy', () => {
+test('normVN: bỏ dấu, đổi đ thành d và bỏ ký tự lạ — như bản cũ', () => {
   assert.equal(normVN('Cà Phê Sữa Đá'), 'ca phe sua da');
   assert.equal(normVN('Đặt BÀN!!!'), 'dat ban');
   assert.equal(normVN(''), '');
