@@ -18,7 +18,7 @@ import * as R from '../domain/booking-rules.js'; // v1.3 — luật đặt chỗ
 import { authorize } from '../domain/policy.js';
 import { createEventBus } from '../domain/events.js';
 
-const CONTRACT_VERSION = '1.4';
+const CONTRACT_VERSION = '1.5';
 const KEYS = {
   seeded: 'meta:seeded',
   contract: 'meta:contract',
@@ -694,6 +694,22 @@ export function createApi({
       const saved = await bookings._save(b);
       await afterWrite('booking.cancelled', 'booking.cancelled', b.id);
       return saved;
+    },
+    async previewCancel(id) {
+      await assertAllowed('booking.cancel', { ownerId: identity(), id });
+      const b = await bookings._must(id);
+      await assertAllowed('booking.cancel', { ownerId: b.userId });
+      const at = now();
+      const currentPhase = R.phase(b, at);
+      if (currentPhase === 'seated')
+        throw new ApiError('CONFLICT', 'Khách đang ngồi — dùng "hoàn tất" để nhả bàn');
+      if (!['pending_deposit', 'upcoming', 'late'].includes(currentPhase))
+        throw new ApiError('CONFLICT', `Đặt chỗ ${id} không còn hiệu lực`);
+      return {
+        refundRate: R.refundRate(b, at),
+        refundAmount: R.refundAmount(b, at),
+        phase: currentPhase
+      };
     }
   };
 

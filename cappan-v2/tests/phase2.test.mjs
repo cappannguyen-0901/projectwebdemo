@@ -353,7 +353,7 @@ test('exportAll v1.1 có chứa users đã hash — KHÔNG plaintext password', 
   const api = mk();
   await api.users.seedDemo();
   const snap = await api.exportAll();
-  assert.equal(snap.contract, '1.4');
+  assert.equal(snap.contract, '1.5');
   const dump = JSON.stringify(snap);
   assert.equal(dump.includes('cappan123'), false); // legacy từng có password "123" gõ sạch trong localStorage
   assert.ok(snap.data.users[0].passwordHash.length >= 40);

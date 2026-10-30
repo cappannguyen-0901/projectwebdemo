@@ -266,7 +266,7 @@ test('exportAll → importAll 1-1 (dump chuẩn prep-backend, §4)', async () =>
 
   const snap = await apiA.exportAll();
   assert.equal(snap.format, 'cappan-snapshot');
-  assert.equal(snap.contract, '1.4');
+  assert.equal(snap.contract, '1.5');
   assert.ok(snap.data.orders.some((x) => x.id === o.id));
 
   /* "chuyển máy khác" = memory store riêng — đúng kịch bản RESTORE/backup */
